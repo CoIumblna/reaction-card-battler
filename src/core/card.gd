@@ -29,9 +29,28 @@ var target: String = "enemy"     # enemy / self
 
 static func from_dict(d: Dictionary) -> Card:
 	var c := Card.new()
+	c.id = str(d.get("id",""))
+	c.display_name = str(d.get("name",""))
+	c.cost = int(d.get("cost",1))
+	c.element = str(d.get("element",Element.NONE))
+	c.kind = str(d.get("kind","damage"))
+	c.power = int(d.get("power",0))
+	c.target = str(d.get("target","self"))
 	
+	c.type = str(d.get("type", "unit"))
+	c.operation_cost = int(d.get("operation_cost", 0))
+	c.unit_class = str(d.get("unit_class", ""))
+	c.attack = int(d.get("attack", 0))
+	c.defense = int(d.get("defense", 0))
+	c.aura_amount = float(d.get("aura_amount", 1.0))
 	return c
 
 
 func describe() -> String:
-	return ""
+	return "%s(%s | %dK | %s %d)" % [
+		display_name,
+		Element.display_name(element),
+		cost,
+		kind,
+		power
+	]
