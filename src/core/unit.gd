@@ -1,4 +1,4 @@
-﻿# 任务卡：docs/implementation-tasks.md 第 5 节（要写什么 / 用什么手段 / 怎么验收）
+# 任务卡：docs/implementation-tasks.md 第 5 节（要写什么 / 用什么手段 / 怎么验收）
 class_name Unit
 extends RefCounted
 ## 【你的任务】伤害/护盾/治疗/附着量/buff 结算
@@ -23,37 +23,74 @@ var buffs: Array[Buff] = []
 
 
 static func from_dict(d: Dictionary) -> Unit:
-	# TODO：id / name / hp / immunities；hp = max_hp
-	return Unit.new()
+	var newu := Unit.new()
+	newu.id = str(d.get("id",""))
+	newu.display_name = str(d.get("name",newu.id))
+	newu.max_hp = int(d.get("hp",0))
+	newu.hp = newu.max_hp
+	
+	newu.shield = int(d.get("shield",0))
+	newu.element = str(d.get("element",Element.NONE))
+	newu.aura_element = str(d.get("aura_element",Element.NONE))
+	newu.aura_amount = float(d.get("aura_amount",0.0))
+	newu.immunities.clear()
+	for e in d.get("immunities", []):
+		newu.immunities.append(str(e))
+	newu.buffs.clear()
+	for b in d.get("buffs", []):
+		newu.buffs.append(str(b))
+	return newu
 
 
 func is_alive() -> bool:
-	return false
+	return hp>0
 
 
 func is_immune(element_id: String) -> bool:
-	# TODO：element_id 是否在 immunities 里
+	for i in immunities:
+		if i == element_id:
+			return true
 	return false
 
 
 ## 返回实际掉的血（被护盾吸收的不算）
 func take_damage(amount: int) -> int:
-	return 0
+	if shield >= amount:
+		shield -= amount
+		return 0
+	else:
+		amount -=shield
+		shield = 0
+		hp -= amount
+		hp = max(0,hp)
+		return amount
 
 
 func heal(amount: int) -> void:
-	pass
+	hp += amount
+	hp = min(max_hp,hp)
 
 
 func add_buff(b: Buff) -> void:
-	pass
+	buffs.append(b)
 
 
 ## 每回合结束：duration - 1，到期的移除
 func tick_buffs() -> void:
-	pass
+	var next_buffs:Array[Buff] = []
+	for i in range(0,buffs.size()):
+		buffs[i].duration -= 1
+		if buffs[i].duration > 0:
+			next_buffs.append(buffs[i])
+	buffs = next_buffs
 
 
 func describe() -> String:
-	# TODO：例如 "史莱姆 HP 11/24 附着火 1.0U 盾3"
-	return ""
+	return "%s HP: %d/%d 元素附着: %s 元素量: %dU 护盾: %d" % [
+		display_name,
+		hp,
+		max_hp,
+		Element.display_name(aura_element),
+		aura_amount,
+		shield
+	]

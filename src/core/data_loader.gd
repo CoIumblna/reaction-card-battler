@@ -1,11 +1,5 @@
-# 任务卡：docs/implementation-tasks.md 第 7 节（要写什么 / 用什么手段 / 怎么验收）
 class_name DataLoader
 extends RefCounted
-## 【你的任务】读 JSON，并转成 Card / Unit 对象
-## M2 再加校验：字段缺失或类型不对时，报错要说清是哪个文件哪一条
-##
-## 目录约定（模仿大厂工程）：内容数据放 data/tables/，格式规范放 data/schema/
-## 资源（图片/音效）以后放 assets/，与数据分开——见 docs/architecture.md
 
 const DATA_DIR := "res://data/tables/"
 
