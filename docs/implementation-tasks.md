@@ -57,7 +57,7 @@
 **实现要点（6 步）**
 1. 先查免疫：`target.is_immune(element)` → 伤害 0、`reaction` 空、`consume` 0、`immune` true
 2. 表为 null 或目标无附着 → 按基础伤害
-3. 查表后检查 `trigger_attacker`（风/岩只有主动攻击时触发）
+3. 用 `table.get_reaction(element, target.aura_element)` 查表
 4. 增幅类：从 `multiplier_by_attacker` 按攻击元素取倍率；其它类型倍率 1.0
 5. `damage = int(floor(base_power * multiplier))`（**floor 不是 round**）
 6. `consume` / `effects` 原样放进返回值，交给 Battle 去执行
@@ -190,7 +190,7 @@
 |---|---|---|---|---|
 | `play_card(card, target)` | 卡 + 目标 → bool | **先校验**（null / 能量够 / 目标活着）→ 扣能量 → `match kind` 分发 → `hand.erase(card)` → true | 一张卡真正生效 | battle_test[3] |
 | `compute_damage(base, element, target)` | 基础值 + 元素 + 目标 → 字典 | 查 `reaction_table.get_reaction(element, target.aura)`；有反应就乘 `multiplier`；`int(round(...))` 取整 | 火打水附着 = 10 × 1.5 = 15 | battle_test[5] |
-| `_apply_aura(target, element)` | 目标 + 元素 | 你的设计：附着 / 覆盖 / 反应后清除？（先写进 `docs/element-reactions.md` 再写代码） | 让第二次同元素攻击能触发反应（或不能） | battle_test[4] |
+| `_apply_aura(target, element)` | 目标 + 元素 | 附着 / 叠加（上限 2U）/ 反应消耗；**wind 和 geo 不产生附着，直接 return** | 让第二次同元素攻击能触发反应（或不能） | battle_test[4] |
 
 **`play_card` 的分发逻辑（三种 kind）**
 - `damage`：`compute_damage()` → `target.take_damage()` → 打日志（含反应名和倍率）

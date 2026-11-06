@@ -1,4 +1,4 @@
-# 元素反应 · 设计规格（v2）
+﻿# 元素反应 · 设计规格（v2）
 
 > 参照原神 3.0 之前的反应，按"简化但可扩展"实现。
 > **本文件是规格**：`data/tables/reactions.json` 按它填，`tests/` 按它断言。
@@ -37,6 +37,7 @@
 | 已有**不同**元素 | 先结算反应 → 扣 `consume` → 剩余 > 0 则保留原元素、量变剩余；≤ 0 清空 |
 | 反应产生复合元素 | 清空原附着 → 附加复合元素，量固定 1U（不受 2U 上限影响，也不叠加） |
 | 无元素攻击 | 不改变附着 |
+| **wind / geo 作为攻击元素** | **不产生附着**（这是它们唯一的特殊行为） |
 
 **附着量随时间衰减：M1 不做**，字段先留（`decay_rate`），M3 再接。
 
@@ -62,10 +63,10 @@
 | `lightning+water` | 感电 | 剧变 | 附着改 `electro_charged` 1U + 状态 `shock` 2 回合 | 1U |
 | `ice+water` | 冻结 | 剧变 | 附着改 `frozen` 1U + 状态 `immobilized` 1 回合 | 1U |
 | `ice+lightning` | 超导 | 剧变 | 状态 `defense_down` 2 回合 + 额外伤害 1 | 1U |
-| `wind+fire/water/lightning/ice` | 扩散 | 剧变 | 额外伤害 1（**只有风攻击时触发**） | 1U |
-| `geo+fire/water/lightning/ice` | 结晶 | 结晶 | 获得护盾 2（**只有岩攻击时触发**） | 1U |
+| `wind+fire/water/lightning/ice` | 扩散 | 剧变 | 额外伤害 1（风不附着） | 1U |
+| `geo+fire/water/lightning/ice` | 结晶 | 结晶 | 获得护盾 2（岩不附着） | 1U |
 
-**"只有某元素攻击时触发"** 用 `trigger_attacker` 字段表达（风/岩当被攻击方时不触发）。
+**风/岩不主动附着**，所以「谁打谁」不影响反应是否触发，不需要方向性字段。
 
 ## 5. 反应数据结构
 
@@ -83,7 +84,6 @@
 {
   "name": "感电",
   "type": "transformative",
-  "trigger_attacker": "",
   "consume": 1.0,
   "effects": [
     { "kind": "status", "id": "shock", "duration": 2 },
@@ -120,4 +120,5 @@ M1 只实现 `turn_start`（dot）和 `action`（无法行动）两种时机；`
 
 - [ ] 复合元素在 M3 是否需要"再反应"（比如火打感电复合 → 蒸发）？现在**没有**反应条目，等价于"复合附着不参与反应"，等 M3 再定。
 - [ ] 附着量衰减（`decay_rate`）M3 做。
+- [x] wind / geo 不主动附着：M1 在 `battle.gd` 出牌结算时实现（攻击元素是 wind/geo 就不调用 `_apply_aura`）。
 - [ ] 免疫与"元素护盾"的完整实现放 M2（需要单位/棋盘）。
