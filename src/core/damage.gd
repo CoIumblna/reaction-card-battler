@@ -1,4 +1,4 @@
-﻿# 任务卡：docs/implementation-tasks.md 第 2 节（要写什么 / 用什么手段 / 怎么验收）
+# 任务卡：docs/implementation-tasks.md 第 2 节（要写什么 / 用什么手段 / 怎么验收）
 class_name Damage
 extends RefCounted
 ## 【你的任务】伤害与元素反应的结算 —— 全项目最核心的一段
@@ -16,17 +16,30 @@ extends RefCounted
 ##   "immune": bool       是否被免疫
 ## }
 static func compute(base_power: int, element: String, target: Unit, table: ReactionTable) -> Dictionary:
-	# TODO 1：target.is_immune(element) 为真 → 返回伤害 0、reaction ""、immune true
-	# TODO 2：table 为 null 或 target 无附着 → 按基础伤害算
-	# TODO 3：查表后检查 trigger_attacker（风/岩只有主动攻击时触发）
-	# TODO 4：增幅类：从 multiplier_by_attacker 里按 element 取倍率；其它类倍率 1.0
-	# TODO 5：最终伤害 = int(floor(base_power × multiplier))
-	# TODO 6：把 reactions 里的 effects / consume 原样放进返回值
+	var damage:int = 0
+	var immune:bool = false
+	var reaction:String = ""
+	var multiplier:float = 1.0
+	var consume:float = 0.0
+	var effects:Array = []
+	if target.is_immune(element):
+		immune = true
+	elif table == null or target.aura_element == Element.NONE or (not table.has_reaction(element,target.aura_element)):
+		damage = base_power
+	else:
+		var act = table.get_reaction(element,target.aura_element)
+		if not act.get("multiplier_by_attacker",{}).is_empty():
+			multiplier = float(act["multiplier_by_attacker"].get(element,0.0))
+		damage = int(floor(multiplier * base_power))
+		reaction = act.get("name","")
+		consume = float(act.get("consume",0.0))
+		for i in act.get("effects",[]):
+			effects.append(i)
 	return {
-		"damage": 0,
-		"reaction": "",
-		"multiplier": 1.0,
-		"consume": 0.0,
-		"effects": [],
-		"immune": false,
+		"damage": damage,
+		"reaction": reaction,
+		"multiplier": multiplier,
+		"consume": consume,
+		"effects": effects,
+		"immune": immune,
 	}

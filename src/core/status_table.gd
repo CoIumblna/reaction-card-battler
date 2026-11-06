@@ -1,4 +1,4 @@
-﻿# 任务卡：docs/implementation-tasks.md 第 9 节（要写什么 / 用什么手段 / 怎么验收）
+# 任务卡：docs/implementation-tasks.md 第 9 节（要写什么 / 用什么手段 / 怎么验收）
 class_name StatusTable
 extends RefCounted
 ## 【新增任务】状态表：读 data/tables/statuses.json，提供"这个状态什么效果"
@@ -10,18 +10,23 @@ var statuses: Dictionary = {}
 
 
 func load_from_file(path: String) -> bool:
-	# TODO：复用 DataLoader.load_json()，取 "statuses" 字段
-	return false
+	var d = DataLoader.load_json(path)
+	if typeof(d) != TYPE_DICTIONARY:
+		return false
+	var gets = d.get("statuses",{})
+	if typeof(gets) != TYPE_DICTIONARY or gets.is_empty():
+		return false
+	statuses = gets
+	return true
 
 
 func get_status(id: String) -> Dictionary:
-	# TODO：查不到返回 {}
-	return {}
+	return statuses.get(id,{})
 
 
 func has_status(id: String) -> bool:
-	return false
+	return not statuses.get(id,{}).is_empty()
 
 
 func status_count() -> int:
-	return 0
+	return statuses.size()

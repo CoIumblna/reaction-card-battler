@@ -1,4 +1,4 @@
-﻿# 任务卡：docs/implementation-tasks.md 第 6 节（要写什么 / 用什么手段 / 怎么验收）
+# 任务卡：docs/implementation-tasks.md 第 6 节（要写什么 / 用什么手段 / 怎么验收）
 class_name ReactionTable
 extends RefCounted
 ## 【你的任务】加载 data/reactions.json 并支持查表
@@ -8,19 +8,24 @@ var reactions: Dictionary = {}
 
 
 func load_from_file(path: String) -> bool:
-	# TODO：读 JSON，把 reactions 字段取出来；失败返回 false
-	return false
+	var d = DataLoader.load_json(path)
+	if typeof(d) != TYPE_DICTIONARY:
+		return false
+	var getr = d.get("reactions",{})
+	if typeof(getr) != TYPE_DICTIONARY or getr.is_empty():
+		return false
+	reactions = getr
+	return true
 
 
 func get_reaction(a: String, b: String) -> Dictionary:
-	# TODO：用 Element.pair_key(a, b) 查表；查不到返回 {}
-	return {}
+	var key:String = Element.pair_key(a,b)
+	return reactions.get(key,{})
 
 
 func has_reaction(a: String, b: String) -> bool:
-	# TODO：get_reaction 非空即为 true
-	return false
+	return not get_reaction(a,b).is_empty()
 
 
 func reaction_count() -> int:
-	return 0
+	return reactions.size()
