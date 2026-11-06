@@ -22,7 +22,7 @@ func _initialize() -> void:
 	_test_floor()
 	_test_immune()
 	_test_effects()
-	_test_trigger_attacker()
+	_test_wind_geo_no_aura()
 	_test_null_table()
 
 	print("---------------------------------------")
@@ -109,13 +109,14 @@ func _test_effects() -> void:
 		_check_eq(str(effects[0].get("kind", "")), "damage", "超载的第一个效果是额外伤害")
 
 
-func _test_trigger_attacker() -> void:
-	print("[D7] 触发方向限制（风/岩只能主动触发）")
+func _test_wind_geo_no_aura() -> void:
+	print("[D7] 风/岩不附着（反应无方向性）")
 	var wind_hits := Damage.compute(5, Element.WIND, _target(Element.FIRE, 1.0), table)
 	_check_eq(str(wind_hits["reaction"]), "扩散", "风打火附着力 → 扩散")
+	_check_eq(float(wind_hits["multiplier"]), 1.0, "扩散是剧变，不乘倍率")
 
-	var fire_hits := Damage.compute(5, Element.FIRE, _target(Element.WIND, 1.0), table)
-	_check_eq(str(fire_hits["reaction"]), "", "火打风附着力 → 不触发扩散")
+	var geo_hits := Damage.compute(5, Element.GEO, _target(Element.FIRE, 1.0), table)
+	_check_eq(str(geo_hits["reaction"]), "结晶", "岩打火附着力 → 结晶")
 
 
 func _test_null_table() -> void:

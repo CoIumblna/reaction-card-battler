@@ -112,7 +112,8 @@ func _test_reactions() -> void:
 	_check(int((overload.get("effects", []) as Array).size()) > 0, "超载有 effects")
 
 	var swirl := table.get_reaction(Element.WIND, Element.FIRE)
-	_check_eq(str(swirl.get("trigger_attacker", "")), "wind", "扩散只能风触发")
+	_check_eq(str(swirl.get("name", "")), "扩散", "风+火 查到扩散")
+	_check(not swirl.has("trigger_attacker"), "扩散条目没有方向性字段")
 	_check(table.get_reaction(Element.FIRE, Element.FIRE).is_empty(), "同元素无反应")
 
 
