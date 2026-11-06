@@ -1,0 +1,33 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  battle-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+
+      - name: 导入项目
+        run: godot --headless --path . --import
+
+      - name: 数据链路测试
+        run: godot --headless --path . --script res://tests/data_test.gd
+
+      - name: 单位数值测试
+        run: godot --headless --path . --script res://tests/unit_test.gd
+
+      - name: 伤害结算测试
+        run: godot --headless --path . --script res://tests/damage_test.gd
+
+      - name: 战斗流程测试
+        run: godot --headless --path . --script res://tests/battle_test.gd

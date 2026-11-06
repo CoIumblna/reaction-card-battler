@@ -1,0 +1,11 @@
+{
+  "_note": "卡牌内容只写数据，不写代码。加一张卡 = 在 cards 数组里加一项，然后重启即可。",
+  "cards": [
+    { "id": "fire_bolt", "name": "火球", "cost": 1, "element": "fire", "kind": "damage", "power": 5 },
+    { "id": "water_blade", "name": "水刃", "cost": 1, "element": "water", "kind": "damage", "power": 5 },
+    { "id": "thunder_strike", "name": "雷击", "cost": 1, "element": "lightning", "kind": "damage", "power": 5 },
+    { "id": "heavy_strike", "name": "重击", "cost": 2, "element": "none", "kind": "damage", "power": 10 },
+    { "id": "guard", "name": "防御姿态", "cost": 1, "element": "none", "kind": "shield", "power": 6, "target": "self" },
+    { "id": "mend", "name": "疗愈", "cost": 2, "element": "none", "kind": "heal", "power": 6, "target": "self" }
+  ]
+}

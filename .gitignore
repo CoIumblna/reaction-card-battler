@@ -1,0 +1,11 @@
+# Godot 编辑器缓存
+.godot/
+
+# 导出产物
+build/
+export/
+
+# 临时文件
+*.tmp
+*.log
+.DS_Store

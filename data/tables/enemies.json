@@ -1,0 +1,8 @@
+﻿{
+  "_note": "敌人数据。immunities：免疫的元素 id 列表（免疫该元素伤害、不触发反应）。",
+  "enemies": [
+    { "id": "slime", "name": "史莱姆", "hp": 24, "attack": 4, "immunities": [] },
+    { "id": "fire_slime", "name": "火史莱姆", "hp": 20, "attack": 4, "immunities": ["fire"] },
+    { "id": "golem", "name": "岩傀儡", "hp": 40, "attack": 6, "immunities": ["geo"] }
+  ]
+}

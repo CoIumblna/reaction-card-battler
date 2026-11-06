@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "_note": "元素定义。基础元素 6 个 + 复合元素 2 个。复合元素用于表示共存状态（简化：单附着槽 + 复合 id）。加元素时同步更新 src/core/element.gd 的常量。",
+  "elements": [
+    { "id": "fire", "name": "火", "kind": "base" },
+    { "id": "water", "name": "水", "kind": "base" },
+    { "id": "lightning", "name": "雷", "kind": "base" },
+    { "id": "ice", "name": "冰", "kind": "base" },
+    { "id": "wind", "name": "风", "kind": "base" },
+    { "id": "geo", "name": "岩", "kind": "base" },
+    { "id": "electro_charged", "name": "感电", "kind": "composite", "components": ["water", "lightning"] },
+    { "id": "frozen", "name": "冻结", "kind": "composite", "components": ["water", "ice"] }
+  ]
+}
