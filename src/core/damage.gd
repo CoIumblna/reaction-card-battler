@@ -29,7 +29,7 @@ static func compute(base_power: int, element: String, target: Unit, table: React
 	else:
 		var act = table.get_reaction(element,target.aura_element)
 		if not act.get("multiplier_by_attacker",{}).is_empty():
-			multiplier = float(act["multiplier_by_attacker"].get(element,0.0))
+			multiplier = float(act["multiplier_by_attacker"].get(element,1.0))
 		damage = int(floor(multiplier * base_power))
 		reaction = act.get("name","")
 		consume = float(act.get("consume",0.0))
