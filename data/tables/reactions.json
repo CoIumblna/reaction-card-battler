@@ -1,111 +1,177 @@
 {
-  "schema_version": 2,
-  "_note": "3.0 之前的原神反应。倍率只有 1.5 / 2.0 两档，计算一律向下取整。键 = 两个元素排序后拼接（与攻击方向无关）；方向性用 multiplier_by_attacker 表达。effects 是效果列表，代码按 kind 分发，加新反应只改这里。",
-  "reactions": {
-    "fire+water": {
-      "name": "蒸发",
-      "type": "amplify",
-      "multiplier_by_attacker": { "fire": 1.5, "water": 2.0 },
-      "consume": 1.0,
-      "effects": []
-    },
-    "fire+ice": {
-      "name": "融化",
-      "type": "amplify",
-      "multiplier_by_attacker": { "fire": 2.0, "ice": 1.5 },
-      "consume": 1.0,
-      "effects": []
-    },
-    "fire+lightning": {
-      "name": "超载",
-      "type": "transformative",
-      "consume": 1.0,
-      "effects": [ { "kind": "damage", "value": 2 } ]
-    },
-    "lightning+water": {
-      "name": "感电",
-      "type": "transformative",
-      "consume": 1.0,
-      "effects": [
-        { "kind": "status", "id": "shock", "duration": 2 },
-        { "kind": "aura", "element": "electro_charged", "amount": 1.0, "clear_first": true }
-      ]
-    },
-    "ice+water": {
-      "name": "冻结",
-      "type": "transformative",
-      "consume": 1.0,
-      "effects": [
-        { "kind": "status", "id": "immobilized", "duration": 1 },
-        { "kind": "aura", "element": "frozen", "amount": 1.0, "clear_first": true }
-      ]
-    },
-    "ice+lightning": {
-      "name": "超导",
-      "type": "transformative",
-      "consume": 1.0,
-      "effects": [
-        { "kind": "damage", "value": 1 },
-        { "kind": "status", "id": "defense_down", "duration": 2 }
-      ]
-    },
-
-    "fire+wind": {
-      "name": "扩散",
-      "type": "transformative",
-      "trigger_attacker": "wind",
-      "consume": 1.0,
-      "effects": [ { "kind": "damage", "value": 1 } ]
-    },
-    "water+wind": {
-      "name": "扩散",
-      "type": "transformative",
-      "trigger_attacker": "wind",
-      "consume": 1.0,
-      "effects": [ { "kind": "damage", "value": 1 } ]
-    },
-    "lightning+wind": {
-      "name": "扩散",
-      "type": "transformative",
-      "trigger_attacker": "wind",
-      "consume": 1.0,
-      "effects": [ { "kind": "damage", "value": 1 } ]
-    },
-    "ice+wind": {
-      "name": "扩散",
-      "type": "transformative",
-      "trigger_attacker": "wind",
-      "consume": 1.0,
-      "effects": [ { "kind": "damage", "value": 1 } ]
-    },
-
-    "fire+geo": {
-      "name": "结晶",
-      "type": "crystallize",
-      "trigger_attacker": "geo",
-      "consume": 1.0,
-      "effects": [ { "kind": "shield", "value": 2 } ]
-    },
-    "water+geo": {
-      "name": "结晶",
-      "type": "crystallize",
-      "trigger_attacker": "geo",
-      "consume": 1.0,
-      "effects": [ { "kind": "shield", "value": 2 } ]
-    },
-    "lightning+geo": {
-      "name": "结晶",
-      "type": "crystallize",
-      "trigger_attacker": "geo",
-      "consume": 1.0,
-      "effects": [ { "kind": "shield", "value": 2 } ]
-    },
-    "ice+geo": {
-      "name": "结晶",
-      "type": "crystallize",
-      "trigger_attacker": "geo",
-      "consume": 1.0,
-      "effects": [ { "kind": "shield", "value": 2 } ]
-    }
-  }
+	"schema_version": 2.0,
+	"_note": "3.0 之前的原神反应。倍率只有 1.5 / 2.0 两档，计算一律向下取整。键 = 两个元素排序后拼接（与攻击方向无关）；方向性用 multiplier_by_attacker 表达。风/岩不主动附着，因此反应没有触发方向性。effects 是效果列表，代码按 kind 分发。",
+	"reactions": {
+		"fire+water": {
+			"name": "蒸发",
+			"type": "amplify",
+			"multiplier_by_attacker": {
+				"fire": 1.5,
+				"water": 2.0
+			},
+			"consume": 1.0,
+			"effects": []
+		},
+		"fire+ice": {
+			"name": "融化",
+			"type": "amplify",
+			"multiplier_by_attacker": {
+				"fire": 2.0,
+				"ice": 1.5
+			},
+			"consume": 1.0,
+			"effects": []
+		},
+		"fire+lightning": {
+			"name": "超载",
+			"type": "transformative",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "damage",
+					"value": 2.0
+				}
+			]
+		},
+		"lightning+water": {
+			"name": "感电",
+			"type": "transformative",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "status",
+					"id": "shock",
+					"duration": 2.0
+				},
+				{
+					"kind": "aura",
+					"element": "electro_charged",
+					"amount": 1.0,
+					"clear_first": true
+				}
+			]
+		},
+		"ice+water": {
+			"name": "冻结",
+			"type": "transformative",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "status",
+					"id": "immobilized",
+					"duration": 1.0
+				},
+				{
+					"kind": "aura",
+					"element": "frozen",
+					"amount": 1.0,
+					"clear_first": true
+				}
+			]
+		},
+		"ice+lightning": {
+			"name": "超导",
+			"type": "transformative",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "damage",
+					"value": 1.0
+				},
+				{
+					"kind": "status",
+					"id": "defense_down",
+					"duration": 2.0
+				}
+			]
+		},
+		"fire+wind": {
+			"name": "扩散",
+			"type": "transformative",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "damage",
+					"value": 1.0
+				}
+			]
+		},
+		"water+wind": {
+			"name": "扩散",
+			"type": "transformative",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "damage",
+					"value": 1.0
+				}
+			]
+		},
+		"lightning+wind": {
+			"name": "扩散",
+			"type": "transformative",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "damage",
+					"value": 1.0
+				}
+			]
+		},
+		"ice+wind": {
+			"name": "扩散",
+			"type": "transformative",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "damage",
+					"value": 1.0
+				}
+			]
+		},
+		"fire+geo": {
+			"name": "结晶",
+			"type": "crystallize",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "shield",
+					"value": 2.0
+				}
+			]
+		},
+		"water+geo": {
+			"name": "结晶",
+			"type": "crystallize",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "shield",
+					"value": 2.0
+				}
+			]
+		},
+		"lightning+geo": {
+			"name": "结晶",
+			"type": "crystallize",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "shield",
+					"value": 2.0
+				}
+			]
+		},
+		"ice+geo": {
+			"name": "结晶",
+			"type": "crystallize",
+			"consume": 1.0,
+			"effects": [
+				{
+					"kind": "shield",
+					"value": 2.0
+				}
+			]
+		}
+	}
 }
