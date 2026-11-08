@@ -198,13 +198,125 @@ func _test_aura() -> void:
 	_check_eq(enemy.aura_element, Element.ELECTRO_CHARGED, "感电 → 附着变复合元素")
 	_check_eq(enemy.aura_amount, 1.0, "复合元素固定 1U")
 
+	# 2U 强附着：目标无附着 → 直接挂 2U
+	var s1 := _new_battle()
+	s1.start_battle()
+	var e1: Unit = s1.enemies[0]
+	s1.energy = 3
+	var strong1 := Card.from_dict({ "id": "sb1", "name": "炎爆", "cost": 1, "element": Element.FIRE, "kind": "damage", "power": 8, "aura_amount": 2 })
+	s1.hand.append(strong1)
+	s1.play_card(strong1, e1)
+	_check_eq(e1.aura_element, Element.FIRE, "2U 火打空目标 → 附着火")
+	_check_eq(e1.aura_amount, 2.0, "2U 火打空目标 → 2U")
+
+	# 2U 火打 1U 水：水被扣光 → 攻击方残留 1U 火附着（原神式）
+	var s2 := _new_battle()
+	s2.start_battle()
+	var e2: Unit = s2.enemies[0]
+	e2.aura_element = Element.WATER
+	e2.aura_amount = 1.0
+	s2.energy = 3
+	var strong2 := Card.from_dict({ "id": "sb2", "name": "炎爆", "cost": 1, "element": Element.FIRE, "kind": "damage", "power": 8, "aura_amount": 2 })
+	s2.hand.append(strong2)
+	s2.play_card(strong2, e2)
+	_check_eq(e2.aura_element, Element.FIRE, "2U 火打 1U 水 → 残留火附着")
+	_check_eq(e2.aura_amount, 1.0, "2U 火打 1U 水 → 残留 1U")
+
+	# 2U 火打 2U 水：水剩 1U → 保留水，攻击方残留丢弃
+	var s3 := _new_battle()
+	s3.start_battle()
+	var e3: Unit = s3.enemies[0]
+	e3.aura_element = Element.WATER
+	e3.aura_amount = 2.0
+	s3.energy = 3
+	var strong3 := Card.from_dict({ "id": "sb3", "name": "炎爆", "cost": 1, "element": Element.FIRE, "kind": "damage", "power": 8, "aura_amount": 2 })
+	s3.hand.append(strong3)
+	s3.play_card(strong3, e3)
+	_check_eq(e3.aura_element, Element.WATER, "2U 火打 2U 水 → 保留水")
+	_check_eq(e3.aura_amount, 1.0, "2U 火打 2U 水 → 水剩 1U")
+
 	# 无元素卡不改变附着
 	var before_element := enemy.aura_element
+	var before_amount := enemy.aura_amount
 	b.energy = 3
 	var plain := Card.from_dict({ "id": "p", "name": "重击", "cost": 2, "element": "none", "kind": "damage", "power": 8 })
 	b.hand.append(plain)
 	b.play_card(plain, enemy)
 	_check_eq(enemy.aura_element, before_element, "无元素卡不改变附着")
+	_check_eq(enemy.aura_amount, before_amount, "无元素卡不改变附着量")
+
+	# 空附着时打无元素卡：不许凭空挂上 amount（附着量必须保持 0）
+	var fresh := _new_battle()
+	fresh.start_battle()
+	var fresh_enemy: Unit = fresh.enemies[0]
+	fresh.energy = 3
+	var plain2 := Card.from_dict({ "id": "p2", "name": "重击", "cost": 2, "element": "none", "kind": "damage", "power": 8 })
+	fresh.hand.append(plain2)
+	fresh.play_card(plain2, fresh_enemy)
+	_check_eq(fresh_enemy.aura_element, Element.NONE, "空附着 + 无元素卡 → 仍无附着")
+	_check_eq(fresh_enemy.aura_amount, 0.0, "空附着 + 无元素卡 → 附着量仍 0")
+
+	# wind / geo 不主动附着
+	for el in [Element.WIND, Element.GEO]:
+		var nb := _new_battle()
+		nb.start_battle()
+		var ne: Unit = nb.enemies[0]
+		nb.energy = 3
+		var ec := Card.from_dict({ "id": "c_%s" % el, "name": el, "cost": 1, "element": el, "kind": "damage", "power": 4 })
+		nb.hand.append(ec)
+		nb.play_card(ec, ne)
+		_check_eq(ne.aura_element, Element.NONE, "%s 不产生附着" % el)
+		_check_eq(ne.aura_amount, 0.0, "%s 不产生附着量" % el)
+
+	# 但 wind / geo 照样参与反应：扩散 / 结晶都 consume 1.0，只是自己不留附着
+	var wb := _new_battle()
+	wb.start_battle()
+	var w_enemy: Unit = wb.enemies[0]
+	w_enemy.aura_element = Element.FIRE
+	w_enemy.aura_amount = 2.0
+	wb.energy = 3
+	var wind_card := Card.from_dict({ "id": "wnd", "name": "风刃", "cost": 1, "element": Element.WIND, "kind": "damage", "power": 4 })
+	wb.hand.append(wind_card)
+	wb.play_card(wind_card, w_enemy)
+	_check_eq(w_enemy.aura_element, Element.FIRE, "风打火：扩散后火附着保留")
+	_check_eq(w_enemy.aura_amount, 1.0, "风打火：消耗 1U（2.0 → 1.0）")
+
+	var wb2 := _new_battle()
+	wb2.start_battle()
+	var w_enemy2: Unit = wb2.enemies[0]
+	w_enemy2.aura_element = Element.FIRE
+	w_enemy2.aura_amount = 1.0
+	wb2.energy = 3
+	var wind_card2 := Card.from_dict({ "id": "wnd2", "name": "风刃", "cost": 1, "element": Element.WIND, "kind": "damage", "power": 4 })
+	wb2.hand.append(wind_card2)
+	wb2.play_card(wind_card2, w_enemy2)
+	_check_eq(w_enemy2.aura_element, Element.NONE, "风打火：消耗完 → 清空，且不留下风")
+	_check_eq(w_enemy2.aura_amount, 0.0, "风打火：附着量归零")
+
+	var gb := _new_battle()
+	gb.start_battle()
+	var g_enemy: Unit = gb.enemies[0]
+	g_enemy.aura_element = Element.FIRE
+	g_enemy.aura_amount = 1.0
+	gb.energy = 3
+	var geo_card := Card.from_dict({ "id": "geo1", "name": "岩击", "cost": 1, "element": Element.GEO, "kind": "damage", "power": 4 })
+	gb.hand.append(geo_card)
+	gb.play_card(geo_card, g_enemy)
+	_check_eq(g_enemy.aura_element, Element.NONE, "岩打火：结晶消耗完 → 清空，且不留下岩")
+	_check_eq(g_enemy.aura_amount, 0.0, "岩打火：附着量归零")
+
+	# 免疫：伤害 0、不触发反应、不消耗附着
+	var imm := _new_battle()
+	imm.start_battle()
+	var slime: Unit = imm.enemies[0]
+	slime.immunities.append(Element.FIRE)
+	imm.energy = 3
+	var fire3 := Card.from_dict({ "id": "f3", "name": "火球", "cost": 1, "element": "fire", "kind": "damage", "power": 4 })
+	imm.hand.append(fire3)
+	imm.play_card(fire3, slime)
+	_check_eq(slime.hp, slime.max_hp, "免疫元素伤害为 0")
+	_check_eq(slime.aura_element, Element.NONE, "免疫元素不触发附着")
+	_check_eq(slime.aura_amount, 0.0, "免疫元素不残留附着量")
 
 func _test_delegation() -> void:
 	print("[5] 战斗流程调用伤害模块")
@@ -245,7 +357,11 @@ func _test_outcome() -> void:
 func _test_full_battle() -> void:
 	print("[7] 完整自动战斗")
 	var b := _new_battle(60, 24)
+	var enemy_hp_before := b.enemies[0].hp
 	var result := b.run_auto(30)
 	_check(result == "WIN" or result == "LOSE", "战斗能正常结束（结果 %s）" % result)
 	_check(b.turn > 0, "至少进行了 1 回合")
 	_check(b.get_log().length() > 50, "战斗日志非空")
+	# 光挨打也能"输掉"，所以必须验证它真的出过牌（敌人掉血只可能来自玩家伤害）
+	_check(b.enemies[0].hp < enemy_hp_before, "自动战斗会出牌（敌人掉血 %d → %d）" % [enemy_hp_before, b.enemies[0].hp])
+	_check(b.turn <= 30, "不超过 max_turns（实际 %d 回合）" % b.turn)

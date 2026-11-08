@@ -43,14 +43,22 @@ func _check_eq(actual, expected, message: String) -> void:
 func _test_cards() -> void:
 	print("[1] 卡牌加载")
 	var cards := DataLoader.load_cards()
-	_check_eq(cards.size(), 24, "牌库张数（6 种 × 每份 4）")
+	_check_eq(cards.size(), 28, "牌库张数（7 种 × 每份 4）")
 	if cards.is_empty():
 		_check(false, "卡牌数组为空，后续检查无法进行")
 		return
 	var distinct := {}
 	for c in cards:
 		distinct[c.id] = true
-	_check_eq(distinct.size(), 6, "不同卡牌种类")
+	_check_eq(distinct.size(), 7, "不同卡牌种类")
+	var strong: Card = null
+	for c in cards:
+		if c.aura_amount >= 2.0:
+			strong = c
+			break
+	_check(strong != null, "存在 2U 强附着卡")
+	if strong != null:
+		_check_eq(strong.aura_amount, 2.0, "强附着卡 aura_amount = 2U")
 	_check(cards[0].id != "", "第一张卡有 id")
 	_check_eq(cards[0].display_name, "火球", "第一张卡名字")
 	_check_eq(cards[0].cost, 1, "第一张卡费用")

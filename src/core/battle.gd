@@ -1,4 +1,4 @@
-﻿# 任务卡：docs/implementation-tasks.md 第 8 节（要写什么 / 用什么手段 / 怎么验收）
+# 任务卡：docs/implementation-tasks.md 第 8 节（要写什么 / 用什么手段 / 怎么验收）
 class_name Battle
 extends RefCounted
 ## 【你的任务】战斗内核：回合流程、出牌、伤害结算、自动战斗
@@ -11,7 +11,9 @@ extends RefCounted
 ##   4. run_auto() / _log()
 ## 每写完一步就跑一次测试，别一次写完再跑。
 
-const MAX_HAND := 5
+const MAX_HAND := 9
+const ENEMY_ATTACK := 4   # M1 占位；M2 改成 e.attack（数据已有，Unit.from_dict 还没读）
+const OPENING_HAND := 5
 
 var player: Unit
 var enemies: Array[Unit] = []
@@ -24,74 +26,169 @@ var max_energy: int = 3
 var turn: int = 0
 var log_lines: Array[String] = []
 
+var rng = RandomNumberGenerator.new()
 
 func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable, seed_value: int = 1) -> void:
-	# TODO：把参数存进成员变量；清空手牌；能量回满；回合数归零
+	rng.seed = seed_value
+	turn = 0
+	hand.clear()
+	energy = max_energy
+	log_lines.clear()
+	player = p_player
+	enemies = p_enemies
+	deck.clear()
+	for i in p_deck:
+		deck.append(i)
+	reaction_table = table
 	pass
 
 
 func alive_enemies() -> Array[Unit]:
-	# TODO：只返回 hp > 0 的敌人
 	var out: Array[Unit] = []
+	for i in enemies:
+		if i.hp > 0:
+			out.append(i)
 	return out
 
 
 func is_over() -> bool:
-	# TODO：玩家死了 或 敌人全死
-	return false
+	return alive_enemies().is_empty() or player.hp <= 0
 
 
 func outcome() -> String:
-	# TODO：返回 "WIN" / "LOSE" / "RUNNING"
+	if is_over():
+		if alive_enemies().is_empty():
+			return "WIN"
+		return "LOSE"
 	return "RUNNING"
 
 
 func get_log() -> String:
-	# TODO：把 log_lines 用换行拼成一个字符串
-	return ""
+	return "\n".join(log_lines)
 
 
 func start_battle() -> void:
-	# TODO：打印开场、抽初始手牌、进入第 1 回合
-	pass
+	_log("START enemies:%s" % _enemy_names())
+	_draw(OPENING_HAND)
+	_begin_turn()
+	
 
+func _begin_turn() -> void:
+	turn += 1
+	energy = max_energy
+	_draw(1)
+	
 
 func end_turn() -> void:
-	# TODO：buff 结算 → 敌人行动 → 玩家死了就结束 → 否则进入下一回合
-	pass
+	player.tick_buffs()
+	for e in alive_enemies():
+		e.tick_buffs()
+	for e in alive_enemies():
+		var d := compute_damage(ENEMY_ATTACK,Element.NONE,player)
+		var disc:int = player.take_damage(d["damage"])
+		_log("injured : %d" % disc)
+		if player.hp <= 0:
+			return
+	
+	_begin_turn()
 
 
 ## 自动打完一整局（给测试和平衡模拟用）
 func run_auto(max_turns: int = 30) -> String:
-	# TODO：循环「玩家把能打的牌打完 → end_turn」，直到分出胜负或超回合
-	return "RUNNING"
+	start_battle()
+	var guard:int = 0
+	while not is_over() and turn < max_turns and guard < 200:
+		for c in hand.duplicate():
+			var foes := alive_enemies()
+			if c.kind == "damage" and not foes.is_empty():
+				play_card(c,foes[0])
+			elif c.kind != "damage":
+				play_card(c,player)
+		end_turn()
+		guard += 1
+	return outcome()
 
 
 func play_card(card: Card, target: Unit) -> bool:
 	# TODO：校验能量/目标；按 kind 分发（damage / shield / heal）；从手牌移除
-	return false
+	if card == null or target == null or card.cost > energy:
+		return false
+	energy -= card.cost
+	match card.kind:
+		"damage":
+			var hit := compute_damage(card.power,card.element,target)
+			var disc:int = target.take_damage(hit["damage"])
+			if not hit.get("immune",false):
+				_apply_aura(target,card.element,card.aura_amount)
+			_log("%s对%s造成%d伤害" % [card.display_name,target.display_name,disc])
+		"shield":
+			target.shield += card.power
+			_log("%s对%s添加%d护盾" % [card.display_name,target.display_name,card.power])
+		"heal":
+			target.heal(card.power)
+			_log("%s对%s治疗%d点生命" % [card.display_name,target.display_name,card.power])
+		_:
+			_log("未知卡牌类型:%s"%card.kind)
+	hand.erase(card)
+	return true
 
 
 ## 伤害计算：**具体算法在 src/core/damage.gd，这里只做转接**
 ## 为什么这样拆：M2 加棋盘后，"单位 A 打单位 B"也要用同一套伤害公式，
 ## 如果把算法写死在 battle.gd 里，M2 就得复制一遍。
 func compute_damage(base_power: int, element: String, target: Unit) -> Dictionary:
-	# TODO：调用 Damage.compute(base_power, element, target.aura, reaction_table)
-	return { "damage": 0, "reaction": "", "multiplier": 1.0 }
+	var d := Damage.compute(base_power,element,target,reaction_table)
+	return d
 
 
 ## 设计问题：反应发生后，附着该被消耗还是保留？见 docs/element-reactions.md
-func _apply_aura(target: Unit, element: String) -> void:
-	pass
+func _apply_aura(target: Unit, element: String, amount: float) -> void:
+	if element == Element.NONE:
+		return
+	if target.aura_element == Element.NONE and not element == Element.WIND and not element == Element.GEO:
+		target.aura_amount = min(Unit.MAX_AMOUNT,amount)
+		target.aura_element = element
+	elif target.aura_element == element:
+		target.aura_amount = min(Unit.MAX_AMOUNT,amount+target.aura_amount)
+	else:
+		var act = reaction_table.get_reaction(element,target.aura_element)
+		var flag:bool = false
+		for e in act.get("effects",[]):
+			if e.get("kind","") == "aura":
+				target.aura_element = e.get("element",Element.NONE)
+				target.aura_amount = 1.0
+				flag = true
+		if not flag:
+			var consume:float = float(act.get("consume",0.0))
+			target.aura_amount -= consume
+			amount -= consume
+			if target.aura_amount <= 0 and amount > 0:
+				if element == Element.WIND or element == Element.GEO:
+					target.aura_element = Element.NONE
+					return
+				target.aura_element = element
+				target.aura_amount = min(amount,Unit.MAX_AMOUNT)
+			elif target.aura_amount <= 0 and amount <= 0:
+				target.aura_element = Element.NONE
+				target.aura_amount = 0.0
 
 
 func _draw(n: int) -> void:
-	pass
+	for i in range(n):
+		if deck.is_empty():
+			break
+		if hand.size() < MAX_HAND:
+			hand.append(deck.front())
+		deck.pop_front()
 
 
 func _enemy_names() -> String:
-	return ""
+	var names:Array[String] = []
+	for e in enemies:
+		names.append(e.display_name)
+	return "、".join(names)
 
 
 func _log(line: String) -> void:
-	pass
+	log_lines.append(line)
+	print(line)

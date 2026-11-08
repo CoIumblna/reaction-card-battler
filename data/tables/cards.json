@@ -6,6 +6,7 @@
     { "id": "thunder_strike", "name": "雷击", "cost": 1, "element": "lightning", "kind": "damage", "power": 5, "count": 4 },
     { "id": "heavy_strike", "name": "重击", "cost": 2, "element": "none", "kind": "damage", "power": 10, "count": 4 },
     { "id": "guard", "name": "防御姿态", "cost": 1, "element": "none", "kind": "shield", "power": 6, "target": "self", "count": 4 },
-    { "id": "mend", "name": "疗愈", "cost": 2, "element": "none", "kind": "heal", "power": 6, "target": "self", "count": 4 }
+    { "id": "mend", "name": "疗愈", "cost": 2, "element": "none", "kind": "heal", "power": 6, "target": "self", "count": 4 },
+    { "id": "fire_burst", "name": "炎爆", "cost": 2, "element": "fire", "kind": "damage", "power": 8, "aura_amount": 2, "count": 4 }
   ]
 }

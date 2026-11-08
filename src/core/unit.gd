@@ -8,6 +8,8 @@ extends RefCounted
 ##   aura_element  —— 身上附着的元素（会随反应消耗/清空）
 ##   immunities    —— 免疫的元素列表（伤害为 0、不触发反应、不消耗附着）
 
+const MAX_AMOUNT := 2.0
+
 var id: String = ""
 var display_name: String = ""
 var max_hp: int = 30
