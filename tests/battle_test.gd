@@ -1,4 +1,4 @@
-﻿extends SceneTree
+extends SceneTree
 ## 战斗流程测试：回合推进、能量与出牌、元素附着、胜负、自动战斗
 ##
 ## 运行：
@@ -76,6 +76,21 @@ func _new_battle(player_hp: int = 60, enemy_hp: int = 30, fallback: bool = true)
 	return b
 
 
+## 造一副足够大的测试牌库，用来验证「抽 1 张 / 爆牌」而不受 data/tables/cards.json 张数影响
+func _make_deck(n: int) -> Array[Card]:
+	var d: Array[Card] = []
+	for i in range(n):
+		d.append(Card.from_dict({
+			"id": "deck_%d" % i,
+			"name": "测试牌 %d" % i,
+			"cost": 1,
+			"element": "none",
+			"kind": "damage",
+			"power": 3,
+		}))
+	return d
+
+
 # ---------------------------------------------------------------- 用例
 
 func _test_setup() -> void:
@@ -89,19 +104,34 @@ func _test_setup() -> void:
 
 
 func _test_turn_advance() -> void:
-	print("[2] 回合交换：推进 / 敌人行动 / 能量重置")
+	print("[2] 回合交换：推进 / 敌人行动 / 能量重置 / 每回合抽 1 张")
 	var b := _new_battle()
+	b.deck = _make_deck(20)
 	b.start_battle()
 	_check_eq(b.turn, 1, "开战后进入第 1 回合")
-	_check_eq(b.hand.size(), Battle.MAX_HAND, "手牌抽到上限")
+	_check_eq(b.hand.size(), 6, "起手 5 张 + 第 1 回合抽 1 张")
+	_check_eq(b.deck.size(), 14, "牌库扣掉起手 5 张和抽的 1 张")
 
 	var hp_before := b.player.hp
+	var deck_before := b.deck.size()
 	b.energy = 0
 	b.end_turn()
 	_check_eq(b.turn, 2, "结束回合后进入第 2 回合")
 	_check(b.player.hp < hp_before, "敌人行动后玩家掉血")
 	_check_eq(b.energy, b.max_energy, "新回合能量回满")
-	_check_eq(b.hand.size(), Battle.MAX_HAND, "新回合手牌补满")
+	_check_eq(b.hand.size(), 7, "每回合只抽 1 张（不补满）")
+	_check_eq(b.deck.size(), deck_before - 1, "牌库每回合只扣 1 张")
+
+	# 手牌满时抽牌 → 爆牌：牌从牌堆顶弹出后直接丢弃
+	var c := _new_battle()
+	c.deck = _make_deck(20)
+	c.start_battle()
+	while c.hand.size() < Battle.MAX_HAND:
+		c.hand.append(Card.from_dict({ "id": "fill", "name": "填手牌", "cost": 1, "kind": "damage", "power": 1 }))
+	var full_deck := c.deck.size()
+	c.end_turn()
+	_check_eq(c.hand.size(), Battle.MAX_HAND, "手牌满时抽到的牌丢弃，不超上限")
+	_check_eq(c.deck.size(), full_deck - 1, "手牌满时依然从牌库弹出（牌库 -1）")
 
 
 func _test_energy() -> void:
