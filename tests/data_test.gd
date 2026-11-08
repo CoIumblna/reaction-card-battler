@@ -1,4 +1,4 @@
-﻿extends SceneTree
+extends SceneTree
 ## 数据链路测试：JSON 能不能读进来、能不能变成对象、几张表能不能查
 ##
 ## 运行：
@@ -43,10 +43,14 @@ func _check_eq(actual, expected, message: String) -> void:
 func _test_cards() -> void:
 	print("[1] 卡牌加载")
 	var cards := DataLoader.load_cards()
-	_check_eq(cards.size(), 6, "卡牌数量")
+	_check_eq(cards.size(), 24, "牌库张数（6 种 × 每份 4）")
 	if cards.is_empty():
 		_check(false, "卡牌数组为空，后续检查无法进行")
 		return
+	var distinct := {}
+	for c in cards:
+		distinct[c.id] = true
+	_check_eq(distinct.size(), 6, "不同卡牌种类")
 	_check(cards[0].id != "", "第一张卡有 id")
 	_check_eq(cards[0].display_name, "火球", "第一张卡名字")
 	_check_eq(cards[0].cost, 1, "第一张卡费用")

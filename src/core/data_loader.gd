@@ -28,7 +28,13 @@ static func load_cards(path: String = DATA_DIR + "cards.json") -> Array[Card]:
 		if typeof(item) != TYPE_DICTIONARY:
 			push_error("cards.json里面有一条不是对象: "+path)
 			continue
-		out.append(Card.from_dict(item))
+		# count = 这套牌组里放几份（缺省 1）。每份生成独立的 Card 对象，
+		# 避免同一引用在多处被 erase/修改时互相影响。
+		var copies: int = int(item.get("count", 1))
+		if copies < 1:
+			copies = 1
+		for i in range(copies):
+			out.append(Card.from_dict(item))
 	return out
 
 
