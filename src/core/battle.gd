@@ -192,6 +192,55 @@ func _apply_aura(target: Unit, element: String, amount: float) -> void:
 				target.aura_amount = 0.0
 
 
+func move_unit(unit: Unit, to_line: String, to_index: int) -> bool:
+	var pos := board.position_of(unit)
+	if pos.is_empty() or pos[0] != "player_support" or to_line != "front":
+		return false
+	if unit.has_acted:
+		return false
+	if board.unit_at(to_line, to_index) != null:      # 目标格空，自己判
+		return false
+	var fee = unit.operation_cost
+	if energy < fee:                                   # 能量够
+		return false
+	energy -= fee
+	if not board.move("player_support", pos[1], "front", to_index):
+		energy += fee                                  # 兜底回滚（理论上不会走到）
+		return false
+	unit.has_acted = true                              # ← 只有真成功了才标记
+	_log("%s移动到%s %d"%[unit.display_name,to_line,to_index])
+	return true
+
+
+func attack_unit(attacker: Unit, target: Unit) -> bool:
+	var at = board.position_of(attacker)
+	var tar = board.position_of(target)
+	if at.is_empty() or tar.is_empty() or attacker.has_acted:
+		return false
+	if abs(Board.LINES.find(at[0]) - Board.LINES.find(tar[0])) != 1:
+		return false
+	if energy < attacker.operation_cost:
+		return false
+	
+	energy -= attacker.operation_cost
+	attacker.has_acted = true
+	var dam:Dictionary = compute_damage(attacker.attack,attacker.element,target)
+	var disc:int = target.take_damage(dam["damage"])
+	if not dam["immune"]:
+		_apply_aura(target,attacker.element,1.0)
+		_log("%s攻击%s,造成%d%s元素伤害"%[attacker.display_name,target.display_name,disc,attacker.element])
+	else : _log("%s攻击%s,伤害被免疫"%[attacker.display_name,target.display_name])
+	if target.is_hq:
+		return true
+	var hurt:Dictionary = compute_damage(target.attack,target.element,attacker)
+	var rdisc:int = attacker.take_damage(hurt["damage"])
+	if not hurt["immune"]:
+		_apply_aura(attacker,target.element,1.0)
+		_log("%s攻击%s,造成%d%s元素伤害"%[target.display_name,attacker.display_name,rdisc,target.element])
+	else : _log("%s攻击%s,伤害被免疫"%[target.display_name,attacker.display_name])
+	return true
+
+
 func _draw(n: int) -> void:
 	for i in range(n):
 		if deck.is_empty():

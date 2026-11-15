@@ -79,3 +79,19 @@ func capacity_of(line: String) -> int:
 		return SLOT_COUNT
 	else :
 		return UNIT_SLOTS_PER_SUPPORT
+
+
+func position_of(unit: Unit) -> Array:
+	for l in LINES:
+		var index = slots[l].find(unit) 
+		if index != -1:
+			return [l,index]
+	return []
+
+
+func move(from_line: String,from_index: int,to_line: String,to_index: int) -> bool:
+	if LINES.find(from_line) == -1 or LINES.find(to_line) == -1 or not in_board(from_index) or not in_board(to_index) or slots[from_line][from_index] == null or slots[to_line][to_index] != null:
+		return false 
+	slots[to_line][to_index] = slots[from_line][from_index]
+	slots[from_line][from_index] = null
+	return true

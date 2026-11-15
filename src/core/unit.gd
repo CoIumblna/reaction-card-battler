@@ -18,6 +18,7 @@ var shield: int = 0
 var attack: int = 0
 var has_acted: bool = false
 var is_hq: bool =false
+var operation_cost: int = 1
 
 
 var element: String = Element.NONE          # 自身攻击元素（M2 用）
@@ -42,6 +43,7 @@ static func from_dict(d: Dictionary) -> Unit:
 	newu.aura_element = str(d.get("aura_element",Element.NONE))
 	newu.aura_amount = float(d.get("aura_amount",0.0))
 	newu.immunities.clear()
+	newu.operation_cost = int(d.get("operation_cost",1))
 	for e in d.get("immunities", []):
 		newu.immunities.append(str(e))
 	newu.buffs.clear()

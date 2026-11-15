@@ -20,6 +20,7 @@
 | 11 | `board.gd` | 6 | ★★★ | 80 | board_test[2][3] | [ ] |
 | 12 | `hq`（在 board / battle 内） | 3 | ★★ | 30 | board_test[2] | [ ] |
 | 13 | `battle.gd`（M2：Kredit / 部署 / 召唤失调） | 3 | ★★ | 60 | battle_m2_test[1–3] | [ ] |
+| 14 | `board.gd` + `battle.gd`（M2：移动 / 攻击 / 行动花费） | 5 | ★★★ | 90 | combat_test[1–3] | [ ] |
 
 **建议顺序**：1 → 3 → 7 → 6 → 2 → 5 → 4 → 8（先打通数据链路，再写伤害算法，最后拼战斗流程）
 
@@ -365,6 +366,86 @@ M1 是固定 3 点。M2 改成 KARDS 式成长：
 实现位置：`_begin_turn()` 里遍历 `board.units_in("player_support")` 把 `has_acted` 清零。
 
 验收：`battle_m2_test[3]`
+
+## 16. 移动（M2 / E8）
+
+**铁律：每回合只能「移动」或「攻击」二选一**（落地就是 `has_acted`）。
+
+| 项 | 规则 |
+|---|---|
+| 允许的方向 | **己方支援线 → 前线**（单向前进）。**不能后退**，不能跳线，两条支援线之间不互通 |
+| 目标格 | 必须是空的 |
+| 谁能动 | 在棋盘上、且 `has_acted == false`（召唤失调的单位也算 true） |
+| 前线独占 | 敌方占着前线时不能进 —— **这条 E11 再做**，E8 先不判 |
+
+> **为什么是单向**：KARDS 里"退回支援线"是 `Retreat` 关键词（卡牌效果，见 M3 的 E17），
+> 不是常规行动。所以普通移动只有前进一种。同理，你不能移动敌方单位 —— 只有
+> `player_support → front` 这条对玩家开放（敌方 AI 走 `enemy_support → front`）。
+
+**先给 `Board` 加两个方法**
+
+| 函数 | 输入 → 输出 | 实现要点 |
+|---|---|---|
+| `position_of(unit)` | → `Array` | 返回 `[line, index]`；不在棋盘上返回 `[]` |
+| `move(from_line, from_index, to_line, to_index)` | → bool | 两边坐标合法 + 目标格为空 → 挪过去（原格置 null） |
+
+**再给 `Battle` 加**
+
+| 函数 | 输入 → 输出 | 顺序 |
+|---|---|---|
+| `move_unit(unit, to_line, to_index)` | → bool | 校验（在棋盘 / 未行动 / 目标空 / 相邻 / 能量够）→ 扣**作战费** → `board.move()` → `has_acted = true` |
+
+验收：`combat_test[1]`
+
+## 17. 攻击（M2 / E9）
+
+| 项 | 规则 |
+|---|---|
+| 能把谁当目标 | **相邻线**上的敌方单位，或敌方 HQ |
+| 相邻关系 | `player_support` ↔ `front` ↔ `enemy_support`；同侧不相邻；两条支援线不互通 |
+| 反击 | 目标是普通单位 → **双方各走一次伤害结算**；目标是 HQ → **不反击**，只掉 HQ 防 |
+| 伤害来源 | **一律走 `compute_damage()`**（带元素 / 反应 / 免疫 / 附着），不是 `take_damage(attack)` |
+| 伤害永久 | 掉的血不会自己回来 |
+| 每回合 | 攻击完 `has_acted = true` |
+| 死亡 | `hp <= 0` 的离场 —— **这条 E12 做**，本片只负责扣血 |
+
+`attack_unit(attacker, target) -> bool` 顺序：
+校验（攻击者在棋盘且未行动 / 目标在棋盘 / 线相邻 / 能量够）→ 扣**作战费** →
+
+```
+主伤害：var hit := compute_damage(attacker.attack, attacker.element, target)
+        target.take_damage(hit["damage"])
+        若 not hit["immune"] → _apply_aura(target, attacker.element, 1.0)
+反击（目标不是 HQ 时，反过来同样一套）：
+        var back := compute_damage(target.attack, target.element, attacker)
+        attacker.take_damage(back["damage"])
+        若 not back["immune"] → _apply_aura(attacker, target.element, 1.0)
+```
+
+→ `attacker.has_acted = true` → 日志
+
+> **为什么必须走 `compute_damage` 而不是 `take_damage(attacker.attack)`**
+> ① 元素反应是本项目的原创玩法，单位对撞不查表 = 只有指令卡能触发反应，单位全是白板；
+> ② `Unit.immunities` 直接失效（火史莱姆免疫火，单位打它照样掉血）；
+> ③ ADR-002 抽 `Damage.compute()` 的唯一理由，就是"M2 单位对撞原样复用"。
+
+**坑**
+- 单位攻击的附着量按 **1U** 传（`Unit` 上没有 `aura_amount`，别去读 `Card` 的）
+- 打 HQ 时 `HQ.attack == 0`，统一写"互相 `take_damage`"会让攻击者挨 0 点 ——
+  数值没事，但日志多一行"反击 0"，而且 E12 判死亡时会拧。显式判 `target.is_hq`
+- `attack` 是单位攻击力，**不是**卡牌的 `power`（`power` 是指令卡的）
+- `take_damage()` 返回真实掉血（护盾吸收后），日志用返回值，别用 `attacker.attack`
+
+验收：`combat_test[2]`、`combat_test[4]`（单位对撞触发反应）
+
+## 18. 行动花费（M2 / E10）
+
+- `Unit` 加 `operation_cost: int = 1`，`from_dict` 读 `operation_cost`
+- 部署时：`unit.operation_cost = card.operation_cost`，**卡上没写（0）就按 1 处理**
+- 移动、攻击都要付；**先校验能量再扣**
+- 能量不足：返回 `false`，不扣费、不移位、不标记已行动
+
+验收：`combat_test[3]`
 
 ---
 
