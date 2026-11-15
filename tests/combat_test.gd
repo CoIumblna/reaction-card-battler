@@ -21,6 +21,7 @@ func _initialize() -> void:
 	_test_operation_cost()
 	_test_unit_reaction()
 	_test_front_exclusive()
+	_test_death()
 
 	print("---------------------------------------")
 	print("共 %d 项检查，失败 %d 项" % [checks, failures])
@@ -239,3 +240,39 @@ func _test_front_exclusive() -> void:
 	var mine2 := _place(b2, "player_support", 1, 2, 3)
 	b2.energy = 20
 	_check_eq(b2.move_unit(mine2, "front", 1), true, "己方占着前线时可以继续推进")
+
+
+func _test_death() -> void:
+	print("[6] 死亡与移除（M2 / E12）")
+	var b := _new_battle()
+	if not b.board.has_method("remove"):
+		_check(false, "Board 还没有 remove()（死亡移除的前置）")
+		return
+
+	# 目标被打死 → 离场
+	var atk := _place(b, "front", 1, 5, 5)
+	var def := _place(b, "enemy_support", 2, 2, 3, 1, Element.NONE, "enemy")
+	b.energy = 20
+	_check_eq(b.attack_unit(atk, def), true, "攻击成立")
+	_check_eq(def.hp <= 0, true, "目标血量归零")
+	_check_eq(b.board.unit_at("enemy_support", 2), null, "死亡的目标从棋盘移除")
+	_check_eq(b.board.units_in("enemy_support").size(), 1, "敌方支援线只剩 HQ")
+
+	# 反击打死攻击者 → 攻击者也离场
+	var b2 := _new_battle()
+	var a2 := _place(b2, "front", 1, 2, 3)
+	var d2 := _place(b2, "enemy_support", 2, 5, 10, 1, Element.NONE, "enemy")
+	b2.energy = 20
+	_check_eq(b2.attack_unit(a2, d2), true, "攻击成立")
+	_check_eq(a2.hp <= 0, true, "攻击者被反击打死")
+	_check_eq(b2.board.unit_at("front", 1), null, "死亡的攻击者从棋盘移除")
+	_check_eq(d2.hp, 8, "目标受伤但仍活着（10 - 2）")
+
+	# HQ 不会被移除（HQ 归零是 E13 的胜负，不是离场）
+	var b3 := _new_battle()
+	var a3 := _place(b3, "front", 1, 30, 5)
+	var hq: Unit = b3.board.unit_at("enemy_support", 0)
+	b3.energy = 20
+	_check_eq(b3.attack_unit(a3, hq), true, "攻击敌方 HQ")
+	_check_eq(hq.hp, 0, "HQ 血量归零")
+	_check(b3.board.unit_at("enemy_support", 0) != null, "HQ 不从棋盘移除（胜负交给 E13）")

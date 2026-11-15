@@ -95,3 +95,11 @@ func move(from_line: String,from_index: int,to_line: String,to_index: int) -> bo
 	slots[to_line][to_index] = slots[from_line][from_index]
 	slots[from_line][from_index] = null
 	return true
+
+
+func remove(unit: Unit) -> bool:
+	var tar = position_of(unit)
+	if tar.is_empty():
+		return false
+	slots[tar[0]][tar[1]] = null
+	return true

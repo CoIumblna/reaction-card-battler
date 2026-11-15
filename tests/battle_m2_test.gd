@@ -20,6 +20,7 @@ func _initialize() -> void:
 	_test_deploy()
 	_test_summoning_sickness()
 	_test_hq_wired()
+	_test_outcome()
 
 	print("---------------------------------------")
 	print("共 %d 项检查，失败 %d 项" % [checks, failures])
@@ -168,3 +169,24 @@ func _test_hq_wired() -> void:
 		_check_eq(phq.max_hp, 20, "HQ 最大防御 20")
 		_check_eq(phq.hp, 20, "HQ 初始满防")
 	_check(phq != ehq, "双方 HQ 是两个独立对象")
+
+
+func _test_outcome() -> void:
+	print("[5] 胜负看 HQ（M2 / E13）")
+	var b := _new_battle()
+	_check_eq(b.outcome(), "RUNNING", "开局双方 HQ 都在 → RUNNING")
+
+	var ehq: Unit = b.board.unit_at("enemy_support", 0)
+	ehq.hp = 0
+	_check(b.is_over(), "敌方 HQ 归零 → 战斗结束")
+	_check_eq(b.outcome(), "WIN", "结果 WIN")
+
+	var b2 := _new_battle()
+	b2.board.unit_at("player_support", 0).hp = 0
+	_check(b2.is_over(), "我方 HQ 归零 → 战斗结束")
+	_check_eq(b2.outcome(), "LOSE", "结果 LOSE")
+
+	# M1 的血条模型退役：敌人全灭不再算赢
+	var b3 := _new_battle()
+	b3.enemies[0].hp = 0
+	_check_eq(b3.outcome(), "RUNNING", "M1 的 enemies 全灭不再算赢（只看 HQ）")

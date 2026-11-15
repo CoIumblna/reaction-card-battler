@@ -54,14 +54,17 @@ func alive_enemies() -> Array[Unit]:
 	return out
 
 
-func is_over() -> bool:
-	return alive_enemies().is_empty() or player.hp <= 0
+func _hq_dead(line: String) -> bool:
+	var hq := board.unit_at(line, Board.HQ_SLOT)
+	return hq != null and hq.hp <= 0
 
+func is_over() -> bool:
+	return _hq_dead("enemy_support") or _hq_dead("player_support")
 
 func outcome() -> String:
-	if is_over():
-		if alive_enemies().is_empty():
-			return "WIN"
+	if _hq_dead("enemy_support"):
+		return "WIN"
+	if _hq_dead("player_support"):
 		return "LOSE"
 	return "RUNNING"
 
@@ -241,6 +244,12 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 		_apply_aura(attacker,target.element,1.0)
 		_log("%s攻击%s,造成%d%s元素伤害"%[target.display_name,attacker.display_name,rdisc,Element.display_name(target.element)])
 	else : _log("%s攻击%s,伤害被免疫"%[target.display_name,attacker.display_name])
+	if target.hp <= 0:
+		board.remove(target)
+		_log("%s退场"%target.display_name)
+	if attacker.hp <= 0:
+		board.remove(attacker)
+		_log("%s退场"%attacker.display_name)
 	return true
 
 

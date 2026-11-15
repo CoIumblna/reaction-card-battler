@@ -1,8 +1,12 @@
 extends SceneTree
-## 战斗流程测试：回合推进、能量与出牌、元素附着、胜负、自动战斗
+## M1 冒烟测试：回合推进、能量与出牌、元素附着、伤害转接
 ##
 ## 运行：
-##   ... --headless --path . --script res://tests/battle_test.gd
+##   ... --headless --path . --script res://tests/battle_m1_smoke_test.gd
+##
+## 【M2 起退役说明】胜负判定已改为「打掉 HQ」（E13），run_auto 也随 M2 流程重写，
+## 所以本文件不再测 [6] 胜负 和 [7] 自动战斗 —— 那两块由 tests/battle_m2_test.gd 接管。
+## 这里保住的是 M1 流程里仍然有效的部分（出牌 / 抽牌 / 附着 / 伤害转接）。
 ##
 ## 这里测的是 Battle 的行为，不是算法。
 ## 回合交换（turn 推进、敌人行动、能量重置）和元素附着都在这一层。
@@ -25,8 +29,6 @@ func _initialize() -> void:
 	_test_energy()
 	_test_aura()
 	_test_delegation()
-	_test_outcome()
-	_test_full_battle()
 
 	print("---------------------------------------")
 	print("共 %d 项检查，失败 %d 项" % [checks, failures])
@@ -332,36 +334,4 @@ func _test_delegation() -> void:
 	_check_eq(str(reacted["reaction"]), "蒸发", "反应名")
 
 	# 纯算法本身的更多用例在 tests/damage_test.gd
-
-
-func _test_outcome() -> void:
-	print("[6] 胜负判定")
-	var win := _new_battle()
-	win.start_battle()
-	win.enemies[0].hp = 0
-	_check(win.is_over(), "敌人全灭 → 战斗结束")
-	_check_eq(win.outcome(), "WIN", "结果 WIN")
-
-	var lose := _new_battle()
-	lose.start_battle()
-	lose.player.hp = 0
-	_check(lose.is_over(), "玩家倒下 → 战斗结束")
-	_check_eq(lose.outcome(), "LOSE", "结果 LOSE")
-
-	var going := _new_battle()
-	going.start_battle()
-	_check(not going.is_over(), "双方都活着 → 未结束")
-	_check_eq(going.outcome(), "RUNNING", "结果 RUNNING")
-
-
-func _test_full_battle() -> void:
-	print("[7] 完整自动战斗")
-	var b := _new_battle(60, 24)
-	var enemy_hp_before := b.enemies[0].hp
-	var result := b.run_auto(30)
-	_check(result == "WIN" or result == "LOSE", "战斗能正常结束（结果 %s）" % result)
-	_check(b.turn > 0, "至少进行了 1 回合")
-	_check(b.get_log().length() > 50, "战斗日志非空")
-	# 光挨打也能"输掉"，所以必须验证它真的出过牌（敌人掉血只可能来自玩家伤害）
-	_check(b.enemies[0].hp < enemy_hp_before, "自动战斗会出牌（敌人掉血 %d → %d）" % [enemy_hp_before, b.enemies[0].hp])
-	_check(b.turn <= 30, "不超过 max_turns（实际 %d 回合）" % b.turn)
+	# 胜负判定 / 自动战斗的用例在 tests/battle_m2_test.gd（M2 起改为「打掉 HQ」）

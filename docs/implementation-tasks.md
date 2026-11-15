@@ -22,6 +22,8 @@
 | 13 | `battle.gd`（M2：Kredit / 部署 / 召唤失调） | 3 | ★★ | 60 | battle_m2_test[1–3] | [ ] |
 | 14 | `board.gd` + `battle.gd`（M2：移动 / 攻击 / 行动花费） | 5 | ★★★ | 90 | combat_test[1–3] | [ ] |
 | 15 | `unit.gd` + `battle.gd`（M2：owner / 前线独占） | 2 | ★★ | 40 | combat_test[2][5]、board_test[2] | [ ] |
+| 16 | `board.gd` + `battle.gd`（M2：死亡移除） | 2 | ★ | 20 | combat_test[6] | [ ] |
+| 17 | `battle.gd`（M2：胜负改 HQ）+ M1 测试退役 | 3 | ★★ | 40 | battle_m2_test[5] | [ ] |
 
 **建议顺序**：1 → 3 → 7 → 6 → 2 → 5 → 4 → 8（先打通数据链路，再写伤害算法，最后拼战斗流程）
 
@@ -485,6 +487,48 @@ M1 是固定 3 点。M2 改成 KARDS 式成长：
 > E12（死亡移除）之前，"清掉敌方前线单位"在测试里用 `board.move()` 直接挪走代替。
 
 验收：`combat_test[5]`
+
+## 21. 死亡与移除（M2 / E12）
+
+| 项 | 规则 |
+|---|---|
+| 谁会被移除 | `hp <= 0` 的**普通单位**（被攻击的目标、反击中的攻击者，都可能死） |
+| 谁不会被移除 | **HQ** —— HQ 血量归零是 E13 的胜负判定，不是离场 |
+| 移除时机 | 一次攻击**全部结算完之后**再扫 |
+
+`Board.remove(unit) -> bool`：找到位置 → 置 `null`；找不到返回 `false`。
+
+`attack_unit` 结束处（`has_acted = true` 之后也行）：
+
+```
+if target.hp <= 0 and not target.is_hq: board.remove(target)
+if attacker.hp <= 0: board.remove(attacker)
+```
+
+**坑**
+- **先算完反击再判死亡**。先移除目标会让 `position_of(target)` 断掉，反击那一步就崩
+- 攻击者也要判 —— 你打死了目标、但被反击打死，两个都得清
+- HQ 的 `hp <= 0` **不能移除**，否则 E13 判胜负时找不到 HQ
+
+验收：`combat_test[6]`
+
+## 22. 胜负改为打掉 HQ（M2 / E13）
+
+**已决定：方案 B** —— M1 的 `battle_test.gd` 保留为冒烟测试，改名 `battle_m1_smoke_test.gd`，只留不依赖胜负的断言。
+
+| # | 做什么 |
+|---|---|
+| 1 | `is_over()` 改为：任一方 HQ 的 `hp <= 0` |
+| 2 | `outcome()` 改为：敌方 HQ 死 → `WIN`；我方 HQ 死 → `LOSE`；否则 `RUNNING` |
+| 3 | `run_auto()` 的退出条件已经走 `is_over()`，不用改 |
+| 4 | `battle_test.gd` 改名 `battle_m1_smoke_test.gd`，**删掉 `[6]` 胜负判定 + `[7]` 完整自动战斗** |
+| 5 | `run_tests.bat` / `ci.yml` 同步改名 |
+| 6 | `battle_m2_test` 补 `[5] 胜负看 HQ` |
+
+`player` / `enemies` 字段**保留**（M1 的指令卡、附着、抽牌还在用它们），但**不再决定胜负**。
+E14（指令卡改造）做完再评估要不要退役。
+
+验收：`battle_m2_test[5]`
 
 ---
 

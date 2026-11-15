@@ -32,8 +32,8 @@ jobs:
       - name: 棋盘测试
         run: godot --headless --path . --script res://tests/board_test.gd
 
-      - name: 战斗流程测试
-        run: godot --headless --path . --script res://tests/battle_test.gd
+      - name: M1 冒烟测试
+        run: godot --headless --path . --script res://tests/battle_m1_smoke_test.gd
 
       - name: M2 流程测试
         run: godot --headless --path . --script res://tests/battle_m2_test.gd
