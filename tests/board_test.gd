@@ -86,6 +86,12 @@ func _test_board_setup() -> void:
 	if ehq != null:
 		_check_eq(ehq.is_hq, true, "敌方 0 号格也是 HQ")
 
+	# HQ 归属（M2 / E11 前置）：前线共享，必须靠 owner 分敌我
+	if hq != null:
+		_check_eq(hq.get("owner"), "player", "我方 HQ 归属 player")
+	if ehq != null:
+		_check_eq(ehq.get("owner"), "enemy", "敌方 HQ 归属 enemy")
+
 	# 双方 HQ 必须是两个独立对象：共用一个对象时，打敌方 HQ 我方也掉防
 	_check(hq != b.unit_at("enemy_support", 0), "双方 HQ 是两个独立对象")
 	if hq != null and ehq != null:

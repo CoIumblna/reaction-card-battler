@@ -24,8 +24,8 @@ var ENEMY_HQ := Unit.new()
 var PLAYER_HQ := Unit.new()
  
 func setup() -> void:
-	ENEMY_HQ = Unit.from_dict({"id":"e_hq","name":"敌方总部","hp":HQ_DEFENSE,"is_hq":true})
-	PLAYER_HQ = Unit.from_dict({"id":"p_hq","name":"友方总部","hp":HQ_DEFENSE,"is_hq":true})
+	ENEMY_HQ = Unit.from_dict({"id":"e_hq","name":"敌方总部","hp":HQ_DEFENSE,"is_hq":true,"owner":"enemy"})
+	PLAYER_HQ = Unit.from_dict({"id":"p_hq","name":"友方总部","hp":HQ_DEFENSE,"is_hq":true,"owner":"player"})
 	for ids in LINES:
 		slots[ids] = []
 		for i in range(5):

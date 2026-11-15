@@ -21,6 +21,7 @@
 | 12 | `hq`（在 board / battle 内） | 3 | ★★ | 30 | board_test[2] | [ ] |
 | 13 | `battle.gd`（M2：Kredit / 部署 / 召唤失调） | 3 | ★★ | 60 | battle_m2_test[1–3] | [ ] |
 | 14 | `board.gd` + `battle.gd`（M2：移动 / 攻击 / 行动花费） | 5 | ★★★ | 90 | combat_test[1–3] | [ ] |
+| 15 | `unit.gd` + `battle.gd`（M2：owner / 前线独占） | 2 | ★★ | 40 | combat_test[2][5]、board_test[2] | [ ] |
 
 **建议顺序**：1 → 3 → 7 → 6 → 2 → 5 → 4 → 8（先打通数据链路，再写伤害算法，最后拼战斗流程）
 
@@ -402,6 +403,7 @@ M1 是固定 3 点。M2 改成 KARDS 式成长：
 | 项 | 规则 |
 |---|---|
 | 能把谁当目标 | **相邻线**上的敌方单位，或敌方 HQ |
+| 敌我判定 | 同阵营不能互打：`attacker.owner == target.owner` → 拒绝（见 §19） |
 | 相邻关系 | `player_support` ↔ `front` ↔ `enemy_support`；同侧不相邻；两条支援线不互通 |
 | 反击 | 目标是普通单位 → **双方各走一次伤害结算**；目标是 HQ → **不反击**，只掉 HQ 防 |
 | 伤害来源 | **一律走 `compute_damage()`**（带元素 / 反应 / 免疫 / 附着），不是 `take_damage(attack)` |
@@ -446,6 +448,43 @@ M1 是固定 3 点。M2 改成 KARDS 式成长：
 - 能量不足：返回 `false`，不扣费、不移位、不标记已行动
 
 验收：`combat_test[3]`
+
+## 19. 单位归属：`owner`（M2 / E11 前置）
+
+`Unit` 加 `var owner: String = ""`，取值 `"player"` / `"enemy"`。
+
+| 谁负责设置 | 值 |
+|---|---|
+| `Battle` 部署单位时 | `"player"` |
+| `Board.setup()` 建的两个 HQ | 我方 `"player"`、敌方 `"enemy"` |
+| `Unit.from_dict()` | 从字典读 `owner`（测试要用） |
+
+**为什么必须加**：`front` 是双方**共享**的一条线，光看位置分不出敌我。没有 `owner`：
+
+- `attack_unit` 会放行"打友军"（`front` ↔ `player_support` 相邻，差值也是 1）
+- E11 判不了"前线被谁占着"
+- 敌方 AI（E15）也没法知道哪些单位是自己的
+
+**改动点**
+- `attack_unit`：目标校验里加 `if attacker.owner == target.owner: return false`
+- `move_unit`：E11 的前线独占判定要用（见 §20）
+
+验收：`combat_test[2]`（不能打友军 / 不能打己方 HQ）
+
+## 20. 前线独占（M2 / E11）
+
+| 项 | 规则 |
+|---|---|
+| 进前线的前提 | 前线**没有敌方单位** |
+| 己方已占前线 | 可以继续往剩余空位推进 |
+| 敌方占着前线 | 必须先清掉（打掉 / 移走）才能进 —— 这就是 KARDS 的"抢线" |
+
+实现：`move_unit` 里当 `to_line == "front"` 时，遍历 `board.units_in("front")`，
+只要有一个 `owner != "player"` 就 `return false`，**放在扣费之前**。
+
+> E12（死亡移除）之前，"清掉敌方前线单位"在测试里用 `board.move()` 直接挪走代替。
+
+验收：`combat_test[5]`
 
 ---
 

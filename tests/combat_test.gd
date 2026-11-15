@@ -1,5 +1,5 @@
 extends SceneTree
-## 战斗测试（M2）：移动 / 攻击与反击 / 行动花费
+## 战斗测试（M2）：移动 / 攻击与反击 / 行动花费 / 单位对撞反应 / 前线独占
 ##
 ## 运行：
 ##   ... --headless --path . --script res://tests/combat_test.gd
@@ -20,6 +20,7 @@ func _initialize() -> void:
 	_test_attack()
 	_test_operation_cost()
 	_test_unit_reaction()
+	_test_front_exclusive()
 
 	print("---------------------------------------")
 	print("共 %d 项检查，失败 %d 项" % [checks, failures])
@@ -54,10 +55,10 @@ func _new_battle() -> Battle:
 
 
 ## 直接往棋盘上摆一个单位（绕开出牌/能量，专测移动与攻击）
-func _place(b: Battle, line: String, index: int, attack: int, hp: int, op_cost: int = 1, element: String = Element.NONE) -> Unit:
+func _place(b: Battle, line: String, index: int, attack: int, hp: int, op_cost: int = 1, element: String = Element.NONE, owner: String = "player") -> Unit:
 	var u := Unit.from_dict({
 		"id": "u_%s_%d" % [line, index], "name": "单位", "hp": hp,
-		"attack": attack, "operation_cost": op_cost, "element": element,
+		"attack": attack, "operation_cost": op_cost, "element": element, "owner": owner,
 	})
 	b.board.place(u, line, index)
 	return u
@@ -119,7 +120,7 @@ func _test_attack() -> void:
 
 	# 前线打敌方支援线：互相反击
 	var atk := _place(b, "front", 1, 3, 5)
-	var def := _place(b, "enemy_support", 2, 2, 4)
+	var def := _place(b, "enemy_support", 2, 2, 4, 1, Element.NONE, "enemy")
 	b.energy = 20
 	_check_eq(b.attack_unit(atk, def), true, "前线可以攻击敌方支援线")
 	_check_eq(def.hp, 1, "目标掉 3 点（4 - 3）")
@@ -129,7 +130,7 @@ func _test_attack() -> void:
 	# 不相邻：我方支援线不能直接打敌方支援线
 	var b2 := _new_battle()
 	var a2 := _place(b2, "player_support", 1, 3, 5)
-	var d2 := _place(b2, "enemy_support", 2, 2, 4)
+	var d2 := _place(b2, "enemy_support", 2, 2, 4, 1, Element.NONE, "enemy")
 	b2.energy = 20
 	_check_eq(b2.attack_unit(a2, d2), false, "支援线不能直接打敌方支援线（不相邻）")
 	_check_eq(d2.hp, 4, "失败的攻击不造成伤害")
@@ -146,6 +147,20 @@ func _test_attack() -> void:
 
 	b3.energy = 20
 	_check_eq(b3.attack_unit(a3, hq), false, "已行动的单位本回合不能再攻击")
+
+	# 不能打友军 / 己方 HQ（各用一个没行动过的攻击者，避免"已行动"掩盖判定）
+	var b4 := _new_battle()
+	var a4 := _place(b4, "front", 1, 3, 5)
+	var ally := _place(b4, "player_support", 2, 2, 4)
+	b4.energy = 20
+	_check_eq(b4.attack_unit(a4, ally), false, "不能攻击友军单位")
+	_check_eq(ally.hp, 4, "友军没掉血")
+
+	var a5 := _place(b4, "front", 3, 3, 5)
+	var my_hq: Unit = b4.board.unit_at("player_support", 0)
+	b4.energy = 20
+	_check_eq(b4.attack_unit(a5, my_hq), false, "不能攻击己方 HQ")
+	_check_eq(my_hq.hp, 20, "己方 HQ 没掉血")
 
 
 func _test_operation_cost() -> void:
@@ -189,7 +204,7 @@ func _test_unit_reaction() -> void:
 		return
 
 	var atk := _place(b, "front", 1, 4, 5, 1, Element.FIRE)
-	var def := _place(b, "enemy_support", 2, 2, 10)
+	var def := _place(b, "enemy_support", 2, 2, 10, 1, Element.NONE, "enemy")
 	def.aura_element = Element.WATER
 	def.aura_amount = 1.0
 	b.energy = 20
@@ -197,3 +212,30 @@ func _test_unit_reaction() -> void:
 	_check_eq(def.hp, 4, "蒸发：4 × 1.5 = 6 伤害（10 → 4）")
 	_check_eq(def.aura_element, Element.NONE, "水被蒸发消耗完 → 附着清空")
 	_check_eq(atk.hp, 3, "反击仍是 2 点（5 → 3）")
+
+
+func _test_front_exclusive() -> void:
+	print("[5] 前线独占（M2 / E11）")
+	var b := _new_battle()
+	if not b.has_method("move_unit"):
+		_check(false, "Battle 还没有 move_unit()（前线独占的前置）")
+		return
+
+	var enemy_front := _place(b, "front", 0, 2, 5, 1, Element.NONE, "enemy")
+	var mine := _place(b, "player_support", 1, 2, 3)
+	b.energy = 20
+	_check_eq(b.move_unit(mine, "front", 1), false, "敌方占着前线时不能移进前线")
+	_check_eq(b.board.unit_at("player_support", 1) == mine, true, "被拒绝时位置不变")
+	_check_eq(mine.has_acted, false, "被拒绝时不算已行动")
+
+	# 把敌方前线单位挪走（E12 死亡移除之前，先用棋盘 API 清场）
+	b.board.move("front", 0, "enemy_support", 3)
+	b.energy = 20
+	_check_eq(b.move_unit(mine, "front", 1), true, "敌方离开前线后可以推进")
+
+	# 己方占着前线时，可以继续往剩余空位推进
+	var b2 := _new_battle()
+	_place(b2, "front", 0, 2, 5)
+	var mine2 := _place(b2, "player_support", 1, 2, 3)
+	b2.energy = 20
+	_check_eq(b2.move_unit(mine2, "front", 1), true, "己方占着前线时可以继续推进")

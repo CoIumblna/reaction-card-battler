@@ -123,7 +123,7 @@ func play_card(card: Card, target: Unit) -> bool:
 			return false
 		energy -= card.cost
 		var nu := Unit.new()
-		nu = Unit.from_dict({"id":card.id,"name":card.display_name,"hp":card.defense,"attack":card.attack,"element":card.element})
+		nu = Unit.from_dict({"id":card.id,"name":card.display_name,"hp":card.defense,"attack":card.attack,"element":card.element,"owner":"player"})
 		board.place(nu,"player_support",board.first_empty_unit_slot("player_support"))
 		nu.has_acted = true
 		hand.erase(card)
@@ -203,6 +203,9 @@ func move_unit(unit: Unit, to_line: String, to_index: int) -> bool:
 	var fee = unit.operation_cost
 	if energy < fee:                                   # 能量够
 		return false
+	for u in board.units_in("front"):
+		if u != null and u.owner == "enemy":
+			return false
 	energy -= fee
 	if not board.move("player_support", pos[1], "front", to_index):
 		energy += fee                                  # 兜底回滚（理论上不会走到）
@@ -219,7 +222,7 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 		return false
 	if abs(Board.LINES.find(at[0]) - Board.LINES.find(tar[0])) != 1:
 		return false
-	if energy < attacker.operation_cost:
+	if energy < attacker.operation_cost or attacker.owner == target.owner:
 		return false
 	
 	energy -= attacker.operation_cost
@@ -228,7 +231,7 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 	var disc:int = target.take_damage(dam["damage"])
 	if not dam["immune"]:
 		_apply_aura(target,attacker.element,1.0)
-		_log("%s攻击%s,造成%d%s元素伤害"%[attacker.display_name,target.display_name,disc,attacker.element])
+		_log("%s攻击%s,造成%d%s元素伤害"%[attacker.display_name,target.display_name,disc,Element.display_name(attacker.element)])
 	else : _log("%s攻击%s,伤害被免疫"%[attacker.display_name,target.display_name])
 	if target.is_hq:
 		return true
@@ -236,7 +239,7 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 	var rdisc:int = attacker.take_damage(hurt["damage"])
 	if not hurt["immune"]:
 		_apply_aura(attacker,target.element,1.0)
-		_log("%s攻击%s,造成%d%s元素伤害"%[target.display_name,attacker.display_name,rdisc,target.element])
+		_log("%s攻击%s,造成%d%s元素伤害"%[target.display_name,attacker.display_name,rdisc,Element.display_name(target.element)])
 	else : _log("%s攻击%s,伤害被免疫"%[target.display_name,attacker.display_name])
 	return true
 

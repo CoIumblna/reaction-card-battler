@@ -24,6 +24,7 @@ const ELEMENT_NAMES := {
 	"geo": "岩",
 	"electro_charged": "感电",   # 复合元素也要有中文名
 	"frozen": "冻结",
+	NONE: "无"
 }
 
 
