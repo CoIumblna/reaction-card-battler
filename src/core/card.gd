@@ -12,7 +12,7 @@ extends RefCounted
 
 var id: String = ""
 var display_name: String = ""
-var type: String = "unit"        # unit / order（M1 的卡都是 order，M2 才有 unit）
+var type: String = "order"        # unit / order（M1 的卡都是 order，M2 才有 unit）
 var cost: int = 1
 var operation_cost: int = 0      # M2：移动/攻击的额外花费
 var element: String = Element.NONE
@@ -37,7 +37,7 @@ static func from_dict(d: Dictionary) -> Card:
 	c.power = int(d.get("power",0))
 	c.target = str(d.get("target","self"))
 	
-	c.type = str(d.get("type", "unit"))
+	c.type = str(d.get("type", "order"))
 	c.operation_cost = int(d.get("operation_cost", 0))
 	c.unit_class = str(d.get("unit_class", ""))
 	c.attack = int(d.get("attack", 0))

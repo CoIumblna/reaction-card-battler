@@ -19,6 +19,7 @@
 | 10 | `unit.gd`（M2 扩展） | 3 | ★ | 15 | board_test[1] | [ ] |
 | 11 | `board.gd` | 6 | ★★★ | 80 | board_test[2][3] | [ ] |
 | 12 | `hq`（在 board / battle 内） | 3 | ★★ | 30 | board_test[2] | [ ] |
+| 13 | `battle.gd`（M2：Kredit / 部署 / 召唤失调） | 3 | ★★ | 60 | battle_m2_test[1–3] | [ ] |
 
 **建议顺序**：1 → 3 → 7 → 6 → 2 → 5 → 4 → 8（先打通数据链路，再写伤害算法，最后拼战斗流程）
 
@@ -289,6 +290,81 @@ M1 的 Unit 是"血条 + 附着"，M2 要能站上棋盘、攻击、被打。只
 最省事；单独一个类会让 `Damage.compute()` 多一条分支，违背"伤害只有一份算法"。
 
 验收：`board_test[2]`；接入胜负在 `battle_test`（M2 版，E13）
+
+---
+
+## 13. Kredit 成长（M2 / E6）
+
+M1 是固定 3 点。M2 改成 KARDS 式成长：
+
+| 项 | 值 |
+|---|---|
+| 开局（`setup`） | `max_energy = 0`、`energy = 0` |
+| 每个回合开始 | `max_energy = min(max_energy + 1, KREDIT_CAP)`，**然后** `energy = max_energy` |
+| 上限 | `const KREDIT_CAP := 12`（KARDS 原版数值，一个常量改全局） |
+
+出牌 / 部署照旧只扣 `energy`。
+
+**坑**
+- 别再写死 3；`max_energy` 是变量，M1 那句 `energy = max_energy` 继续用
+- 顺序：**先涨上限，再回满** —— 写反了第 1 回合会少 1 点
+- 第 1 回合是 **1 点**（setup 0 → 第 1 回合 +1）
+
+验收：`battle_m2_test[1]`
+
+## 14. 单位部署（M2 / E4）
+
+`Battle` 加 `var board: Board`，`setup()` 里 `board = Board.new()` + `board.setup()`。
+
+`play_card()` 先按 `card.type` 分流：
+
+| `card.type` | 走哪 |
+|---|---|
+| `"order"` | 原逻辑（`match kind` → damage / shield / heal） |
+| `"unit"` | 部署（下表） |
+| 其它 | 打一行"未知类型"日志，不崩 |
+
+**部署六步**
+
+| # | 做什么 |
+|---|---|
+| 1 校验 | 能量够 **且** `board.first_empty_unit_slot("player_support") != -1` |
+| 2 扣能量 | `energy -= card.cost` |
+| 3 造单位 | `Unit.from_dict({ id, name, hp: card.defense, attack: card.attack, element: card.element })` |
+| 4 上场 | `board.place(unit, "player_support", 空位下标)` |
+| 5 召唤失调 | `unit.has_acted = true` |
+| 6 移出手牌 | `hand.erase(card)` |
+
+单位卡数据形态（用 `tools/add_unit_card.gd` 生成）：
+`type: "unit"` / `cost` / `attack` / `defense` / `element` / `count`
+
+**样例数值**（E4 写完再往牌库里加，现在加会污染 M1 的 battle_test）：
+
+| id | 名称 | 费 | 攻 | 防 | 元素 |
+|---|---|---|---|---|---|
+| footman | 步兵 | 1 | 1 | 2 | none |
+| archer | 弓手 | 2 | 2 | 1 | none |
+| fire_mage | 火法师 | 3 | 2 | 3 | fire |
+| tank | 坦克 | 4 | 4 | 5 | none |
+| water_priest | 水祭司 | 3 | 1 | 3 | water |
+
+**坑**
+- `hp` 取 `card.defense`，**卡牌上没有 `hp` 字段**
+- 支援线只有 4 个空位，满了要**先校验再扣能量**（`battle_m2_test[2]` 专门考这个）
+- 部署不是"打伤害"，别让它掉进 damage 分支
+- 过渡期：`player` / `enemies` 字段保留（M1 流程还在跑），E13 把胜负改成看 HQ 之后再删
+
+验收：`battle_m2_test[2]`
+
+## 15. 召唤失调（M2 / E5）
+
+- 单位**部署的瞬间** `has_acted = true` → 当回合不能移动/攻击
+- 每个回合开始时，**己方所有单位** `has_acted = false`
+- HQ 不参与（HQ 永远不行动）
+
+实现位置：`_begin_turn()` 里遍历 `board.units_in("player_support")` 把 `has_acted` 清零。
+
+验收：`battle_m2_test[3]`
 
 ---
 

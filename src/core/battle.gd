@@ -14,21 +14,24 @@ extends RefCounted
 const MAX_HAND := 9
 const ENEMY_ATTACK := 4   # M1 占位；M2 改成 e.attack（数据已有，Unit.from_dict 还没读）
 const OPENING_HAND := 5
+const KREDIT_CAP := 12
 
 var player: Unit
 var enemies: Array[Unit] = []
 var deck: Array[Card] = []
 var hand: Array[Card] = []
 var reaction_table: ReactionTable
+var board = Board.new()
 
-var energy: int = 3
-var max_energy: int = 3
+var energy: int = 0
+var max_energy: int = 0
 var turn: int = 0
 var log_lines: Array[String] = []
 
 var rng = RandomNumberGenerator.new()
 
 func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable, seed_value: int = 1) -> void:
+	board.setup()
 	rng.seed = seed_value
 	turn = 0
 	hand.clear()
@@ -74,6 +77,9 @@ func start_battle() -> void:
 	
 
 func _begin_turn() -> void:
+	for u in board.units_in("player_support"):
+		u.has_acted = false
+	max_energy = min(max_energy+1,KREDIT_CAP)
 	turn += 1
 	energy = max_energy
 	_draw(1)
@@ -110,27 +116,40 @@ func run_auto(max_turns: int = 30) -> String:
 
 
 func play_card(card: Card, target: Unit) -> bool:
-	# TODO：校验能量/目标；按 kind 分发（damage / shield / heal）；从手牌移除
 	if card == null or target == null or card.cost > energy:
 		return false
-	energy -= card.cost
-	match card.kind:
-		"damage":
-			var hit := compute_damage(card.power,card.element,target)
-			var disc:int = target.take_damage(hit["damage"])
-			if not hit.get("immune",false):
-				_apply_aura(target,card.element,card.aura_amount)
-			_log("%s对%s造成%d伤害" % [card.display_name,target.display_name,disc])
-		"shield":
-			target.shield += card.power
-			_log("%s对%s添加%d护盾" % [card.display_name,target.display_name,card.power])
-		"heal":
-			target.heal(card.power)
-			_log("%s对%s治疗%d点生命" % [card.display_name,target.display_name,card.power])
-		_:
-			_log("未知卡牌类型:%s"%card.kind)
-	hand.erase(card)
-	return true
+	if card.type == "unit":
+		if energy < card.cost or board.first_empty_unit_slot("player_support") == -1:
+			return false
+		energy -= card.cost
+		var nu := Unit.new()
+		nu = Unit.from_dict({"id":card.id,"name":card.display_name,"hp":card.defense,"attack":card.attack,"element":card.element})
+		board.place(nu,"player_support",board.first_empty_unit_slot("player_support"))
+		nu.has_acted = true
+		hand.erase(card)
+		return true
+	elif card.type == "order":
+		energy -= card.cost
+		match card.kind:
+			"damage":
+				var hit := compute_damage(card.power,card.element,target)
+				var disc:int = target.take_damage(hit["damage"])
+				if not hit.get("immune",false):
+					_apply_aura(target,card.element,card.aura_amount)
+				_log("%s对%s造成%d伤害" % [card.display_name,target.display_name,disc])
+			"shield":
+				target.shield += card.power
+				_log("%s对%s添加%d护盾" % [card.display_name,target.display_name,card.power])
+			"heal":
+				target.heal(card.power)
+				_log("%s对%s治疗%d点生命" % [card.display_name,target.display_name,card.power])
+			_:
+				_log("未知卡牌类型:%s"%card.kind)
+		hand.erase(card)
+		return true
+	else:
+		_log("未知类型%s"%card.type)
+		return true
 
 
 ## 伤害计算：**具体算法在 src/core/damage.gd，这里只做转接**

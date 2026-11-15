@@ -51,6 +51,13 @@ func _test_cards() -> void:
 	for c in cards:
 		distinct[c.id] = true
 	_check_eq(distinct.size(), 7, "不同卡牌种类")
+	# M1 的 7 张都是指令卡；漏写 type 时 Card.from_dict 默认成 "unit"，M2 部署会把它们当单位
+	_check_eq(cards[0].type, "order", "指令卡 type = order")
+	var bad_type := 0
+	for c in cards:
+		if c.type != "order" and c.type != "unit":
+			bad_type += 1
+	_check_eq(bad_type, 0, "卡牌 type 只能是 order / unit")
 	var strong: Card = null
 	for c in cards:
 		if c.aura_amount >= 2.0:

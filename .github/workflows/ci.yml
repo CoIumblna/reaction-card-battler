@@ -34,3 +34,6 @@ jobs:
 
       - name: 战斗流程测试
         run: godot --headless --path . --script res://tests/battle_test.gd
+
+      - name: M2 流程测试
+        run: godot --headless --path . --script res://tests/battle_m2_test.gd
