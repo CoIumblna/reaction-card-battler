@@ -14,7 +14,11 @@
 | 5 | `unit.gd` | 7 | ★★ | 45 | unit_test[1–4] | [ ] |
 | 6 | `reaction_table.gd` | 4 | ★★ | 25 | data_test[4] | [ ] |
 | 7 | `data_loader.gd` | 3 | ★★ | 40 | data_test[1][2] | [ ] |
-| 8 | `battle.gd` | 13 | ★★★ | 150 | battle_test[1–7] | [ ] |`n| 9 | `status_table.gd` | 4 | ★★ | 25 | data_test[5] | [ ] |
+| 8 | `battle.gd` | 13 | ★★★ | 150 | battle_test[1–7] | [ ] |
+| 9 | `status_table.gd` | 4 | ★★ | 25 | data_test[5] | [ ] |
+| 10 | `unit.gd`（M2 扩展） | 3 | ★ | 15 | board_test[1] | [ ] |
+| 11 | `board.gd` | 6 | ★★★ | 80 | board_test[2][3] | [ ] |
+| 12 | `hq`（在 board / battle 内） | 3 | ★★ | 30 | board_test[2] | [ ] |
 
 **建议顺序**：1 → 3 → 7 → 6 → 2 → 5 → 4 → 8（先打通数据链路，再写伤害算法，最后拼战斗流程）
 
@@ -240,6 +244,54 @@ M1 只实现两种时机：`turn_start`（dot 掉血）和 `action`（无法行�
 
 ---
 
+## 10. `src/core/unit.gd`（M2 扩展 / E1）—— 单位上战场要的字段
+
+M1 的 Unit 是"血条 + 附着"，M2 要能站上棋盘、攻击、被打。只加三个字段：
+
+| 字段 | 类型 | 含义 | 默认 |
+|---|---|---|---|
+| `attack` | int | 单位攻击力，部署时取 `card.attack` | 0 |
+| `has_acted` | bool | 本回合是否已行动（移动或攻击，二选一） | false |
+| `is_hq` | bool | 是不是 HQ（不能移动/攻击） | false |
+
+`from_dict()` 要能读 `attack` / `is_hq`；`hp` 继续当"当前防御"，`max_hp` 当"最大防御"。
+
+**不要加 `line` / `position`** —— 位置只在 `Board` 里存。Unit 也存一份必然不同步，
+这是 M2 最容易埋的雷（见 `docs/adr/003-m2-board.md`）。
+
+验收：`board_test[1]`
+
+## 11. `src/core/board.gd` —— 棋盘（M2 / E2）
+
+**职责**：三条战线 × 每线 5 格；支援线 0 号格是 HQ。**位置只在这里。**
+
+| 函数 | 输入 → 输出 | 实现要点 | 验收 |
+|---|---|---|---|
+| `setup()` | 无 | 每条线建 5 个空格（null）；支援线 `HQ_SLOT` 放 HQ（`is_hq`、20 防） | board_test[2] |
+| `unit_at(line, index)` | → `Unit` | 空位 / 非法线 / 越界 → `null`，**不许崩** | board_test[2][3] |
+| `place(unit, line, index)` | → bool | 线合法 + 下标在界内 + 该格为 `null` 才放 | board_test[3] |
+| `first_empty_unit_slot(line)` | → int | 支援线从 `HQ_SLOT + 1` 开始；满返回 -1 | board_test[3] |
+| `units_in(line)` | → `Array[Unit]` | 该线所有非空单位（**含 HQ**）；非法线返回空数组 | board_test[3] |
+| `capacity_of(line)` | → int | `front` = 5；支援线 = 4；非法线 = 0 | board_test[3] |
+
+**坑**
+- 支援线是 5 格但只有 4 个单位位（0 号被 HQ 占）—— 算容量别直接拿 `SLOT_COUNT`
+- 空位用 `null`，**不要缩短数组**：下标就是格子
+- `slots` 用 `Dictionary`（线名 → 长度 5 的数组）；下标越界要返回 `null`，别让测试脚本崩
+
+## 12. HQ（M2 / E3）
+
+- HQ **就是一个 `Unit`**：`is_hq = true`、`max_hp = 20`、`attack = 0`、不许移动/攻击
+- 双方各一个，放在己方支援线 0 号格（由 `Board.setup()` 创建）
+- 胜负（E13 才接到 `Battle`）：敌方 HQ 被破坏 → `WIN`；我方 HQ 被破坏 → `LOSE`
+
+**为什么不用单独的 `HQ` 类**：HQ 要挨伤害、要被当攻击目标，复用 `Unit.take_damage()` / `is_alive()`
+最省事；单独一个类会让 `Damage.compute()` 多一条分支，违背"伤害只有一份算法"。
+
+验收：`board_test[2]`；接入胜负在 `battle_test`（M2 版，E13）
+
+---
+
 ## 附：常用 GDScript 手段速查
 
 | 想做的事 | 用什么 |
@@ -263,7 +315,8 @@ M1 只实现两种时机：`turn_start`（dot 掉血）和 `action`（无法行�
 
 ```bash
 # 只跑测试，看失败数有没有变少
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_smoke_test.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_test.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/board_test.gd
 
 # 想手动看一局（battle.gd 写完后才用得上）
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/run_battle.gd

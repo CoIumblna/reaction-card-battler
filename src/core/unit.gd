@@ -15,6 +15,10 @@ var display_name: String = ""
 var max_hp: int = 30
 var hp: int = 30
 var shield: int = 0
+var attack: int = 0
+var has_acted: bool = false
+var is_hq: bool =false
+
 
 var element: String = Element.NONE          # 自身攻击元素（M2 用）
 var aura_element: String = Element.NONE     # 附着元素
@@ -29,6 +33,8 @@ static func from_dict(d: Dictionary) -> Unit:
 	newu.id = str(d.get("id",""))
 	newu.display_name = str(d.get("name",newu.id))
 	newu.max_hp = int(d.get("hp",0))
+	newu.attack = int(d.get("attack",0))
+	newu.is_hq = bool(d.get("is_hq",false))
 	newu.hp = newu.max_hp
 	
 	newu.shield = int(d.get("shield",0))

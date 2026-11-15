@@ -29,5 +29,8 @@ jobs:
       - name: 伤害结算测试
         run: godot --headless --path . --script res://tests/damage_test.gd
 
+      - name: 棋盘测试
+        run: godot --headless --path . --script res://tests/board_test.gd
+
       - name: 战斗流程测试
         run: godot --headless --path . --script res://tests/battle_test.gd

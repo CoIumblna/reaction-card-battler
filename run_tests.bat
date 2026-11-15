@@ -8,7 +8,7 @@ set "FAILED=0"
 echo [import] importing project...
 "%GODOT%" --headless --path "%PROJ%." --import >nul 2>&1
 
-for %%t in (data_test unit_test damage_test battle_test) do (
+for %%t in (data_test unit_test damage_test board_test battle_test) do (
     echo.
     echo ========== %%t ==========
     "%GODOT%" --headless --path "%PROJ%." --script "res://tests/%%t.gd"
