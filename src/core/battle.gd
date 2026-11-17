@@ -12,7 +12,6 @@ extends RefCounted
 ## 每写完一步就跑一次测试，别一次写完再跑。
 
 const MAX_HAND := 9
-const ENEMY_ATTACK := 4   # M1 占位；M2 改成 e.attack（数据已有，Unit.from_dict 还没读）
 const OPENING_HAND := 5
 const KREDIT_CAP := 12
 
@@ -80,8 +79,11 @@ func start_battle() -> void:
 	
 
 func _begin_turn() -> void:
-	for u in board.units_in("player_support"):
-		u.has_acted = false
+	for i in Board.LINES:
+		for u in board.units_in(i):
+			if u.owner != "player" || u.is_hq:
+				continue
+			u.has_acted = false
 	max_energy = min(max_energy+1,KREDIT_CAP)
 	turn += 1
 	energy = max_energy
@@ -92,12 +94,6 @@ func end_turn() -> void:
 	player.tick_buffs()
 	for e in alive_enemies():
 		e.tick_buffs()
-	for e in alive_enemies():
-		var d := compute_damage(ENEMY_ATTACK,Element.NONE,player)
-		var disc:int = player.take_damage(d["damage"])
-		_log("injured : %d" % disc)
-		if player.hp <= 0:
-			return
 	
 	_begin_turn()
 

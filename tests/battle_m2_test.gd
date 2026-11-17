@@ -336,4 +336,7 @@ func _test_run_auto() -> void:
 	_check_eq(result, b.outcome(), "返回值与 outcome() 一致")
 	_check(b.turn >= 4, "对局跑够回合数（实际 %d 回合；3 回合内结束说明没在棋盘上打）" % b.turn)
 	_check(b.turn <= 30, "不超过 max_turns（实际 %d 回合）" % b.turn)
-	_check(b.log_lines.size() >= 2, "战斗日志有内容（至少 START + 一步动作）")
+	# 平衡模拟要可复现：同一个 seed 再跑一局，结果必须一样。
+	# （这条替代了原来的"日志非空"——日志量是实现细节，不该当验收标准）
+	var b2 := _new_battle(60, _make_unit_deck())
+	_check_eq(b2.run_auto(30), result, "同 seed 两局结果一致（run_auto 可复现）")
