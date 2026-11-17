@@ -27,6 +27,12 @@ var max_energy: int = 0
 var turn: int = 0
 var log_lines: Array[String] = []
 
+var enemy_energy: int = 0
+var enemy_max_energy: int = 0
+var enemy_hand: Array[Card] = []
+var enemy_deck: Array[Card] = []
+
+
 var rng = RandomNumberGenerator.new()
 
 func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable, seed_value: int = 1) -> void:
@@ -41,6 +47,9 @@ func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable
 	deck.clear()
 	for i in p_deck:
 		deck.append(i)
+	enemy_deck.clear()
+	for i in p_deck:
+		enemy_deck.append(i)
 	reaction_table = table
 	pass
 
@@ -74,7 +83,8 @@ func get_log() -> String:
 
 func start_battle() -> void:
 	_log("START enemies:%s" % _enemy_names())
-	_draw(OPENING_HAND)
+	_draw_into(deck,hand,OPENING_HAND)
+	_draw_into(enemy_deck,enemy_hand,OPENING_HAND)
 	_begin_turn()
 	
 
@@ -87,7 +97,7 @@ func _begin_turn() -> void:
 	max_energy = min(max_energy+1,KREDIT_CAP)
 	turn += 1
 	energy = max_energy
-	_draw(1)
+	_draw_into(deck,hand,1)
 	
 
 func end_turn() -> void:
@@ -249,13 +259,13 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 	return true
 
 
-func _draw(n: int) -> void:
+func _draw_into(target_deck: Array[Card],target_hand: Array[Card], n: int) -> void:
 	for i in range(n):
-		if deck.is_empty():
+		if target_deck.is_empty():
 			break
-		if hand.size() < MAX_HAND:
-			hand.append(deck.front())
-		deck.pop_front()
+		if target_hand.size() < MAX_HAND:
+			target_hand.append(target_deck.front())
+		target_deck.pop_front()
 
 
 func _enemy_names() -> String:
