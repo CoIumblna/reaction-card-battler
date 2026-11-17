@@ -17,6 +17,10 @@ var table: ReactionTable
 var cards: Array[Card] = []
 var _setup_warned: bool = false
 
+## 全绿时应执行的检查项数。对不上 = 有测试段被静默跳过（或 SCRIPT ERROR 打断），
+## 只看"共 N 项检查、失败 0 项"会假绿，所以这里硬校验。
+const EXPECTED_CHECKS := 58
+
 
 func _initialize() -> void:
 	print("========== 战斗流程测试 ==========")
@@ -29,6 +33,10 @@ func _initialize() -> void:
 	_test_energy()
 	_test_aura()
 	_test_delegation()
+
+	if checks != EXPECTED_CHECKS:
+		printerr("  [FAIL] 覆盖不完整：本文件应执行 %d 项检查，实际 %d 项（有测试段被跳过 / 运行期脚本报错打断）" % [EXPECTED_CHECKS, checks])
+		failures += 1
 
 	print("---------------------------------------")
 	print("共 %d 项检查，失败 %d 项" % [checks, failures])
@@ -99,6 +107,7 @@ func _test_setup() -> void:
 	print("[1] 初始化")
 	var b := _new_battle(60, 30, false)   # 不要兜底，这里就是要测 setup() 本身
 	_check(b.player != null, "玩家已设置")
+	_check(b.reaction_table != null, "setup() 保存了 reaction_table（没存的话反应会静默失效）")
 	_check_eq(b.enemies.size(), 1, "敌人数")
 	_check_eq(b.turn, 0, "回合数从 0 开始")
 	_check_eq(b.energy, b.max_energy, "能量已回满")
@@ -106,7 +115,7 @@ func _test_setup() -> void:
 
 
 func _test_turn_advance() -> void:
-	print("[2] 回合交换：推进 / 敌人行动 / 能量重置 / 每回合抽 1 张")
+	print("[2] 回合交换：推进 / 能量重置 / 每回合抽 1 张")
 	var b := _new_battle()
 	b.deck = _make_deck(20)
 	b.start_battle()
@@ -119,7 +128,8 @@ func _test_turn_advance() -> void:
 	b.energy = 0
 	b.end_turn()
 	_check_eq(b.turn, 2, "结束回合后进入第 2 回合")
-	_check(b.player.hp < hp_before, "敌人行动后玩家掉血")
+	# M1 的「敌人每回合打玩家 4 点」在 E15 被删掉（胜负改成 HQ）。玩家血量不再由回合推进改变。
+	_check_eq(b.player.hp, hp_before, "end_turn() 不再白扣玩家血量（M1 直伤已退役）")
 	_check_eq(b.energy, b.max_energy, "新回合能量回满")
 	_check_eq(b.hand.size(), 7, "每回合只抽 1 张（不补满）")
 	_check_eq(b.deck.size(), deck_before - 1, "牌库每回合只扣 1 张")

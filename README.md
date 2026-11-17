@@ -1,4 +1,4 @@
-﻿# 元素反应卡牌战斗（reaction-card-battler）
+# 元素反应卡牌战斗（reaction-card-battler）
 
 > **先看 [START_HERE.md](START_HERE.md)** ——
 
@@ -7,17 +7,24 @@
 > 这不是"做一个游戏"，是"用一个游戏练工程"。
 > 项目计划见 [项目计划_知识储备与行动大纲.md](项目计划_知识储备与行动大纲.md)。
 
-当前状态：**kata 起点** —— 测试（规格）和文档写好了，`src/core/` 里全是待实现的 TODO。
-第一次跑测试会是**红的**：四个测试文件共 110 项检查，80 项失败。这是正常的，不是坏了。
+当前状态：**M1 完成，M2 收尾中（E15 敌方 AI）**。测试（规格）和文档写好了，实现由你来写。
+现在跑全套是**部分红**的：7 个测试文件共 305 项检查（当前执行 291 项，其余的等 E15 实现），
+**6 条红**（E15 敌方 AI + M2 遗留 bug）。红的条数在变少，就是你的进度条 —— 规格见
+`docs/implementation-tasks.md` §23。
 
 ### 测试文件怎么分（按"被测单元"，不是按功能点）
 
+> 每个测试文件末尾会**硬校验"应执行的检查项数"**，对不上直接判红 —— 防止"少跑了几条却全绿"。
+
 | 文件 | 测谁 | 项数 | 现在红 |
 |---|---|---|---|
-| `tests/data_test.gd` | 数据链路：JSON 加载、元素工具、反应表、状态表 | 29 | 27 |
-| `tests/unit_test.gd` | 单位数值：护盾、致死、治疗、附着量、buff 生命周期 | 19 | 13 |
-| `tests/damage_test.gd` | 纯算法：倍率、floor、免疫、effects、触发方向 | 21 | 12 |
-| `tests/battle_test.gd` | 流程：**回合交换、能量、附着量/复合元素**、胜负、自动战斗 | 41 | 28 |
+| `tests/data_test.gd` | 数据链路：JSON 加载、元素工具、反应表、状态表、牌库内容 | 46 | 0 |
+| `tests/unit_test.gd` | 单位数值：护盾、致死、治疗、附着量、buff 生命周期 | 21 | 0 |
+| `tests/damage_test.gd` | 纯算法：倍率、floor、免疫、effects、触发方向 | 23 | 0 |
+| `tests/board_test.gd` | 棋盘：三条线、HQ、容量、位置查询 | 38 | 0 |
+| `tests/combat_test.gd` | 移动 / 攻击与反击 / 行动花费 / 前线独占 / 死亡移除 | 59 | 0 |
+| `tests/battle_m1_smoke_test.gd` | M1 流程：回合推进、能量、附着、伤害转接 | 58 | 1 |
+| `tests/battle_m2_test.gd` | M2 流程：Kredit / 部署 / 召唤失调 / HQ 胜负 / 敌方 AI / 自动对局 | 60 | 5 |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
 
 ## 玩法（三行版，详细设计见 docs/game-design.md）
@@ -62,11 +69,15 @@
 # 1. 导入项目（第一次必须做，会生成 .godot/ 缓存）
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --import
 
-# 2. 跑测试（四个文件，退出码 0 = 全绿）
+# 2. 跑测试（7 个文件；退出码 0 = 该文件全绿，还要确认输出里没有 SCRIPT ERROR）
+#    懒人版：双击 run_tests.bat —— 它会跑全套并检查 PASS / [FAIL] / SCRIPT ERROR
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/data_test.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/unit_test.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/damage_test.gd
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_test.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/board_test.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_m1_smoke_test.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_m2_test.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/combat_test.gd
 
 # 3. 看一场自动战斗的完整日志
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/run_battle.gd
@@ -127,8 +138,11 @@ reaction-card-battler/
     ├── data_test.gd         # 数据链路（JSON 加载 / 元素工具 / 反应表）
     ├── unit_test.gd         # 单位数值（护盾/治疗/buff）
     ├── damage_test.gd       # 伤害算法（纯函数）
-    ├── battle_test.gd       # 战斗流程（回合交换/能量/附着/胜负）
-    └── run_battle.gd        # 手动跑一局看日志
+    ├── battle_m1_smoke_test.gd  # M1 流程（回合交换/能量/附着）
+    ├── battle_m2_test.gd        # M2 流程（部署/召唤失调/HQ 胜负/敌方 AI）
+    ├── board_test.gd            # 棋盘（三条线 / HQ / 位置）
+    ├── combat_test.gd           # 移动 / 攻击与反击 / 前线独占 / 死亡移除
+    └── run_battle.gd            # 手动跑一局看日志
 ```
 
 ---
@@ -164,8 +178,8 @@ reaction-card-battler/
 
 | 里程碑 | 目标 | 状态 |
 |---|---|---|
-| M1 | **无战线**：跑通「出牌 → 伤害 → 元素反应」+ 两套测试 | 骨架就绪，等你实现 |
-| M2 | **加部署 + 战线（支援/前线）+ 移动 + 行动花费**，变成 KARDS-lite | 未开始（ADR-002 已记录范围） |
+| M1 | **无战线**：跑通「出牌 → 伤害 → 元素反应」+ 两套测试 | ✅ 完成（155 项） |
+| M2 | **加部署 + 战线（支援/前线）+ 移动 + 行动花费**，变成 KARDS-lite | 🟡 12/15（E15 敌方 AI 进行中） |
 | M3 | 关键词（闪击等）+ 卡组构筑 + 平衡模拟 | 未开始 |
 | M4 | 可玩 UI + 存档迁移 | 未开始 |
 | M5 | 发布 itch.io + 3 篇博客 | 未开始 |

@@ -7,23 +7,24 @@
 
 | # | 文件 | 任务数 | 难度 | 预计行数 | 验收（测试分组） | 完成 |
 |---|---|---|---|---|---|---|
-| 1 | `element.gd` | 3 | ★ | 15 | data_test[3] | [ ] |
-| 2 | `damage.gd` | 5 | ★★ | 40 | damage_test[D1–D6] | [ ] |
-| 3 | `card.gd` | 2 | ★ | 20 | data_test[1] | [ ] |
-| 4 | `buff.gd` | 2 | ★ | 10 | unit_test[5] | [ ] |
-| 5 | `unit.gd` | 7 | ★★ | 45 | unit_test[1–4] | [ ] |
-| 6 | `reaction_table.gd` | 4 | ★★ | 25 | data_test[4] | [ ] |
-| 7 | `data_loader.gd` | 3 | ★★ | 40 | data_test[1][2] | [ ] |
-| 8 | `battle.gd` | 13 | ★★★ | 150 | battle_test[1–7] | [ ] |
-| 9 | `status_table.gd` | 4 | ★★ | 25 | data_test[5] | [ ] |
-| 10 | `unit.gd`（M2 扩展） | 3 | ★ | 15 | board_test[1] | [ ] |
-| 11 | `board.gd` | 6 | ★★★ | 80 | board_test[2][3] | [ ] |
-| 12 | `hq`（在 board / battle 内） | 3 | ★★ | 30 | board_test[2] | [ ] |
-| 13 | `battle.gd`（M2：Kredit / 部署 / 召唤失调） | 3 | ★★ | 60 | battle_m2_test[1–3] | [ ] |
-| 14 | `board.gd` + `battle.gd`（M2：移动 / 攻击 / 行动花费） | 5 | ★★★ | 90 | combat_test[1–3] | [ ] |
-| 15 | `unit.gd` + `battle.gd`（M2：owner / 前线独占） | 2 | ★★ | 40 | combat_test[2][5]、board_test[2] | [ ] |
-| 16 | `board.gd` + `battle.gd`（M2：死亡移除） | 2 | ★ | 20 | combat_test[6] | [ ] |
-| 17 | `battle.gd`（M2：胜负改 HQ）+ M1 测试退役 | 3 | ★★ | 40 | battle_m2_test[5] | [ ] |
+| 1 | `element.gd` | 3 | ★ | 15 | data_test[3] | [x] |
+| 2 | `damage.gd` | 5 | ★★ | 40 | damage_test[D1–D6] | [x] |
+| 3 | `card.gd` | 2 | ★ | 20 | data_test[1] | [x] |
+| 4 | `buff.gd` | 2 | ★ | 10 | unit_test[5] | [x] |
+| 5 | `unit.gd` | 7 | ★★ | 45 | unit_test[1–4] | [x] |
+| 6 | `reaction_table.gd` | 4 | ★★ | 25 | data_test[4] | [x] |
+| 7 | `data_loader.gd` | 3 | ★★ | 40 | data_test[1][2] | [x] |
+| 8 | `battle.gd` | 13 | ★★★ | 150 | battle_m1_smoke_test[1–5] | [x] |
+| 9 | `status_table.gd` | 4 | ★★ | 25 | data_test[5] | [x] |
+| 10 | `unit.gd`（M2 扩展） | 3 | ★ | 15 | board_test[1] | [x] |
+| 11 | `board.gd` | 6 | ★★★ | 80 | board_test[2][3] | [x] |
+| 12 | `hq`（在 board / battle 内） | 3 | ★★ | 30 | board_test[2] | [x] |
+| 13 | `battle.gd`（M2：Kredit / 部署 / 召唤失调） | 3 | ★★ | 60 | battle_m2_test[1–3] | [x] |
+| 14 | `board.gd` + `battle.gd`（M2：移动 / 攻击 / 行动花费） | 5 | ★★★ | 90 | combat_test[1–3] | [x] |
+| 15 | `unit.gd` + `battle.gd`（M2：owner / 前线独占） | 2 | ★★ | 40 | combat_test[2][5]、board_test[2] | [x] |
+| 16 | `board.gd` + `battle.gd`（M2：死亡移除） | 2 | ★ | 20 | combat_test[6] | [x] |
+| 17 | `battle.gd`（M2：胜负改 HQ）+ M1 测试退役 | 3 | ★★ | 40 | battle_m2_test[5] | [x] |
+| 18 | `battle.gd`（M2：敌方 AI + run_auto） | 4 | ★★★ | 150 | battle_m2_test[3][6][7] | [ ] |
 
 **建议顺序**：1 → 3 → 7 → 6 → 2 → 5 → 4 → 8（先打通数据链路，再写伤害算法，最后拼战斗流程）
 
@@ -363,10 +364,14 @@ M1 是固定 3 点。M2 改成 KARDS 式成长：
 ## 15. 召唤失调（M2 / E5）
 
 - 单位**部署的瞬间** `has_acted = true` → 当回合不能移动/攻击
-- 每个回合开始时，**己方所有单位** `has_acted = false`
+- 每个回合开始时，**己方所有单位**（支援线 + 前线）`has_acted = false`
 - HQ 不参与（HQ 永远不行动）
 
-实现位置：`_begin_turn()` 里遍历 `board.units_in("player_support")` 把 `has_acted` 清零。
+实现位置：`_begin_turn()` 里遍历**三条线**，把 `owner == "player"` 且**非 HQ** 的单位的 `has_acted` 清零。
+
+> ⚠️ **M2 遗留 bug（E15 必须先修）**：现在只清了 `board.units_in("player_support")`，
+> 于是推进到 `front` 的单位永远 `has_acted = true` → **永远不能攻击**；敌方单位更是没有任何地方清零。
+> 修法见 §23「回合开始清 `has_acted` 的范围」。`battle_m2_test[3]` 有一条专门卡前线这条。
 
 验收：`battle_m2_test[3]`
 
@@ -530,6 +535,107 @@ E14（指令卡改造）做完再评估要不要退役。
 
 验收：`battle_m2_test[5]`
 
+## 23. 敌方 AI 与 run_auto（M2 / E15）
+
+目标：**一局能自己打完**。
+
+### 敌方资源与手牌（与玩家对称，省得写两套规则）
+
+| 字段 | 说明 |
+|---|---|
+| `enemy_energy` / `enemy_max_energy` | 与玩家同一套 Kredit 规则（开局 0，每回合 +1，封顶 12，回合开始回满到上限） |
+| `enemy_hand: Array[Card]` | 敌方手牌：开局抽 5、每回合抽 1（同玩家规则），上限同 `MAX_HAND` |
+| `enemy_deck: Array[Card]` | 从 `p_deck` 复制一份（`duplicate()`），**别和玩家的 deck 共用引用** |
+
+`setup()` 里初始化 `enemy_deck`（只复制，不抽牌）；`start_battle()` 里给敌方发 5 张起手。
+
+验收会检查：敌方牌库张数 = 玩家牌库、起手 5 张、每回合再抽 1 张、双方牌库各自扣牌。
+
+### 回合顺序（改 `end_turn()`）
+
+```
+end_turn():
+    玩家 buff 结算 → 敌方 buff 结算（tick 棋盘上的单位；M1 的 enemies 数组不再是战场）
+    _enemy_turn()             # 敌方回合：Kredit+1、抽 1、清零敌方 has_acted、AI 行动
+    if is_over(): return      # 敌方把玩家 HQ 打爆了
+    _begin_turn()             # 玩家新回合
+```
+
+**同时删掉 M1 的两处残留**（都在 `battle.gd`）：
+
+- `ENEMY_ATTACK` 常量
+- `end_turn()` 里"每个敌人打玩家 4 点"的循环 + `if player.hp <= 0: return`
+
+为什么必须删：玩家血量不再决定胜负（ADR-003），而且那个 `return` 会**卡住回合推进** ——
+`_begin_turn()` 不执行 → `turn` 冻结 → `run_auto` 跑满安全计数器也只会返回 RUNNING。
+`battle_m1_smoke_test.gd` 的断言已经同步改成「`end_turn()` 不再扣玩家血」，删掉不会变红；
+反过来，**不删它这条就会红**。
+
+### 回合开始清 `has_acted` 的范围（**M2 遗留 bug，E15 必须先修**）
+
+§15 说"己方所有单位"，但现在的 `_begin_turn()` 只清了 `player_support`：
+
+- 推进到 **front** 的玩家单位永远 `has_acted = true` → **永远不能攻击**（自动对局的第二个死因）
+- **敌方单位没有任何地方清零** → 敌方一辈子只能动一次
+
+要改成：`_begin_turn()` 遍历三条线，清 `owner == "player"` 且非 HQ 的单位的 `has_acted`；
+`_enemy_turn()` 开头对 `owner == "enemy"` 的做同样的事。
+
+验收里两条专门卡这个：`battle_m2_test[3]`「前线单位新回合也解除已行动」、`[6]`「敌方单位下一回合能再次攻击」。
+
+### `_enemy_ai()` 三段：**每段每回合最多执行 1 次**（别写成 while 整场梭哈）
+
+| 顺序 | 动作 | 条件 |
+|---|---|---|
+| 1 部署 | 从 `enemy_hand` 挑**最贵的、付得起的**单位卡，放到 `enemy_support` 空位；扣 `enemy_energy`；`owner = "enemy"`；新单位 `has_acted = true`（召唤失调同玩家） | 能量够 + 有空位 + 手里有单位卡 |
+| 2 推进 | `front` 里没有玩家单位时，把 `enemy_support` 里一个**非 HQ、未行动**的单位移到 `front`；付作战费、`has_acted = true` | 能量够 + 有候选 |
+| 3 攻击 | 每个未行动的敌方单位，在**相邻线**里挑目标：优先玩家单位（非 HQ），没有就打玩家 HQ；付作战费 | 能量够 + 有合法目标 |
+
+**⚠️ 攻击范围必须按 §17 的相邻线来，别自己发明：**
+
+- 敌方**前线**单位的相邻线是 `player_support` → 它能打玩家**支援线单位**和**玩家 HQ**，
+  **打不到"玩家前线单位"**。原因有二：① 前线独占（§20）→ 双方不可能同时占前线；
+  ② 同一条线不算相邻线（`abs(LINES.find(a) - LINES.find(b)) == 1`，同线差 0）。
+  **别为了让测试好过就把校验放宽成 `<= 1`** —— `combat_test` 会因此漏掉一个真规则。
+- 敌方**支援线**单位的相邻线是 `front` → 玩家推进到前线的单位是它们的目标。
+  **少了这一段，玩家一占前线敌方就永远抢不回来**（那局只能赢不能输）。
+- `attack_unit(attacker, null)` 会崩（`position_of(null)` 会命中空格、返回非空数组，然后读 `target.owner`）→ **选目标前先判空**。
+- HQ 不能移动/攻击：`units_in()` 会把 HQ 一起返回，挑候选时 `if u.is_hq: continue`。
+
+### `run_auto()` 重写
+
+玩家侧也自动决策：**部署 → 推进 → 攻击 → end_turn**，循环到
+`is_over()` / `turn >= max_turns` / 安全计数器耗尽，返回 `outcome()`。
+
+**坑**
+- 敌方攻击玩家单位也走同一个 `attack_unit()`（`owner` 已经能分敌我，别再写一份伤害逻辑）
+- 敌方部署时 `owner = "enemy"`，忘了就会"自己打自己"
+- AI 的"能打就打"必须配安全计数器（比如最多 200 次循环），否则死循环
+- `play_card` 返回 false 就跳过这张，别重试同一张
+- **玩家侧不打指令卡**（指令卡改造是 E14 的事）：手牌里没单位卡就跳过部署段
+- 别写成"每回合把能量全花在部署上"：支援线只有 4 个位，满了要推进，否则一辈子不出前线
+
+### `[7]` 为什么用一副专用牌库
+
+`cards.json` 前 7 种全是**指令卡**（28 张），单位卡排在后面；起手 6 张 + 每回合 1 张 + 手牌上限 9
+→ 第 4 回合手牌就满、之后抽到的全被丢弃 → **整局摸不到一张单位卡**。玩家侧又规定不打指令卡，
+于是双方都无牌可出，30 回合后 RUNNING。所以 `[7]` 用 `_make_unit_deck()`（单位卡在前）
+验证回合循环，和真牌库内容解耦。**别为了让它绿去改真牌库顺序。**
+
+**⚠️ 复用前要先把"玩家侧写死"的地方参数化**
+
+| 写死的 | 应该改成 |
+|---|---|
+| `move_unit` 里 `"player_support"` 作为出发点 | 按 `unit.owner` 选：`player` → `player_support`，`enemy` → `enemy_support` |
+| `move_unit` / `attack_unit` 里的 `energy` 扣费池 | 按 `unit.owner` 选：玩家扣 `energy`，敌方扣 `enemy_energy` |
+| `play_card` 单位分支的 `player_support` / `energy` / `owner="player"` | 抽成 `_deploy_unit(card, owner)`：敌方扣 `enemy_energy`、落 `enemy_support`、`owner="enemy"` |
+| `_draw()` 固定抽玩家的 `deck` → `hand` | `_draw_into(target_hand, target_deck, n)`，玩家和敌方各调一次 |
+
+不参数化的话，敌方 AI 只能把攻击/移动逻辑复制一遍 —— 那 `attack_unit` 里"走 `compute_damage` + 反击 + 死亡移除"的二十行就会有两份，以后改规则必漏一处。
+
+验收：`battle_m2_test[6]`（15 条）+ `[7]`（6 条）+ `[3]` 的前线那一条
+→ 全套 **305/305**（7 个测试文件，每个文件末尾还会校验"应执行项数"，少执行一条也算红）
+
 ---
 
 ## 附：常用 GDScript 手段速查
@@ -554,15 +660,20 @@ E14（指令卡改造）做完再评估要不要退役。
 ## 写完一个文件的验收动作
 
 ```bash
-# 只跑测试，看失败数有没有变少
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_test.gd
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/board_test.gd
+# 懒人版：跑全套 7 个文件 + 检查 PASS / [FAIL] / SCRIPT ERROR（推荐，别只看退出码）
+run_tests.bat
+
+# 只跑相关的那个文件，看失败数有没有变少
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_m2_test.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/combat_test.gd
 
 # 想手动看一局（battle.gd 写完后才用得上）
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/run_battle.gd
 ```
 
-**失败数从 19 减到多少，就是你的进度条。**
+**全绿 = 失败 0 项 + 退出码 0 + 输出里没有 `SCRIPT ERROR`。** 三个都要满足：
+前者可能"少跑了几条也全绿"（所以每个测试文件末尾会校验应执行的项数），后者是"报错被吞"。
+当前基线：`battle_m1_smoke_test` 1 红、`battle_m2_test` 5 红；E15 做完 → 全绿 305/305。
 
 ---
 

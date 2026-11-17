@@ -7,6 +7,10 @@ extends SceneTree
 var failures: int = 0
 var checks: int = 0
 
+## 全绿时应执行的检查项数。对不上 = 有测试段被静默跳过（或 SCRIPT ERROR 打断），
+## 只看"共 N 项检查、失败 0 项"会假绿，所以这里硬校验。
+const EXPECTED_CHECKS := 46
+
 
 func _initialize() -> void:
 	print("========== 数据链路测试 ==========")
@@ -15,6 +19,10 @@ func _initialize() -> void:
 	_test_elements()
 	_test_reactions()
 	_test_statuses()
+
+	if checks != EXPECTED_CHECKS:
+		printerr("  [FAIL] 覆盖不完整：本文件应执行 %d 项检查，实际 %d 项（有测试段被跳过 / 运行期脚本报错打断）" % [EXPECTED_CHECKS, checks])
+		failures += 1
 
 	print("---------------------------------------")
 	print("共 %d 项检查，失败 %d 项" % [checks, failures])
@@ -43,14 +51,14 @@ func _check_eq(actual, expected, message: String) -> void:
 func _test_cards() -> void:
 	print("[1] 卡牌加载")
 	var cards := DataLoader.load_cards()
-	_check_eq(cards.size(), 28, "牌库张数（7 种 × 每份 4）")
+	_check_eq(cards.size(), 44, "牌库张数（11 种 × 每份 4）")
 	if cards.is_empty():
 		_check(false, "卡牌数组为空，后续检查无法进行")
 		return
 	var distinct := {}
 	for c in cards:
 		distinct[c.id] = true
-	_check_eq(distinct.size(), 7, "不同卡牌种类")
+	_check_eq(distinct.size(), 11, "不同卡牌种类")
 	# M1 的 7 张都是指令卡；漏写 type 时 Card.from_dict 默认成 "unit"，M2 部署会把它们当单位
 	_check_eq(cards[0].type, "order", "指令卡 type = order")
 	var bad_type := 0
@@ -58,6 +66,11 @@ func _test_cards() -> void:
 		if c.type != "order" and c.type != "unit":
 			bad_type += 1
 	_check_eq(bad_type, 0, "卡牌 type 只能是 order / unit")
+	var unit_cards := 0
+	for c in cards:
+		if c.type == "unit":
+			unit_cards += 1
+	_check_eq(unit_cards, 16, "单位卡 16 张（4 种 × 4 份）")
 	var strong: Card = null
 	for c in cards:
 		if c.aura_amount >= 2.0:

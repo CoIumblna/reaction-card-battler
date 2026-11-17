@@ -8,6 +8,10 @@ extends SceneTree
 
 var failures: int = 0
 var checks: int = 0
+
+## 全绿时应执行的检查项数。对不上 = 有测试段被静默跳过（或 SCRIPT ERROR 打断），
+## 只看"共 N 项检查、失败 0 项"会假绿，所以这里硬校验。
+const EXPECTED_CHECKS := 59
 var table: ReactionTable
 
 
@@ -22,6 +26,10 @@ func _initialize() -> void:
 	_test_unit_reaction()
 	_test_front_exclusive()
 	_test_death()
+
+	if checks != EXPECTED_CHECKS:
+		printerr("  [FAIL] 覆盖不完整：本文件应执行 %d 项检查，实际 %d 项（有测试段被跳过 / 运行期脚本报错打断）" % [EXPECTED_CHECKS, checks])
+		failures += 1
 
 	print("---------------------------------------")
 	print("共 %d 项检查，失败 %d 项" % [checks, failures])

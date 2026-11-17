@@ -4,11 +4,16 @@ extends SceneTree
 ## 运行：
 ##   ... --headless --path . --script res://tests/battle_m2_test.gd
 ##
-## M1 的 battle_test.gd 保留不动（旧流程仍在跑）；这里只验收 M2 新加的部分。
+## [6] 敌方 AI / [7] 自动对局是 E15 的验收点。牌库顺序、手牌上限、指令卡策略都会影响
+## 自动对局能不能打完，规格见 docs/implementation-tasks.md §23。
 
 var failures: int = 0
 var checks: int = 0
 var table: ReactionTable
+
+## 全绿时应执行的检查项数。对不上 = 有测试段被静默跳过（或 SCRIPT ERROR 打断），
+## 只看"共 N 项检查、失败 0 项"会假绿，所以这里硬校验。
+const EXPECTED_CHECKS := 60
 
 
 func _initialize() -> void:
@@ -21,6 +26,12 @@ func _initialize() -> void:
 	_test_summoning_sickness()
 	_test_hq_wired()
 	_test_outcome()
+	_test_enemy_ai()
+	_test_run_auto()
+
+	if checks != EXPECTED_CHECKS:
+		printerr("  [FAIL] 覆盖不完整：本文件应执行 %d 项检查，实际 %d 项（有测试段被跳过 / 运行期脚本报错打断）" % [EXPECTED_CHECKS, checks])
+		failures += 1
 
 	print("---------------------------------------")
 	print("共 %d 项检查，失败 %d 项" % [checks, failures])
@@ -45,12 +56,15 @@ func _check_eq(actual, expected, message: String) -> void:
 	_check(actual == expected, "%s（期望 %s，实际 %s）" % [message, str(expected), str(actual)])
 
 
-func _new_battle(player_hp: int = 60) -> Battle:
+func _new_battle(player_hp: int = 60, p_deck: Array = []) -> Battle:
 	var b := Battle.new()
 	var player := Unit.from_dict({ "id": "player", "name": "旅行者", "hp": player_hp })
 	var enemy := Unit.from_dict({ "id": "enemy", "name": "训练假人", "hp": 9999 })
 	var enemies: Array[Unit] = [enemy]
-	b.setup(player, enemies, DataLoader.load_cards(), table, 20261115)
+	var cards: Array = p_deck
+	if cards.is_empty():
+		cards = DataLoader.load_cards()
+	b.setup(player, enemies, cards, table, 20261115)
 	return b
 
 
@@ -59,6 +73,20 @@ func _unit_card(id: String, cost: int, attack: int, defense: int, element: Strin
 		"id": id, "name": id, "type": "unit", "cost": cost,
 		"element": element, "attack": attack, "defense": defense,
 	})
+
+
+## [7] 专用牌库：单位卡放在最前面。
+## 为什么不用真牌库：cards.json 前 28 张全是指令卡（7 种 × 4），起手 5 + 每回合 1 张，
+## 第 4 回合手牌顶到上限 9、之后抽到的全被丢弃 —— 而自动决策不打指令卡（E14 才做），
+## 于是整局摸不到一张单位卡，谁都没法上场。这里只测"回合循环能打完"，和牌库内容解耦。
+func _make_unit_deck() -> Array[Card]:
+	var out: Array[Card] = []
+	for i in range(4):
+		out.append(_unit_card("footman", 1, 1, 2))
+		out.append(_unit_card("archer", 2, 2, 1))
+		out.append(_unit_card("fire_mage", 3, 2, 3, Element.FIRE))
+		out.append(_unit_card("tank", 4, 4, 5))
+	return out
 
 
 # ---------------------------------------------------------------- 用例
@@ -99,7 +127,7 @@ func _test_deploy() -> void:
 		return
 
 	b.energy = 5
-	var tank := _unit_card("tank", 3, 3, 4)
+	var tank := _unit_card("tank", 3, 3, 4, Element.FIRE)
 	b.hand.append(tank)
 	_check(b.play_card(tank, b.player), "单位卡可以打出")
 	_check_eq(b.energy, 2, "扣掉 3 费")
@@ -112,6 +140,9 @@ func _test_deploy() -> void:
 		_check_eq(u.hp, 4, "hp 取 card.defense")
 		_check_eq(u.max_hp, 4, "max_hp 同步为 4")
 		_check_eq(u.is_hq, false, "部署的不是 HQ")
+		_check_eq(u.element, Element.FIRE, "单位带上卡牌元素（丢了这个，单位永远不触发元素反应）")
+		_check_eq(u.owner, "player", "玩家部署的单位 owner = player（E15 敌方 AI 靠它分敌我）")
+		_check_eq(u.operation_cost, 1, "卡上没写作战费（0）时按 1 处理（§18）")
 
 	# 支援线还剩 3 个空位（1 号已被占）→ 只能再放 3 个
 	b.energy = 10
@@ -153,6 +184,14 @@ func _test_summoning_sickness() -> void:
 	b.end_turn()
 	_check_eq(u.has_acted, false, "进入下一回合后解除召唤失调")
 
+	# §15 说的是"己方所有单位"：已经推进到前线的单位也要清
+	# （M2 遗留 bug：_begin_turn 只清 player_support → 前线单位永远不能攻击）
+	var front_unit := Unit.from_dict({ "id": "front_grunt", "name": "前线兵", "hp": 20, "attack": 1, "owner": "player" })
+	board.place(front_unit, "front", 0)
+	front_unit.has_acted = true
+	b.end_turn()
+	_check_eq(front_unit.has_acted, false, "前线单位在新回合也解除已行动（不只支援线）")
+
 
 func _test_hq_wired() -> void:
 	print("[4] HQ 接入 Battle（M2 / E3）")
@@ -190,3 +229,96 @@ func _test_outcome() -> void:
 	var b3 := _new_battle()
 	b3.enemies[0].hp = 0
 	_check_eq(b3.outcome(), "RUNNING", "M1 的 enemies 全灭不再算赢（只看 HQ）")
+
+
+func _test_enemy_ai() -> void:
+	print("[6] 敌方 AI（M2 / E15）")
+	var b := _new_battle()
+	var missing: Array[String] = []
+	for f in ["enemy_energy", "enemy_max_energy", "enemy_hand", "enemy_deck"]:
+		if b.get(f) == null:
+			missing.append(f)
+	if not missing.is_empty():
+		_check(false, "Battle 还没有 %s 字段（敌方 AI 的前置）" % "、".join(missing))
+		return
+
+	# 敌方资源和玩家对称：setup 复制牌库、开局发 5 张、每回合抽 1 张、Kredit 每回合 +1
+	var total_deck: int = b.deck.size()
+	_check_eq(b.enemy_deck.size(), total_deck, "setup 给敌方复制了一份牌库（张数与玩家相同）")
+	b.start_battle()
+	_check_eq(b.enemy_hand.size(), 5, "敌方起手 5 张")
+	_check_eq(b.enemy_deck.size(), total_deck - 5, "敌方起手从敌方牌库扣 5 张")
+	_check_eq(b.deck.size(), total_deck - 6, "双方牌库各自扣牌（不是同一个 Array）")
+	var before: int = int(b.enemy_max_energy)
+	b.end_turn()
+	_check_eq(b.enemy_max_energy, before + 1, "敌方 Kredit 每回合 +1")
+	_check_eq(b.enemy_deck.size(), total_deck - 6, "敌方每回合抽 1 张（牌库再 -1）")
+
+	# 敌方会部署（手牌只给一张便宜的步兵；清空敌方牌库，免得"抽到哪张"影响断言）
+	var b2 := _new_battle()
+	b2.start_battle()
+	b2.enemy_hand.clear()
+	b2.enemy_deck.clear()
+	b2.enemy_hand.append(Card.from_dict({ "id": "footman", "name": "步兵", "type": "unit", "cost": 1, "element": "none", "attack": 1, "defense": 2 }))
+	b2.enemy_energy = 5
+	b2.enemy_max_energy = 5
+	b2.end_turn()
+	_check_eq(b2.board.units_in("enemy_support").size(), 2, "敌方部署了 1 个单位（HQ + 1，每回合最多 1 次）")
+	var deployed: Unit = null
+	for u in b2.board.units_in("enemy_support"):
+		if not u.is_hq:
+			deployed = u
+	_check(deployed != null and deployed.owner == "enemy", "敌方部署的单位 owner = enemy（不是 player）")
+	_check_eq(b2.board.units_in("player_support").size(), 1, "敌方部署没落到我方支援线（别直接复用 play_card 的玩家分支）")
+
+	# 敌方会推进前线：推的是支援线的单位，不能把 HQ 挪出去
+	var b3 := _new_battle()
+	b3.start_battle()
+	b3.enemy_hand.clear()
+	b3.enemy_deck.clear()
+	var foe := Unit.from_dict({ "id": "foe", "name": "敌兵", "hp": 3, "attack": 2, "owner": "enemy" })
+	b3.board.place(foe, "enemy_support", 1)
+	b3.enemy_energy = 5
+	b3.enemy_max_energy = 5
+	b3.end_turn()
+	var foe_pos := b3.board.position_of(foe)
+	_check(foe_pos.size() == 2 and foe_pos[0] == "front", "敌方把支援线的单位推进了前线（推的是单位，不是 HQ）")
+	_check(b3.board.unit_at("enemy_support", 0) != null, "HQ 还在原地（HQ 不能移动）")
+
+	# 敌方会攻击相邻线的玩家单位
+	# 注意：front 和 front 不是相邻线（前线独占 → 双方不可能同时在前线），
+	# 敌方前线单位的相邻线是我方【支援线】（player_support ↔ front）。
+	var b4 := _new_battle()
+	b4.start_battle()
+	b4.enemy_hand.clear()
+	b4.enemy_deck.clear()
+	var foe2 := Unit.from_dict({ "id": "foe2", "name": "敌兵", "hp": 5, "attack": 2, "owner": "enemy" })
+	b4.board.place(foe2, "front", 0)
+	var mine := Unit.from_dict({ "id": "mine", "name": "我方", "hp": 5, "attack": 1, "owner": "player" })
+	b4.board.place(mine, "player_support", 1)
+	b4.enemy_energy = 5
+	b4.enemy_max_energy = 5
+	b4.end_turn()
+	_check_eq(mine.hp, 3, "敌方前线单位攻击了我方支援线单位（伤害 = 攻击力 2，hp 5 → 3）")
+	_check(foe2.has_acted, "攻击后攻击者标记为已行动")
+	_check_eq(b4.board.unit_at("player_support", 0).hp, 20, "没有误打玩家 HQ（攻击段优先打单位）")
+
+	# 敌方单位的 has_acted 也要在敌方回合清零，否则一辈子只能动一次
+	var hp_after_first: int = mine.hp
+	b4.enemy_energy = 5
+	b4.enemy_max_energy = 5
+	b4.end_turn()
+	_check_eq(mine.hp, hp_after_first - 2, "敌方单位下一回合能再次攻击（has_acted 有清零，hp %d → %d）" % [hp_after_first, mine.hp])
+
+
+func _test_run_auto() -> void:
+	print("[7] 自动对局（M2 / E15）")
+	# 用单位卡在前的专用牌库（真牌库前 28 张全是指令卡，见 _make_unit_deck 的注释）
+	var b := _new_battle(60, _make_unit_deck())
+	var result := b.run_auto(30)
+	_check(result in ["WIN", "LOSE"], "自动对局能分出胜负（结果 %s）" % result)
+	_check(b.is_over(), "结束后 is_over() 为真（RUNNING = 没打完 / 卡死）")
+	_check_eq(result, b.outcome(), "返回值与 outcome() 一致")
+	_check(b.turn >= 4, "对局跑够回合数（实际 %d 回合；3 回合内结束说明没在棋盘上打）" % b.turn)
+	_check(b.turn <= 30, "不超过 max_turns（实际 %d 回合）" % b.turn)
+	_check(b.log_lines.size() >= 2, "战斗日志有内容（至少 START + 一步动作）")

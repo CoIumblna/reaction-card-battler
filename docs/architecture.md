@@ -57,7 +57,10 @@ reaction-card-battler/
 │   ├── data_test.gd         # 数据链路（JSON / 元素工具 / 反应表）
 │   ├── unit_test.gd         # 单位数值（护盾 / 治疗 / buff 生命周期）
 │   ├── damage_test.gd       # 伤害算法（纯函数）
-│   ├── battle_test.gd       # 战斗流程（回合交换 / 能量 / 附着 / 胜负）
+│   ├── battle_m1_smoke_test.gd   # M1 战斗流程（回合交换 / 能量 / 附着）
+│   ├── battle_m2_test.gd         # M2 流程（部署 / 召唤失调 / HQ 胜负 / 敌方 AI）
+│   ├── board_test.gd             # 棋盘（三条线 / HQ / 位置）
+│   ├── combat_test.gd            # 移动 / 攻击与反击 / 前线独占 / 死亡移除
 │   └── run_battle.gd        # 不是测试：手动跑一局看日志
 │
 ├── docs/                    ← 设计文档
@@ -108,7 +111,7 @@ Godot 用这个文件识别"这是一个项目"，里面写着项目名、主场
 
 ### `tests/` —— 【测试层】规格
 
-`battle_smoke_test.gd` 的 24 项断言，本质是**用代码写的需求文档**：
+`battle_m1_smoke_test.gd` 的断言，本质是**用代码写的需求文档**：
 "火打水附着应该打出 1.5 倍伤害"——这句话在测试里是一行可执行的断言。
 
 `run_battle.gd` 不是测试，是**手动跑一局看日志**的工具，用来调规则。
