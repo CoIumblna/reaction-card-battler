@@ -13,7 +13,7 @@ var table: ReactionTable
 
 ## 全绿时应执行的检查项数。对不上 = 有测试段被静默跳过（或 SCRIPT ERROR 打断），
 ## 只看"共 N 项检查、失败 0 项"会假绿，所以这里硬校验。
-const EXPECTED_CHECKS := 60
+const EXPECTED_CHECKS := 62
 
 
 func _initialize() -> void:
@@ -285,9 +285,9 @@ func _test_enemy_ai() -> void:
 	_check(foe_pos.size() == 2 and foe_pos[0] == "front", "敌方把支援线的单位推进了前线（推的是单位，不是 HQ）")
 	_check(b3.board.unit_at("enemy_support", 0) != null, "HQ 还在原地（HQ 不能移动）")
 
-	# 敌方会攻击相邻线的玩家单位
+	# 敌方会攻击相邻线的目标：够得着玩家 HQ 就先打 HQ
 	# 注意：front 和 front 不是相邻线（前线独占 → 双方不可能同时在前线），
-	# 敌方前线单位的相邻线是我方【支援线】（player_support ↔ front）。
+	# 敌方前线单位的相邻线是我方【支援线】（player_support ↔ front），HQ 就在那儿。
 	var b4 := _new_battle()
 	b4.start_battle()
 	b4.enemy_hand.clear()
@@ -296,19 +296,34 @@ func _test_enemy_ai() -> void:
 	b4.board.place(foe2, "front", 0)
 	var mine := Unit.from_dict({ "id": "mine", "name": "我方", "hp": 5, "attack": 1, "owner": "player" })
 	b4.board.place(mine, "player_support", 1)
+	var player_hq: Unit = b4.board.unit_at("player_support", 0)
 	b4.enemy_energy = 5
 	b4.enemy_max_energy = 5
 	b4.end_turn()
-	_check_eq(mine.hp, 3, "敌方前线单位攻击了我方支援线单位（伤害 = 攻击力 2，hp 5 → 3）")
+	_check_eq(player_hq.hp, 18, "敌方前线单位打了玩家 HQ（攻击力 2，20 → 18）")
+	_check_eq(mine.hp, 5, "没有误打玩家支援线单位（攻击段优先打 HQ）")
 	_check(foe2.has_acted, "攻击后攻击者标记为已行动")
-	_check_eq(b4.board.unit_at("player_support", 0).hp, 20, "没有误打玩家 HQ（攻击段优先打单位）")
 
 	# 敌方单位的 has_acted 也要在敌方回合清零，否则一辈子只能动一次
-	var hp_after_first: int = mine.hp
 	b4.enemy_energy = 5
 	b4.enemy_max_energy = 5
 	b4.end_turn()
-	_check_eq(mine.hp, hp_after_first - 2, "敌方单位下一回合能再次攻击（has_acted 有清零，hp %d → %d）" % [hp_after_first, mine.hp])
+	_check_eq(player_hq.hp, 16, "敌方单位下一回合能再次攻击（has_acted 有清零，HQ 18 → 16）")
+
+	# 打不到 HQ 的时候才打单位：敌方支援线单位够不到玩家 HQ（不相邻），只能打我方前线单位
+	var b5 := _new_battle()
+	b5.start_battle()
+	b5.enemy_hand.clear()
+	b5.enemy_deck.clear()
+	var front_mine := Unit.from_dict({ "id": "fm", "name": "我前", "hp": 5, "attack": 1, "owner": "player" })
+	b5.board.place(front_mine, "front", 1)
+	var sup_foe := Unit.from_dict({ "id": "sf", "name": "敌支", "hp": 5, "attack": 2, "owner": "enemy" })
+	b5.board.place(sup_foe, "enemy_support", 1)
+	b5.enemy_energy = 5
+	b5.enemy_max_energy = 5
+	b5.end_turn()
+	_check_eq(front_mine.hp, 3, "敌方支援线单位打不到 HQ，就打我方前线单位（5 → 3）")
+	_check_eq(b5.board.unit_at("player_support", 0).hp, 20, "敌方支援线单位够不到玩家 HQ（两条支援线不相邻）")
 
 
 func _test_run_auto() -> void:
