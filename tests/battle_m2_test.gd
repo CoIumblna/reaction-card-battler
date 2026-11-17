@@ -13,7 +13,7 @@ var table: ReactionTable
 
 ## 全绿时应执行的检查项数。对不上 = 有测试段被静默跳过（或 SCRIPT ERROR 打断），
 ## 只看"共 N 项检查、失败 0 项"会假绿，所以这里硬校验。
-const EXPECTED_CHECKS := 62
+const EXPECTED_CHECKS := 63
 
 
 func _initialize() -> void:
@@ -68,11 +68,14 @@ func _new_battle(player_hp: int = 60, p_deck: Array = []) -> Battle:
 	return b
 
 
-func _unit_card(id: String, cost: int, attack: int, defense: int, element: String = Element.NONE) -> Card:
-	return Card.from_dict({
+func _unit_card(id: String, cost: int, attack: int, defense: int, element: String = Element.NONE, operation_cost: int = -1) -> Card:
+	var d := {
 		"id": id, "name": id, "type": "unit", "cost": cost,
 		"element": element, "attack": attack, "defense": defense,
-	})
+	}
+	if operation_cost >= 0:
+		d["operation_cost"] = operation_cost   # -1 = 卡上不写这个字段（走 from_dict 缺省 1）
+	return Card.from_dict(d)
 
 
 ## [7] 专用牌库：单位卡放在最前面。
@@ -142,7 +145,7 @@ func _test_deploy() -> void:
 		_check_eq(u.is_hq, false, "部署的不是 HQ")
 		_check_eq(u.element, Element.FIRE, "单位带上卡牌元素（丢了这个，单位永远不触发元素反应）")
 		_check_eq(u.owner, "player", "玩家部署的单位 owner = player（E15 敌方 AI 靠它分敌我）")
-		_check_eq(u.operation_cost, 1, "卡上没写作战费（0）时按 1 处理（§18）")
+		_check_eq(u.operation_cost, 1, "卡上没写作战费时默认 1（§18）")
 
 	# 支援线还剩 3 个空位（1 号已被占）→ 只能再放 3 个
 	b.energy = 10
@@ -160,6 +163,16 @@ func _test_deploy() -> void:
 	_check_eq(b.play_card(over, b.player), false, "支援线满时部署失败")
 	_check_eq(b.energy, energy_before, "失败的部署不扣能量")
 	_check_eq(b.hand.has(over), true, "失败的卡留在手里")
+
+	# 0 是合法值（免费移动/攻击），不能被"缺省"吃掉：显式写 operation_cost: 0 的单位要保留 0
+	var b9 := _new_battle()
+	b9.start_battle()
+	b9.energy = 5
+	var scout_card := _unit_card("scout", 1, 1, 1, Element.NONE, 0)
+	b9.hand.append(scout_card)
+	var deployed_ok := b9.play_card(scout_card, b9.player)
+	var scout: Unit = b9.board.unit_at("player_support", 1)
+	_check(deployed_ok and scout != null and scout.operation_cost == 0, "显式 operation_cost: 0 会保留（0 是合法值，不是漏写）")
 
 
 func _test_summoning_sickness() -> void:

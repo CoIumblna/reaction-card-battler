@@ -449,8 +449,16 @@ M1 是固定 3 点。M2 改成 KARDS 式成长：
 
 ## 18. 行动花费（M2 / E10）
 
-- `Unit` 加 `operation_cost: int = 1`，`from_dict` 读 `operation_cost`
-- 部署时：`unit.operation_cost = card.operation_cost`，**卡上没写（0）就按 1 处理**
+- `Unit` 加 `operation_cost: int = 1`，`from_dict` 读 `operation_cost`（缺省 1）
+- **`Card.from_dict` 的 `operation_cost` 缺省值也必须是 1（不是 0）**，这样"没写"和"显式写 0"才分得开：
+
+  | 卡牌数据 | `card.operation_cost` | 含义 |
+  |---|---|---|
+  | 没写 `operation_cost` | `1` | 缺省：正常收费 |
+  | 显式写 `"operation_cost": 0` | `0` | **合法值**：移动/攻击免费（M3 的内容卡会用，比如侦察兵） |
+  | 显式写 `"operation_cost": 2` | `2` | 重装单位，行动更贵 |
+
+- 部署时：`unit.operation_cost = card.operation_cost`，**不要在部署里再对 0 做归一化**（0 是合法值，不是漏写）
 - 移动、攻击都要付；**先校验能量再扣**
 - 能量不足：返回 `false`，不扣费、不移位、不标记已行动
 

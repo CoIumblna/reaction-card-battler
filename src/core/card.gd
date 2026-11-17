@@ -14,7 +14,7 @@ var id: String = ""
 var display_name: String = ""
 var type: String = "order"        # unit / order（M1 的卡都是 order，M2 才有 unit）
 var cost: int = 1
-var operation_cost: int = 0      # M2：移动/攻击的额外花费
+var operation_cost: int = 1      # M2：移动/攻击的额外花费
 var element: String = Element.NONE
 var unit_class: String = ""      # M2
 var keywords: Array[String] = [] # M2
@@ -38,7 +38,7 @@ static func from_dict(d: Dictionary) -> Card:
 	c.target = str(d.get("target","self"))
 	
 	c.type = str(d.get("type", "order"))
-	c.operation_cost = int(d.get("operation_cost", 0))
+	c.operation_cost = int(d.get("operation_cost", 1))
 	c.unit_class = str(d.get("unit_class", ""))
 	c.attack = int(d.get("attack", 0))
 	c.defense = int(d.get("defense", 0))

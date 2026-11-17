@@ -39,6 +39,7 @@ func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable
 	board.setup()
 	rng.seed = seed_value
 	turn = 0
+	max_energy = 0
 	hand.clear()
 	energy = max_energy
 	log_lines.clear()
@@ -47,6 +48,8 @@ func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable
 	deck.clear()
 	for i in p_deck:
 		deck.append(i)
+	enemy_max_energy = 0
+	enemy_energy = 0
 	enemy_deck.clear()
 	for i in p_deck:
 		enemy_deck.append(i)
@@ -124,19 +127,23 @@ func run_auto(max_turns: int = 30) -> String:
 	return outcome()
 
 
+func _deploy_unit(card: Card, owner: String) -> bool:
+	if _energy_of(owner) < card.cost or board.first_empty_unit_slot(_line_of(owner)) == -1:
+		return false
+	_spend(owner,card.cost)
+	var nu := Unit.new()
+	nu = Unit.from_dict({"id":card.id,"name":card.display_name,"hp":card.defense,"attack":card.attack,"element":card.element,"owner":owner,"operation_cost":card.operation_cost})
+	board.place(nu,_line_of(owner),board.first_empty_unit_slot(_line_of(owner)))
+	nu.has_acted = true
+	_hand_of(owner).erase(card)
+	return true
+
+
 func play_card(card: Card, target: Unit) -> bool:
 	if card == null or target == null or card.cost > energy:
 		return false
 	if card.type == "unit":
-		if energy < card.cost or board.first_empty_unit_slot("player_support") == -1:
-			return false
-		energy -= card.cost
-		var nu := Unit.new()
-		nu = Unit.from_dict({"id":card.id,"name":card.display_name,"hp":card.defense,"attack":card.attack,"element":card.element,"owner":"player"})
-		board.place(nu,"player_support",board.first_empty_unit_slot("player_support"))
-		nu.has_acted = true
-		hand.erase(card)
-		return true
+		return _deploy_unit(card,"player")
 	elif card.type == "order":
 		energy -= card.cost
 		match card.kind:
@@ -203,21 +210,21 @@ func _apply_aura(target: Unit, element: String, amount: float) -> void:
 
 func move_unit(unit: Unit, to_line: String, to_index: int) -> bool:
 	var pos := board.position_of(unit)
-	if pos.is_empty() or pos[0] != "player_support" or to_line != "front":
+	if pos.is_empty() or pos[0] != _line_of(unit.owner) or to_line != "front":
 		return false
 	if unit.has_acted:
 		return false
 	if board.unit_at(to_line, to_index) != null:      # 目标格空，自己判
 		return false
 	var fee = unit.operation_cost
-	if energy < fee:                                   # 能量够
+	if _energy_of(unit.owner) < fee:                                   # 能量够
 		return false
 	for u in board.units_in("front"):
-		if u != null and u.owner == "enemy":
+		if u != null and u.owner != unit.owner:
 			return false
-	energy -= fee
-	if not board.move("player_support", pos[1], "front", to_index):
-		energy += fee                                  # 兜底回滚（理论上不会走到）
+	_spend(unit.owner,fee)
+	if not board.move(_line_of(unit.owner), pos[1], "front", to_index):
+		_gain(unit.owner,fee)                                  # 兜底回滚（理论上不会走到）
 		return false
 	unit.has_acted = true                              # ← 只有真成功了才标记
 	_log("%s移动到%s %d"%[unit.display_name,to_line,to_index])
@@ -231,10 +238,9 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 		return false
 	if abs(Board.LINES.find(at[0]) - Board.LINES.find(tar[0])) != 1:
 		return false
-	if energy < attacker.operation_cost or attacker.owner == target.owner:
+	if _energy_of(attacker.owner) < attacker.operation_cost or attacker.owner == target.owner:
 		return false
-	
-	energy -= attacker.operation_cost
+	_spend(attacker.owner,attacker.operation_cost)
 	attacker.has_acted = true
 	var dam:Dictionary = compute_damage(attacker.attack,attacker.element,target)
 	var disc:int = target.take_damage(dam["damage"])
@@ -278,3 +284,24 @@ func _enemy_names() -> String:
 func _log(line: String) -> void:
 	log_lines.append(line)
 	print(line)
+	
+func _line_of(owner:String) -> String:
+	return "player_support" if owner == "player" else "enemy_support"
+
+func _energy_of(owner:String) -> int:
+	return energy if owner == "player" else enemy_energy
+
+func _spend(owner:String, n:int) -> void:
+	if owner == "player":
+		energy -= n
+	else :
+		enemy_energy -= n
+
+func _gain(owner:String, n:int) -> void:
+	if owner == "player":
+		energy += n
+	else :
+		enemy_energy += n
+
+func _hand_of(owner:String) -> Array[Card]:
+	return hand if owner == "player" else enemy_hand

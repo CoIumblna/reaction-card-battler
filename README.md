@@ -8,9 +8,9 @@
 > 项目计划见 [项目计划_知识储备与行动大纲.md](项目计划_知识储备与行动大纲.md)。
 
 当前状态：**M1 完成，M2 收尾中（E15 敌方 AI）**。测试（规格）和文档写好了，实现由你来写。
-现在跑全套是**部分红**的：7 个测试文件共 307 项检查（当前执行 291 项，其余的等 E15 实现），
-**6 条红**（E15 敌方 AI + M2 遗留 bug）。红的条数在变少，就是你的进度条 —— 规格见
-`docs/implementation-tasks.md` §23。
+现在跑全套是**部分红**的：7 个测试文件共 308 项检查（当前执行 292 项，其余的等 E15 实现），
+红点集中在 `battle_m2_test` 里 E15 相关的那几条 —— 跑 `run_tests.bat` 看具体哪条。
+红的条数在变少，就是你的进度条；规格见 `docs/implementation-tasks.md` §23。
 
 ### 测试文件怎么分（按"被测单元"，不是按功能点）
 
@@ -23,8 +23,8 @@
 | `tests/damage_test.gd` | 纯算法：倍率、floor、免疫、effects、触发方向 | 23 | 0 |
 | `tests/board_test.gd` | 棋盘：三条线、HQ、容量、位置查询 | 38 | 0 |
 | `tests/combat_test.gd` | 移动 / 攻击与反击 / 行动花费 / 前线独占 / 死亡移除 | 59 | 0 |
-| `tests/battle_m1_smoke_test.gd` | M1 流程：回合推进、能量、附着、伤害转接 | 58 | 1 |
-| `tests/battle_m2_test.gd` | M2 流程：Kredit / 部署 / 召唤失调 / HQ 胜负 / 敌方 AI / 自动对局 | 62 | 5 |
+| `tests/battle_m1_smoke_test.gd` | M1 流程：回合推进、能量、附着、伤害转接 | 58 | 0 |
+| `tests/battle_m2_test.gd` | M2 流程：Kredit / 部署 / 召唤失调 / HQ 胜负 / 敌方 AI / 自动对局 | 63 | 11 |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
 
 ## 玩法（三行版，详细设计见 docs/game-design.md）

@@ -8,9 +8,9 @@
     { "id": "guard", "name": "防御姿态", "type": "order", "cost": 1, "element": "none", "kind": "shield", "power": 6, "target": "self", "count": 4 },
     { "id": "mend", "name": "疗愈", "type": "order", "cost": 2, "element": "none", "kind": "heal", "power": 6, "target": "self", "count": 4 },
     { "id": "fire_burst", "name": "炎爆", "type": "order", "cost": 2, "element": "fire", "kind": "damage", "power": 8, "aura_amount": 2, "count": 4 },
-    { "id": "footman", "name": "步兵", "type": "unit", "cost": 1, "element": "none", "attack": 1, "defense": 2, "count": 4 },
-    { "id": "archer", "name": "弓手", "type": "unit", "cost": 2, "element": "none", "attack": 2, "defense": 1, "count": 4 },
-    { "id": "fire_mage", "name": "火法师", "type": "unit", "cost": 3, "element": "fire", "attack": 2, "defense": 3, "count": 4 },
-    { "id": "tank", "name": "坦克", "type": "unit", "cost": 4, "element": "none", "attack": 4, "defense": 5, "count": 4 }
+    { "id": "footman", "name": "步兵", "type": "unit", "cost": 1, "element": "none", "attack": 1, "defense": 2, "operation_cost": 1, "count": 4 },
+    { "id": "archer", "name": "弓手", "type": "unit", "cost": 2, "element": "none", "attack": 2, "defense": 1, "operation_cost": 1, "count": 4 },
+    { "id": "fire_mage", "name": "火法师", "type": "unit", "cost": 3, "element": "fire", "attack": 2, "defense": 3, "operation_cost": 1, "count": 4 },
+    { "id": "tank", "name": "坦克", "type": "unit", "cost": 4, "element": "none", "attack": 4, "defense": 5, "operation_cost": 1, "count": 4 }
   ]
 }
