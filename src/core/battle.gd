@@ -101,13 +101,30 @@ func _begin_turn() -> void:
 	turn += 1
 	energy = max_energy
 	_draw_into(deck,hand,1)
-	
+
+
+func _enemy_ai() -> void:
+	pass
+
+
+func _enemy_turn() -> void:
+	enemy_max_energy = min(enemy_max_energy + 1, KREDIT_CAP)
+	enemy_energy = enemy_max_energy
+	_draw_into(enemy_deck, enemy_hand, 1)
+	for i in Board.LINES:
+		for u in board.units_in(i):
+			if u.owner != "enemy" || u.is_hq:
+				continue
+			u.has_acted = false
+	_enemy_ai()
+
 
 func end_turn() -> void:
 	player.tick_buffs()
 	for e in alive_enemies():
 		e.tick_buffs()
-	
+	_enemy_turn()
+	if is_over():return
 	_begin_turn()
 
 
