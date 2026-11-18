@@ -663,7 +663,68 @@ M3 加了 Guard 关键词之后，再改成"Guard 单位挡路"。
 不参数化的话，敌方 AI 只能把攻击/移动逻辑复制一遍 —— 那 `attack_unit` 里"走 `compute_damage` + 反击 + 死亡移除"的二十行就会有两份，以后改规则必漏一处。
 
 验收：`battle_m2_test[6]`（17 条）+ `[7]`（6 条）+ `[3]` 的前线那一条
-→ 全套 **307/307**（7 个测试文件，每个文件末尾还会校验"应执行项数"，少执行一条也算红）
+→ 全套 **308/308**（7 个测试文件，每个文件末尾还会校验"应执行项数"，少执行一条也算红）
+
+## 24. 状态效果生效（M2 收尾 / C8）
+
+目标：反应挂上去的状态**真的产生效果**（燃烧/感电每回合掉血、冻结本回合不能行动），
+而且效果完全由 `data/tables/statuses.json` 驱动（ADR-001：不按状态名写死）。
+
+### 数据与模型
+
+- 状态实例 = **`Buff`**：`kind` 存状态 id（`burn` / `shock` / `immobilized` / `defense_down`），
+  `duration` 存剩余回合，`stacks` 默认 1。
+- `Battle` 加字段 `var status_table: StatusTable`，**`setup()` 里自己加载**
+  `res://data/tables/statuses.json`（和 `reaction_table` 一样是 Battle 的字段，测试会直接读它）。
+- 一律 `status_table.get_status(buff.kind)` 拿到 `effects` 再按 `kind` 分发。
+
+### 回合开始的结算：每个己方单位（**跳过 HQ**），四步顺序不能换
+
+| # | 做什么 | 怎么判 |
+|---|---|---|
+| 1 **dot 掉血** | 遍历这个单位的 `buffs`，查 `effects` 里 `kind == "dot"` 且 `timing == "turn_start"` → `take_damage(int(floor(value * stacks)))`（走护盾） | 掉血走 `take_damage`，所以护盾先吸收 |
+| 2 **死亡移除** | 掉血后 `hp <= 0` 的**普通单位** `board.remove()`；HQ 不移除（§21） | 死单位不能再行动 |
+| 3 **disable 标记** | `effects` 里 `kind == "disable"` 且 `timing == "action"` 的状态还在 → 本回合不能移动/攻击（`has_acted = true`） | 注意这是"冻结"，日志要能区分 |
+| 4 **buff 计时** | `tick_buffs()`：duration −1，到期的移除（C6 已有） | **放在最后**，否则 duration 1 的冻结会在生效前就过期 |
+
+顺序为什么是这样：先掉血再减 duration → **燃烧 duration 2 = 两个回合各掉 1 血**；
+disable 判定在 tick 之前 → **冻结 duration 1 能正好冻住 1 个回合**。
+
+玩家单位在 `_begin_turn()` 里结算；敌方单位在 `_enemy_turn()` 里结算（E15 第 5 步写的位置）。
+`_enemy_turn()` 里"清 has_acted"和"disable 标记"的先后：**先清，再按 disable 标记**。
+
+### 挂状态（反应附带）
+
+反应结算的那一层（`_apply_aura()` 或 `compute_damage()` 返回的 `effects`，**只挑一处，别两处都挂**）
+遍历 `effects`，`kind == "status"` → 目标 `add_buff(Buff.make(id, int(duration)))`：
+
+| 反应 | 状态 | 数据里的 duration |
+|---|---|---|
+| `lightning+water` 感电 | `shock` | 2 |
+| `ice+water` 冻结 | `immobilized` | 1 |
+| `ice+lightning` 超导 | `defense_down` | 2 |
+
+- 免疫 / 没触发反应 → **不挂**任何状态。
+- 同一状态重复挂：`stacks + 1`、`duration` 取较大值（别叠成两个 Buff，否则 dot 会翻倍）。
+
+### 时机的迁移（M1 残留）
+
+现在 `end_turn()` 里 tick 的是 M1 的 `player` 和 `alive_enemies()`（都不在棋盘上）。
+C8 开始要改成**棋盘单位**：玩家 → `_begin_turn()`，敌方 → `_enemy_turn()`。
+M1 那两行 tick 可以删掉（`player` / `enemies` 字段本身留给 E14 处理）。
+
+### 坑
+
+- `statuses.json` 的 `value` 是浮点（`1.0`），伤害用 `int(floor(value * stacks))`，和伤害公式一致（§0）
+- `buff.kind` 在 `statuses.json` 里查不到时 → 当"没有效果"，**不要崩**
+- 第一次 `_begin_turn()` 在 `start_battle()` 里就发生了，那时棋盘上可能已经摆了单位（测试会摆）
+- 状态挂在**活着**的单位上；死了以后已经移除，不用管 buff
+- `defense_down`（`stat_mod` / `passive`）这版**先不做**，结构留好（M3 的数值系统）
+
+### 验收
+
+新测试文件 `tests/status_test.gd`（`[0]` 数据接线 / `[1]` dot / `[2]` disable / `[3]` 反应挂状态，共 12 条）
+→ 全套 **320/320**（8 个测试文件）
 
 ---
 

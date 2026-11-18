@@ -21,14 +21,16 @@ jobs:
       - name: 导入项目
         run: godot --headless --path . --import
 
-      # 退出码 0 不等于全绿：脚本报错被吞时，测试照样打印 PASS。
+      # 自动发现 tests/*_test.gd（tests/pending/ 不参与）。
+      # 退出码 0 不等于全绿：脚本报错被吞时测试照样打印 PASS，
       # 所以每个文件额外要求：① 退出码 0 ② 打印了 PASS ③ 输出里没有 SCRIPT ERROR。
-      - name: 跑 7 个测试文件
+      - name: 跑所有测试文件
         shell: bash
         run: |
           set -euo pipefail
           FAIL=0
-          for t in data_test unit_test damage_test board_test battle_m1_smoke_test battle_m2_test combat_test; do
+          for f in tests/*_test.gd; do
+            t=$(basename "$f" .gd)
             echo "========== $t =========="
             LOG="/tmp/$t.log"
             godot --headless --path . --script "res://tests/$t.gd" 2>&1 | tee "$LOG" || FAIL=1

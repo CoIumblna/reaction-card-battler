@@ -39,6 +39,20 @@ Godot_v4.x-stable_win64_console.exe --headless --path . --script res://tools/add
 写回格式跟手写的一致（2 空格缩进、每张卡一行、UTF-8 无 BOM），写完会重新解析一遍自检；
 万一手滑写坏了，`git checkout -- data/tables/cards.json` 一条命令回滚。
 
+## check.bat —— 验收 / 进度工具（每天用）
+
+双击，或命令行 `tools\check.bat`。它做四件事：
+
+1. `--import` 一次
+2. 自动跑 `tests\*_test.gd`（`tests\pending\` 不算）
+3. 打印每个文件的 **项数 / 失败 / SCRIPT ERROR** + 合计
+4. 打印 **E15、C8 的检查点**（哪些已经绿了）+ 下一步建议
+
+底层是 `check.ps1`（PowerShell；中文输出要求文件是 **UTF-8 带 BOM**，改它的时候别把 BOM 丢了，
+否则 PowerShell 5.1 会把中文读成乱码）。Godot 路径变了就改 `check.ps1` 顶部的 `-Godot` 参数。
+
+当前目标：308/308（7 个测试文件）；把 `tests/pending/status_test.gd` 移到 `tests\` 后目标 320/320。
+
 ## 和 tests/ 的区别（重要）
 
 | | `tests/` | `tools/` |
