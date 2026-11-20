@@ -24,7 +24,8 @@
 | 15 | `unit.gd` + `battle.gd`（M2：owner / 前线独占） | 2 | ★★ | 40 | combat_test[2][5]、board_test[2] | [x] |
 | 16 | `board.gd` + `battle.gd`（M2：死亡移除） | 2 | ★ | 20 | combat_test[6] | [x] |
 | 17 | `battle.gd`（M2：胜负改 HQ）+ M1 测试退役 | 3 | ★★ | 40 | battle_m2_test[5] | [x] |
-| 18 | `battle.gd`（M2：敌方 AI + run_auto） | 4 | ★★★ | 150 | battle_m2_test[3][6][7] | [ ] |
+| 18 | `battle.gd`（M2：敌方 AI + run_auto） | 4 | ★★★ | 150 | battle_m2_test[3][6][7] | [x] |
+| 19 | `battle.gd`（M2 收尾：状态效果 C8） | 4 | ★★★ | 120 | status_test[0–3] | [ ] |
 
 **建议顺序**：1 → 3 → 7 → 6 → 2 → 5 → 4 → 8（先打通数据链路，再写伤害算法，最后拼战斗流程）
 
