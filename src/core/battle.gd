@@ -102,21 +102,48 @@ func _begin_turn() -> void:
 	energy = max_energy
 	_draw_into(deck,hand,1)
 
+func _ai(owner:String) -> void:#这是初版ai,后续会加入各种流派卡组专用的ai
+	var utmp: Card = Card.new()
+	for u in _hand_of(owner):
+		if u.type == "order":
+			continue
+		if utmp.cost <= u.cost and u.cost <= _energy_of(owner):
+			utmp = u
+	if utmp.id != "":
+		_deploy_unit(utmp,owner)
+	
+	if board.has_unit_of("front") != _opposite(owner):
+		for u in board.units_in(_support_of(owner)):
+			if u.is_hq || u.has_acted || u.operation_cost > _energy_of(owner):
+				continue
+			move_unit(u,"front",board.first_empty_unit_slot("front"))
+			
+	if board.has_unit_of("front") == owner:
+		for u in board.units_in("front"):
+			if u.is_hq || u.has_acted || u.operation_cost > _energy_of(owner):
+				continue
+			attack_unit(u,_opposite_hq(owner))
+			u.has_acted = true
+	elif board.has_unit_of("front") == _opposite(owner):
+		for u in board.units_in(_support_of(owner)):
+			if u.is_hq || u.has_acted || u.operation_cost > _energy_of(owner):
+				continue
+			attack_unit(u,board.find_first_unit("front"))
+			u.has_acted = true
 
-func _enemy_ai() -> void:
-	pass
+
 
 
 func _enemy_turn() -> void:
-	enemy_max_energy = min(enemy_max_energy + 1, KREDIT_CAP)
-	enemy_energy = enemy_max_energy
-	_draw_into(enemy_deck, enemy_hand, 1)
 	for i in Board.LINES:
 		for u in board.units_in(i):
 			if u.owner != "enemy" || u.is_hq:
 				continue
 			u.has_acted = false
-	_enemy_ai()
+	enemy_max_energy = min(enemy_max_energy + 1, KREDIT_CAP)
+	enemy_energy = enemy_max_energy
+	_draw_into(enemy_deck, enemy_hand, 1)
+	_ai("enemy")
 
 
 func end_turn() -> void:
@@ -129,16 +156,11 @@ func end_turn() -> void:
 
 
 ## 自动打完一整局（给测试和平衡模拟用）
-func run_auto(max_turns: int = 30) -> String:
+func run_auto(max_turns: int = 200) -> String:
 	start_battle()
 	var guard:int = 0
-	while not is_over() and turn < max_turns and guard < 200:
-		for c in hand.duplicate():
-			var foes := alive_enemies()
-			if c.kind == "damage" and not foes.is_empty():
-				play_card(c,foes[0])
-			elif c.kind != "damage":
-				play_card(c,player)
+	while not is_over() and turn < max_turns and guard < max_turns:
+		_ai("player")
 		end_turn()
 		guard += 1
 	return outcome()
@@ -322,3 +344,15 @@ func _gain(owner:String, n:int) -> void:
 
 func _hand_of(owner:String) -> Array[Card]:
 	return hand if owner == "player" else enemy_hand
+
+
+func _support_of(owner:String) -> String:
+	return "enemy_support" if owner == "enemy" else "player_support"
+
+
+func _opposite(owner:String) -> String:
+	return "player" if owner == "enemy" else "enemy"
+
+
+func _opposite_hq(owner:String) -> Unit:
+	return board.PLAYER_HQ if owner == "enemy" else board.ENEMY_HQ
