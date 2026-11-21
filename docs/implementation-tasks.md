@@ -28,6 +28,8 @@
 | 19 | `battle.gd`（M2 收尾：状态效果 C8） | 4 | ★★★ | 120 | status_test[0–3] | [x] |
 | 20 | `battle.gd`（E14：指令卡打在棋盘单位上） | 3 | ★★ | 40 | order_test[1–4] | [ ] |
 | 21 | `battle.gd`（E7：牌堆/弃牌/换牌） | 4 | ★★★ | 80 | deck_test[0–6] | [ ] |
+| 22 | `card.gd`+`unit.gd`+`battle.gd`（M3.1：关键词 + 闪击） | 3 | ★★ | 60 | keywords_test | [ ] |
+| 23 | `battle.gd`（M3.2：护卫 Guard，待拍板） | 3 | ★★★ | 50 | guard_test | [ ] |
 
 **建议顺序**：1 → 3 → 7 → 6 → 2 → 5 → 4 → 8（先打通数据链路，再写伤害算法，最后拼战斗流程）
 
@@ -798,6 +800,36 @@ M1 那两行 tick 可以删掉（`player` / `enemies` 字段本身留给 E14 处
 - 手牌上限溢出时先判断"手牌满"再决定进手还是进弃牌堆，别先 append 再删。
 
 **提交**：`feat(battle): 弃牌堆与牌库洗回（E7）`
+
+## 27. 关键词框架 + 闪击（M3.1）
+
+> 前置：E14/E7 收尾完成。总览见 `docs/m3-scope.md` §M3.1；规则决策见 `docs/adr/004-m3-keywords.md`。
+
+目标：`Card` / `Unit` 带 `keywords`，首批关键词 **Blitz（闪击）** 生效。Guard 见 §28（待拍板）。
+
+| 位置 | 要做 |
+|---|---|
+| `card.gd` `Card.from_dict` | 解析 `keywords`（JSON 数组 → `Array[String]`） |
+| `unit.gd` | 加 `var keywords: Array[String] = []`；`Unit.from_dict` 解析 |
+| `battle.gd` `_deploy_unit` | 把 `card.keywords` 拷到 Unit；`nu.has_acted = not nu.keywords.has("blitz")`；日志标注关键词 |
+| 数据 | `cards.json` 给 1–2 张卡加 `"keywords": ["blitz"]` |
+| 校验 | `tools/validate_data.gd` 已把未知关键词记为 warning（不崩） |
+
+**验收**：`tests/pending/keywords_test.gd` → **9/9**（解析 / 传递 / 不失调 / 可移动 / 可攻击 / 普通单位对照）。全绿后移到 `tests/`。
+**坑**
+- `Array[String]` 不能直接 `unit.keywords = d.get("keywords", [])`（untyped→typed 会报错）→ 逐项 `append` 或 `.assign()`；
+- `keywords` 可能缺省 → 用 `get` + 默认空数组；
+- Blitz 只影响"部署当回合"，下一回合照旧由 `_begin_turn` 清 `has_acted`；
+- **Guard 别提前塞进 `attack_unit`**，等 §28 拍板。
+
+**提交**：`feat(battle): 关键词框架与闪击（M3.1）`
+
+## 28. 护卫 Guard（M3.2，待拍板）
+
+`docs/adr/004-m3-keywords.md` 决定 2 拍板后把这里细化（语义 A/B/C、AI 目标策略、测试范围）。
+验收测试 `tests/pending/guard_test.gd` **6 项**已按**选项 A（相邻线有敌方 Guard 必须打 Guard）**暂定；拍板不同则先改测试再实现。
+**提交**：`feat(battle): 护卫 Guard（M3.2）`
+
 ---
 
 ## 附：常用 GDScript 手段速查

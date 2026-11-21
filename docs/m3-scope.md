@@ -34,7 +34,7 @@
 | 消费点 | **Blitz（闪击）：带该关键词的单位部署当回合可行动**——`_deploy_unit` 里 `has_acted = false`（否则为 `true`） |
 | 日志 | 部署时标注关键词（如 `步兵(闪击)上场`） |
 
-**验收**：`tests/pending/keywords_test.gd`（教练已写：Blitz 9 项 + Guard 6 项 = **15 项**；Guard 段按 ADR-004 选项 A 暂定，拍板后可能调整）。
+**验收**：`tests/pending/keywords_test.gd` **9 项**（Blitz）。Guard 的验收在 `tests/pending/guard_test.gd` **6 项**（按 ADR-004 选项 A 暂定，拍板后可能调整）。
 - Blitz 单位部署当回合 `has_acted == false`、能移动/攻击；普通单位仍 `true`。
 - 全绿后移到 `tests/`。
 
@@ -98,7 +98,7 @@
 
 | 文件 | 覆盖 | 项数（估） |
 |---|---|---|
-| `tests/keywords_test.gd` | Blitz（9 项）+ Guard（6 项，选项 A 暂定） | 15 |
+| `tests/keywords_test.gd` | 关键词框架 + Blitz | 9 |`n| `tests/guard_test.gd` | Guard（选项 A 暂定，ADR-004） | 6 |
 | `tests/deck_build_test.gd` | 牌组 JSON 展开、上限、非法项、双方独立 | 12–15 |
 | `tests/combat_test.gd` 增补 | 兵科（炮兵无反击等，待拍板） | +4–6 |
 | `tests/balance_sim_smoke_test.gd` | 工具存在 + 100 场能跑完（不进 CI 或标记短跑） | 3–5 |

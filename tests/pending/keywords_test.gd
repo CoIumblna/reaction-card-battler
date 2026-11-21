@@ -12,7 +12,7 @@ var checks: int = 0
 var table: ReactionTable
 
 ## 全绿时应执行的检查项数（少执行一条也算红）。
-const EXPECTED_CHECKS := 15
+const EXPECTED_CHECKS := 9
 
 
 func _initialize() -> void:
@@ -25,7 +25,6 @@ func _initialize() -> void:
 	_test_normal_unit_sickness()
 	_test_blitz_can_move()
 	_test_blitz_can_attack()
-	_test_guard_blocks()
 
 	if checks != EXPECTED_CHECKS:
 		printerr("  [FAIL] 覆盖不完整：本文件应执行 %d 项检查，实际 %d 项（有测试段被跳过 / 运行期脚本报错打断）" % [EXPECTED_CHECKS, checks])
@@ -128,44 +127,3 @@ func _test_blitz_can_attack() -> void:
 	var ok: bool = u != null and b.attack_unit(u, foe)
 	_check(ok, "闪击单位部署当回合成功攻击相邻线敌人")
 	_check_eq(foe.hp, 4, "攻击造成 1 点伤害（5 → 4）")
-
-
-## Guard 段按 ADR-004 的**选项 A（暂定）**写：相邻线有敌方 Guard 时，攻击必须打 Guard，
-## 不能越过它打普通单位或 HQ。若拍板改成 B/C，这一节要改。
-func _guard_unit(id: String, hp: int) -> Unit:
-	return Unit.from_dict({ "id": id, "name": id, "hp": hp, "attack": 1, "owner": "enemy", "keywords": ["guard"] })
-
-
-func _test_guard_blocks() -> void:
-	print("[5] 护卫 Guard：相邻线有 Guard 时不能越过它")
-	var b := _new_battle()
-	b.energy = 10
-	var attacker := Unit.from_dict({ "id": "atk", "name": "攻", "hp": 10, "attack": 2, "owner": "player" })
-	b.board.place(attacker, "front", 1)
-	var guard := _guard_unit("guard", 5)
-	b.board.place(guard, "enemy_support", 1)
-	var other := Unit.from_dict({ "id": "other", "name": "敌兵", "hp": 5, "attack": 1, "owner": "enemy" })
-	b.board.place(other, "enemy_support", 2)
-	var enemy_hq: Unit = b.board.unit_at("enemy_support", 0)
-
-	_check(not b.attack_unit(attacker, other), "Guard 在相邻线时，不能越过它打普通单位")
-	attacker.has_acted = false   # 让三条非法目标检查互相独立（实现正确时它们本来就不会标记）
-	_check(not b.attack_unit(attacker, enemy_hq), "Guard 在相邻线时，不能越过它打 HQ")
-	attacker.has_acted = false
-	_check(b.attack_unit(attacker, guard), "可以直接攻击 Guard 本身")
-	_check_eq(guard.hp, 3, "Guard 受到 2 点伤害（5 → 3）")
-
-	# Guard 阵亡后，攻击恢复原规则
-	var b2 := _new_battle()
-	b2.energy = 10
-	var guard2 := _guard_unit("guard2", 2)
-	b2.board.place(guard2, "enemy_support", 1)
-	var other2 := Unit.from_dict({ "id": "other2", "name": "敌兵", "hp": 5, "attack": 1, "owner": "enemy" })
-	b2.board.place(other2, "enemy_support", 2)
-	var atk2 := Unit.from_dict({ "id": "atk2", "name": "攻", "hp": 10, "attack": 2, "owner": "player" })
-	b2.board.place(atk2, "front", 1)
-	b2.attack_unit(atk2, guard2)
-	var atk3 := Unit.from_dict({ "id": "atk3", "name": "攻", "hp": 10, "attack": 2, "owner": "player" })
-	b2.board.place(atk3, "front", 0)
-	_check(b2.attack_unit(atk3, other2), "Guard 阵亡后，可以打其他单位")
-	_check_eq(other2.hp, 3, "Guard 阵亡后伤害正常结算（5 → 3）")

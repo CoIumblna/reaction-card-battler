@@ -27,7 +27,7 @@
 | `tests/battle_m2_test.gd` | M2 流程：Kredit / 部署 / 召唤失调 / HQ 胜负 / 敌方 AI / 自动对局 | 63 | 0 |
 | `tests/status_test.gd` | C8：dot / disable / 反应挂状态 | 12 | 0 |
 | `tests/pending/order_test.gd` | **E14 待启用**：指令卡打棋盘单位（规格 §25） | 27 | 6 |
-| `tests/pending/deck_test.gd` | **E7 待启用**：弃牌堆 / 牌库洗回（规格 §26） | 18 | 待实现 |`n| `tests/pending/keywords_test.gd` | **M3 待启用**：关键词框架 + 闪击 Blitz（规格 m3-scope §M3.1） | 9 | 6 |
+| `tests/pending/deck_test.gd` | **E7 待启用**：弃牌堆 / 牌库洗回（规格 §26） | 18 | 待实现 |`n| `tests/pending/keywords_test.gd` | **M3 待启用**：关键词框架 + 闪击 Blitz（规格 m3-scope §M3.1） | 9 | 6 |`n| `tests/pending/guard_test.gd` | **M3 待启用**：护卫 Guard（选项 A 暂定，ADR-004） | 6 | 2 |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
 
 > `run_tests.bat` 和 CI 都是**自动发现** `tests/*_test.gd`（`tests/pending/` 不算），加测试文件不用改脚本。

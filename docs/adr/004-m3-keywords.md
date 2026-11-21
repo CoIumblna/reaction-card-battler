@@ -17,7 +17,7 @@ M3 要加关键词与兵科，**其中 Guard 和空军越线会动到 §17 这�
 | B | 只允许"部署当回合攻击"，不允许移动 | 需要额外状态位，复杂 |
 | C | 部署当回合可行动，且免作战费 | 改 `_move/_attack` 费用逻辑，数值风险 |
 
-**建议 A**。测试：`tests/pending/keywords_test.gd`（已写 Blitz 9 项 + Guard 6 项 = 15 项；Guard 段按选项 A 暂定）。
+**建议 A**。测试：`tests/pending/keywords_test.gd`（Blitz，9 项）+ `tests/pending/guard_test.gd`（Guard，6 项，按选项 A 暂定）。
 
 ## 决定 2：护卫 Guard（**待拍板**）
 
