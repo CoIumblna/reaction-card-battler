@@ -159,6 +159,19 @@ if ($pendingFiles.Count -gt 0) {
     }
 }
 
+# ---------------------------------------------------------------- 数据校验（M3.5）
+$validatePath = Join-Path $ProjectRoot "tools\validate_data.gd"
+if (Test-Path $validatePath) {
+    $vout = & $Godot --headless --path $ProjectRoot --script res://tools/validate_data.gd 2>&1 | Out-String
+    $vpass = $vout.Contains("PASS") -and (-not $vout.Contains("[ERROR]"))
+    Write-Host ""
+    if ($vpass) {
+        Write-Host "[数据校验] validate_data.gd：PASS（cards/reactions/statuses/elements 合法）" -ForegroundColor Green
+    } else {
+        Write-Host "[数据校验] validate_data.gd：FAIL —— 跑它看逐条错误（改 data/ 后必须过）" -ForegroundColor Red
+    }
+}
+
 # ---------------------------------------------------------------- 结论
 Write-Host ""
 $statusEnabled = $outputs.ContainsKey("status_test")
