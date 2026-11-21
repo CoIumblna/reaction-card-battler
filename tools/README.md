@@ -75,3 +75,26 @@ Godot_v4.x-stable_win64_console.exe --headless --path . --script res://tools/val
 - 一条命令能跑
 - 输出能直接看出「哪一行错了」
 - 不要依赖界面
+
+## balance_sim.gd（M3.6 平衡模拟器）
+
+批量跑自动对局并统计胜率 / 回合数 / 超时，输出 CSV。规格见 `docs/m3-scope.md` §M3.6。
+
+```powershell
+$g = "C:\Users\LD\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe"
+cd "C:\Users\LD\Desktop\资料\whk\reaction-card-battler"
+# 100 场冒烟
+& $g --headless --path . --script res://tools/balance_sim.gd -- --games 100
+# 1 万场 + CSV（本地工具，不进 CI）
+& $g --headless --path . --script res://tools/balance_sim.gd -- --games 10000 --seed 42 --out res://balance.csv
+```
+
+| 参数 | 含义 |
+|---|---|
+| `--games N` | 对局数（默认 100） |
+| `--seed S` | 起始种子（默认 42；第 i 局 = S+i，可复现） |
+| `--max-turns N` | 单局最大回合（默认 30） |
+| `--out PATH` | CSV 路径（可选） |
+| `--all-cards` | 用全牌库（E14 之前 AI 不打指令卡，会大量 RUNNING；默认只用单位卡） |
+
+汇总输出：WIN/LOSE/RUNNING 局数、玩家胜率（目标 45%–60%）、平均回合（目标 8–20）、超时率（目标 <1%）。报告模板见 `docs/balance-report.md`。

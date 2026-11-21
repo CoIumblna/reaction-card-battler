@@ -9,3 +9,6 @@ export/
 *.tmp
 *.log
 .DS_Store
+
+# 平衡模拟输出（M3.6）
+/balance*.csv
