@@ -44,3 +44,11 @@ jobs:
             fi
           done
           exit $FAIL
+
+      # 数据合法性（M3.5）：cards/reactions/statuses/elements 结构校验
+      - name: 校验数据
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://tools/validate_data.gd | tee /tmp/validate.log
+          grep -q "PASS" /tmp/validate.log
