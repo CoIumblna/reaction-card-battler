@@ -83,11 +83,15 @@ func heal(amount: int) -> void:
 	hp = min(max_hp,hp)
 
 
-func add_buff(b: Buff) -> void:
-	buffs.append(b)
+func add_buff(buff: Buff) -> void:
+	for b in buffs:
+		if b.kind == buff.kind:
+			b.stacks += 1
+			b.duration = max(b.duration,buff.duration)
+			return
+	buffs.append(buff)
 
 
-## 每回合结束：duration - 1，到期的移除
 func tick_buffs() -> void:
 	var next_buffs:Array[Buff] = []
 	for i in range(0,buffs.size()):

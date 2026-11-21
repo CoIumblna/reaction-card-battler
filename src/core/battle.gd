@@ -14,13 +14,15 @@ extends RefCounted
 const MAX_HAND := 9
 const OPENING_HAND := 5
 const KREDIT_CAP := 12
+const DATA_PATH := "res://data/tables/statuses.json"
 
 var player: Unit
 var enemies: Array[Unit] = []
 var deck: Array[Card] = []
 var hand: Array[Card] = []
-var reaction_table: ReactionTable
+var reaction_table: ReactionTable 
 var board = Board.new()
+var status_table: StatusTable = StatusTable.new()
 
 var energy: int = 0
 var max_energy: int = 0
@@ -36,6 +38,7 @@ var enemy_deck: Array[Card] = []
 var rng = RandomNumberGenerator.new()
 
 func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable, seed_value: int = 1) -> void:
+	status_table.load_from_file(DATA_PATH)
 	board.setup()
 	rng.seed = seed_value
 	turn = 0
@@ -54,7 +57,7 @@ func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable
 	for i in p_deck:
 		enemy_deck.append(i)
 	reaction_table = table
-	pass
+	
 
 
 func alive_enemies() -> Array[Unit]:
@@ -97,19 +100,21 @@ func _begin_turn() -> void:
 			if u.owner != "player" || u.is_hq:
 				continue
 			u.has_acted = false
+	_settle_status("player")
 	max_energy = min(max_energy+1,KREDIT_CAP)
 	turn += 1
 	energy = max_energy
 	_draw_into(deck,hand,1)
 
 func _ai(owner:String) -> void:#这是初版ai,后续会加入各种流派卡组专用的ai
-	var utmp: Card = Card.new()
+	var utmp: Card = null
 	for u in _hand_of(owner):
 		if u.type == "order":
 			continue
-		if utmp.cost <= u.cost and u.cost <= _energy_of(owner):
+		if u.cost > _energy_of(owner): continue
+		if utmp == null || utmp.cost <= u.cost:
 			utmp = u
-	if utmp.id != "":
+	if utmp != null:
 		_deploy_unit(utmp,owner)
 	
 	if board.has_unit_of("front") != _opposite(owner):
@@ -140,6 +145,7 @@ func _enemy_turn() -> void:
 			if u.owner != "enemy" || u.is_hq:
 				continue
 			u.has_acted = false
+	_settle_status("enemy")
 	enemy_max_energy = min(enemy_max_energy + 1, KREDIT_CAP)
 	enemy_energy = enemy_max_energy
 	_draw_into(enemy_deck, enemy_hand, 1)
@@ -147,9 +153,6 @@ func _enemy_turn() -> void:
 
 
 func end_turn() -> void:
-	player.tick_buffs()
-	for e in alive_enemies():
-		e.tick_buffs()
 	_enemy_turn()
 	if is_over():return
 	_begin_turn()
@@ -228,10 +231,15 @@ func _apply_aura(target: Unit, element: String, amount: float) -> void:
 		var act = reaction_table.get_reaction(element,target.aura_element)
 		var flag:bool = false
 		for e in act.get("effects",[]):
-			if e.get("kind","") == "aura":
-				target.aura_element = e.get("element",Element.NONE)
-				target.aura_amount = 1.0
-				flag = true
+			match e.get("kind",""):
+				"aura":
+					target.aura_element = e.get("element",Element.NONE)
+					target.aura_amount = 1.0
+					flag = true
+				"status":
+					target.add_buff(Buff.make(e.get("id",""),int(e.get("duration",0))))
+				_:
+					pass
 		if not flag:
 			var consume:float = float(act.get("consume",0.0))
 			target.aura_amount -= consume
@@ -356,3 +364,27 @@ func _opposite(owner:String) -> String:
 
 func _opposite_hq(owner:String) -> Unit:
 	return board.PLAYER_HQ if owner == "enemy" else board.ENEMY_HQ
+
+
+func _settle_status(owner:String) -> void:
+	for l in Board.LINES:
+		for u in board.units_in(l):
+			if u.owner != owner || u.is_hq:
+				continue
+			for b in u.buffs:
+				var status = status_table.get_status(b.kind)
+				for e in status.get("effects",[]):
+					match e["kind"]:
+						"dot":
+							if e.get("timing","") == "turn_start":
+								var dot := u.take_damage(int(floor(e.get("value",0.0) * b.stacks)))
+								_log("%s受到%d点dot伤害"%[u.display_name,dot])
+								if u.hp <= 0 && not u.is_hq:
+									board.remove(u)
+						"disable":
+							if e.get("timing","") == "action":
+								u.has_acted = true
+								_log("%s冻结"%u.display_name)
+						_:
+							pass
+			u.tick_buffs()
