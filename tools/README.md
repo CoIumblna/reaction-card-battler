@@ -98,3 +98,13 @@ cd "C:\Users\LD\Desktop\资料\whk\reaction-card-battler"
 | `--all-cards` | 用全牌库（E14 之前 AI 不打指令卡，会大量 RUNNING；默认只用单位卡） |
 
 汇总输出：WIN/LOSE/RUNNING 局数、玩家胜率（目标 45%–60%）、平均回合（目标 8–20）、超时率（目标 <1%）。报告模板见 `docs/balance-report.md`。
+
+## validate_data.gd（M3.5 数据校验器）
+
+改完 `data/` 后手动跑，逐条列出非法项（退出码 0 = 合法）：
+
+```powershell
+& $g --headless --path . --script res://tools/validate_data.gd
+```
+
+检查：cards.json 字段/枚举/重复 id/count、reactions.json 元素配对与 effect 引用、statuses.json 效果字段、elements.json。**不查数值平衡**（那是 `balance_sim.gd`）。

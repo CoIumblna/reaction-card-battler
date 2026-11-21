@@ -75,7 +75,7 @@
 - 敌方牌组可配置（不同关卡/难度）；
 - 测试：`tests/deck_build_test.gd`（展开张数、非法 id、上限校验、双方独立）。
 
-### M3.6 平衡模拟器（F5 / F6 / F7）
+### M3.6 平衡模拟器（F5 / F6 / F7）`n`n> ✅ **工具已实现（2026-11-21，教练）**：`tools/balance_sim.gd`；基线 10000 场 57s、玩家胜率 100%、平均 13 回合、超时 0（先手优势过大，调参见 `docs/balance-report.md`）。
 
 - `tools/balance_sim.gd`（`--headless --script` 跑）：
   ```
