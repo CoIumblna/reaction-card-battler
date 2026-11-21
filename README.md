@@ -7,11 +7,10 @@
 > 这不是"做一个游戏"，是"用一个游戏练工程"。
 > 项目计划见 [项目计划_知识储备与行动大纲.md](项目计划_知识储备与行动大纲.md)。
 
-当前状态：**M1 完成，M2 收尾中（E15 敌方 AI → C8 状态生效）**。测试（规格）和文档写好了，实现由你来写。
-跑 `tools\check.bat` 看进度表 + 检查点（它还会告诉你下一步做什么）。
-现在 7 个测试文件共 **308 项检查**，红点集中在 `battle_m2_test` 的 E15 那几条。
-E15 做完后接 C8：把 `tests/pending/status_test.gd` 移到 `tests\` 下（runner 会自动发现，不用改脚本）→ 全套 **320 项**。
-规格见 `docs/implementation-tasks.md` **§23（E15）/ §24（C8）**，离线作业清单见 `docs/离线工作包-2026-11-18.md`。
+当前状态：**M1、M2 均已完成（8 个测试文件 320/320 全绿）**。测试（规格）和文档写好了，实现由你来写。
+跑 `tools\check.bat` 看进度表 + 检查点 + pending 验收基线（它还会告诉你下一步做什么）。
+下一块任务：**E14 指令卡（§25）→ E7 弃牌堆/洗回（§26）**，两份验收测试已放在 `tests/pending/`（`order_test` 27 项 / `deck_test` 18 项），做完后移到 `tests\` 启用，全套会到 **365 项**。
+离线作业清单见 `docs/离线工作包-E14-E7-2026-11-22.md`。
 
 ### 测试文件怎么分（按"被测单元"，不是按功能点）
 
@@ -25,8 +24,10 @@ E15 做完后接 C8：把 `tests/pending/status_test.gd` 移到 `tests\` 下（r
 | `tests/board_test.gd` | 棋盘：三条线、HQ、容量、位置查询 | 38 | 0 |
 | `tests/combat_test.gd` | 移动 / 攻击与反击 / 行动花费 / 前线独占 / 死亡移除 | 59 | 0 |
 | `tests/battle_m1_smoke_test.gd` | M1 流程：回合推进、能量、附着、伤害转接 | 58 | 0 |
-| `tests/battle_m2_test.gd` | M2 流程：Kredit / 部署 / 召唤失调 / HQ 胜负 / 敌方 AI / 自动对局 | 63 | E15 收尾中 |
-| `tests/pending/status_test.gd` | **C8 待启用**：dot / disable / 反应挂状态（启用方式：移到 `tests\` 下） | 12 | — |
+| `tests/battle_m2_test.gd` | M2 流程：Kredit / 部署 / 召唤失调 / HQ 胜负 / 敌方 AI / 自动对局 | 63 | 0 |
+| `tests/status_test.gd` | C8：dot / disable / 反应挂状态 | 12 | 0 |
+| `tests/pending/order_test.gd` | **E14 待启用**：指令卡打棋盘单位（规格 §25） | 27 | 6 |
+| `tests/pending/deck_test.gd` | **E7 待启用**：弃牌堆 / 牌库洗回（规格 §26） | 18 | 待实现 |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
 
 > `run_tests.bat` 和 CI 都是**自动发现** `tests/*_test.gd`（`tests/pending/` 不算），加测试文件不用改脚本。
@@ -51,20 +52,12 @@ E15 做完后接 C8：把 `tests/pending/status_test.gd` 移到 `tests\` 下（r
 参考实现放在仓库外：`..\_reference_battler\src\core\`（7 个文件，注意：没有 `damage.gd`，那个要你自己从零想）。
 为什么放外面：因为它就在那儿，你会在第 3 分钟就去看。
 
-### 实现顺序（每周只让一组检查变绿）
+### 实现顺序（M1/M2 已完成，当前任务）
 
-| 阶段 | 你要实现 | 验收 |
+| 任务 | 你要实现 | 验收 |
 |---|---|---|
-| W1 | `Element` 的三个函数 | `data_test` [3] 全绿 |
-| W1–2 | `Card.from_dict`、`DataLoader.*` | `data_test` [1][2] 全绿 |
-| W2 | `Unit.*`（伤害/护盾/治疗/describe） | `unit_test` [1–4] 全绿 |
-| W2 | `Buff` + `Unit.tick_buffs` | `unit_test` [5] 全绿 |
-| W2–3 | `ReactionTable` 三个方法 | `data_test` [4] 全绿 |
-| W3 | **`Damage.compute`** | `damage_test` [D1–D6] 全绿 |
-| W4 | `Battle.setup/start_battle/_draw/_begin_turn/end_turn` | `battle_test` [1][2] 全绿 |
-| W5 | `Battle.play_card` + `_apply_aura` | `battle_test` [3][4] 全绿 |
-| W6 | `Battle.compute_damage/run_auto/_log` | `battle_test` [5][6][7] 全绿，四个文件全过 |
-
+| **E14 指令卡** | `play_card`：棋盘目标校验（damage→敌方 / shield·heal→己方）+ 伤害后死亡移除 | `order_test` 27/27（规格 §25） |
+| **E7 弃牌堆** | `discard` / `enemy_discard`、出牌入弃牌堆、满手抽牌进弃牌堆、牌库空洗回 | `deck_test` 18/18（规格 §26） |
 ---
 
 ## 快速开始
@@ -73,7 +66,7 @@ E15 做完后接 C8：把 `tests/pending/status_test.gd` 移到 `tests\` 下（r
 # 1. 导入项目（第一次必须做，会生成 .godot/ 缓存）
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --import
 
-# 2. 跑测试（7 个文件；退出码 0 = 该文件全绿，还要确认输出里没有 SCRIPT ERROR）
+# 2. 跑测试（8 个文件；退出码 0 = 该文件全绿，还要确认输出里没有 SCRIPT ERROR）
 #    推荐：双击 tools\check.bat —— 跑全套 + 进度表 + E15/C8 检查点 + 下一步建议
 #    严格版：run_tests.bat —— 每个文件要求 PASS + 无 [FAIL] + 无 SCRIPT ERROR
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/data_test.gd
@@ -82,6 +75,7 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/d
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/board_test.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_m1_smoke_test.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_m2_test.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/status_test.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/combat_test.gd
 
 # 3. 看一场自动战斗的完整日志
@@ -147,6 +141,9 @@ reaction-card-battler/
     ├── battle_m2_test.gd        # M2 流程（部署/召唤失调/HQ 胜负/敌方 AI）
     ├── board_test.gd            # 棋盘（三条线 / HQ / 位置）
     ├── combat_test.gd           # 移动 / 攻击与反击 / 前线独占 / 死亡移除
+    ├── status_test.gd           # C8：dot / disable / 反应挂状态
+    ├── pending/order_test.gd    # E14 待启用：指令卡（规格 §25）
+    ├── pending/deck_test.gd     # E7 待启用：弃牌堆/洗回（规格 §26）
     └── run_battle.gd            # 手动跑一局看日志
 ```
 
@@ -165,7 +162,7 @@ reaction-card-battler/
 
 ---
 
-## 第 1 周清单（Phase 0）
+## 第 1 周清单（Phase 0，已完成，留作历史）
 
 - [ ] fork/建仓库，第一次 push 成功
 - [ ] 跑四个测试文件，确认是红的（共 86 项 / 64 失败）
@@ -184,7 +181,7 @@ reaction-card-battler/
 | 里程碑 | 目标 | 状态 |
 |---|---|---|
 | M1 | **无战线**：跑通「出牌 → 伤害 → 元素反应」+ 两套测试 | ✅ 完成（155 项） |
-| M2 | **加部署 + 战线（支援/前线）+ 移动 + 行动花费**，变成 KARDS-lite | 🟡 12/15（E15 敌方 AI 进行中） |
+| M2 | **加部署 + 战线（支援/前线）+ 移动 + 行动花费 + 敌方 AI + 状态效果**，变成 KARDS-lite | ✅ 完成（320 项；E14/E7 收尾任务见 §25/§26） |
 | M3 | 关键词（闪击等）+ 卡组构筑 + 平衡模拟 | 未开始 |
 | M4 | 可玩 UI + 存档迁移 | 未开始 |
 | M5 | 发布 itch.io + 3 篇博客 | 未开始 |
