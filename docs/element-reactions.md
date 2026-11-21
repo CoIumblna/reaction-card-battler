@@ -125,6 +125,8 @@ M1 只实现 `turn_start`（dot）和 `action`（无法行动）两种时机；`
 ## 7. 待确认 / 后续
 
 - [ ] 复合元素在 M3 是否需要"再反应"（比如火打感电复合 → 蒸发）？现在**没有**反应条目，等价于"复合附着不参与反应"，等 M3 再定。
+- [ ] **dot 是否参与元素反应**（M3 待定，M2 不做）：现在 dot 是纯掉血（`take_damage`，见 `implementation-tasks.md` §24），状态本身没有元素。若要做"燃烧/感电每跳触发反应"，至少要先定四件事：① `statuses.json` 给状态加可空 `element` 字段；② dot 结算改走 `compute_damage` + `_apply_aura`；③ 防链式递归（每 tick 最多一次反应；反应产生的新状态下回合才生效，避免无限挂 dot）；④ 用 `balance_sim`（F5）重调数值。与"复合元素再反应"一起在 M3 定案。
+- [x] **dot 的叠加语义**（2026-11-21 定）：伤害值是状态定义的一部分（`statuses.json` 的 `value`），挂状态只决定 kind/duration/stacks。**同 kind** → 合并成一个 Buff：`stacks + 1`、`duration` 取大，每跳伤害 = `value × stacks`；**不同 kind** → 两个独立 Buff 各自结算（同回合伤害相加，这是预期，不是 bug）。M2 不做"同 kind 不同强度"；M3 若要，给 Buff 加实例参数 `power` 再定合并规则。
 - [ ] 附着量衰减（`decay_rate`）M3 做。
 - [x] wind / geo 不主动附着：M1 在 `battle.gd` 出牌结算时实现（wind/geo 不产生附着，但反应照常结算 `consume`）。
 - [ ] 免疫与"元素护盾"的完整实现放 M2（需要单位/棋盘）。

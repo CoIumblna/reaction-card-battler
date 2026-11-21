@@ -105,6 +105,7 @@
 | F5 | 平衡模拟器 `tools/balance_sim.gd`：1 万场统计 | D8,E15 | 输出 CSV | 4h | 🔧 |
 | F6 | 平衡报告 `docs/balance-report.md` | F5 | 有表和结论 | 2h | 🎨 |
 | F7 | 数值调参（把胜率从 90% 调到 55% 附近） | F5,F6 | 报告数字合理 | 4h | 🎨 |
+| F8 | 元素 DoT：dot 每跳参与元素反应（燃烧/感电带元素） | C8,F5 | `docs/element-reactions.md` §7 定案 + 新测试 | 待定 | 🎨 |
 
 ## G. 界面（M4）
 

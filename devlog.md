@@ -1,7 +1,7 @@
-## 2026-W47（M2 收尾：E15 敌方 AI）
-- 做了什么：双方共用 `_ai(owner)`（部署最贵可支付 → 推进 → 攻击先打 HQ）；`run_auto` 双方自动对局；删掉 `front_controller` 缓存、改按棋盘内容判断前线归属；`battle_m2_test[7]` 实测 WIN、可复现；全套 308/308 全绿
-- 卡在哪：选"最贵可支付"拿 `Card.new()` 当哨兵（默认 cost=1，1 费卡永远选不中）；`_begin_turn()` 里跑玩家 AI 把"召唤失调解除"的两条测试搅红 —— 都修了
-- 下周：C8 状态效果（§24，`status_test` 12 项）；然后 E14 指令卡 / E7 弃牌堆
+## 2026-W47（M2 收尾：E15 敌方 AI + C8 状态效果）
+- 做了什么：E15 敌方/玩家共用 `_ai(owner)`（部署最贵可支付 → 推进 → 攻击先打 HQ）+ `run_auto` 双方自动对局；C8 状态生效（`status_table` 加载 / 回合开始四步 dot→死亡→disable→tick / 反应挂状态 + 同 kind 叠层）；删掉 `front_controller` 缓存和 M1 的 buff tick；全套 320/320 全绿，E15 与 C8 检查点全完成
+- 卡在哪：类型标注的字段不会自动 new（`var status_table: StatusTable` 是 null，调方法直接崩，连坐一屏错误）；`statuses.json` 的 `effects` 是数组不是字典；dot 必须在 tick **之前**结算（否则 duration 2 的燃烧只掉一次、duration 1 的冻结冻不住）
+- 下周：E14 指令卡打在棋盘单位上 / E7 弃牌堆与换牌；M3 前补 `balance_sim`（F5）
 
 ## 2026-W46（规格 v2：附着量 / 免疫 / 复合元素 / 状态表）
 - 做了什么：元素扩到 6 基础 + 2 复合；反应表按 3.0 前原神填 14 条（增幅/剧变/结晶）；加入附着量 1U/2U 与反应消耗；补上免疫机制；新增状态表 statuses.json + StatusTable
