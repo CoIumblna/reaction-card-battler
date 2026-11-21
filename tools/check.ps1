@@ -1,4 +1,4 @@
-﻿# 验收工具：跑全套测试 + 打印进度表 + 任务检查点
+# 验收工具：跑全套测试 + 打印进度表 + 任务检查点
 #
 # 用法（不用 agent 也能跑）：
 #   tools\check.bat                       双击或命令行
@@ -131,6 +131,34 @@ $c8 = @(
 Show-Checkpoints -Title "E15 敌方 AI" -File "battle_m2_test" -Points $e15
 Show-Checkpoints -Title "C8 状态生效" -File "status_test" -Points $c8
 
+# ---------------------------------------------------------------- 待启用验收（tests/pending）
+$pendingDir = Join-Path $ProjectRoot "tests\pending"
+$pendingFiles = @()
+if (Test-Path $pendingDir) {
+    $pendingFiles = @(Get-ChildItem $pendingDir -Filter "*_test.gd" -File | Sort-Object Name)
+}
+if ($pendingFiles.Count -gt 0) {
+    Write-Host ""
+    Write-Host "[待启用验收] tests/pending（不参与 CI / run_tests，只做基线报告）"
+    foreach ($pf in $pendingFiles) {
+        $pname = [System.IO.Path]::GetFileNameWithoutExtension($pf.Name)
+        $pout = & $Godot --headless --path $ProjectRoot --script ("res://tests/pending/" + $pname + ".gd") 2>&1 | Out-String
+        $pm = [regex]::Match($pout, "共 (\d+) 项检查，失败 (\d+) 项")
+        $pc = 0
+        $pfl = -1
+        if ($pm.Success) {
+            $pc = [int]$pm.Groups[1].Value
+            $pfl = [int]$pm.Groups[2].Value
+        }
+        $perr = ([regex]::Matches($pout, "SCRIPT ERROR")).Count
+        if ($pfl -eq 0 -and $perr -eq 0) {
+            Write-Host ("  [就绪] {0}：{1} 项全绿 → 可以移到 tests/ 启用" -f $pname, $pc) -ForegroundColor Green
+        } else {
+            Write-Host ("  [待实现] {0}：{1} 项检查 / {2} 红 / {3} SCRIPT ERROR" -f $pname, $pc, $pfl, $perr) -ForegroundColor Yellow
+        }
+    }
+}
+
 # ---------------------------------------------------------------- 结论
 Write-Host ""
 $statusEnabled = $outputs.ContainsKey("status_test")
@@ -139,6 +167,9 @@ if ($statusEnabled) { $target = 320 }
 
 if ($totalFailed -eq 0 -and $totalScriptErrors -eq 0 -and $redFiles.Count -eq 0) {
     Write-Host ("===== ALL GREEN：{0}/{0} =====" -f $target) -ForegroundColor Green
+    if ($pendingFiles.Count -gt 0) {
+        Write-Host "待启用验收在 tests/pending：实现在 docs §25（E14）/ §26（E7），全绿后移入 tests/ 再提交。"
+    }
     Write-Host "可以提交了：git add -A; git commit -F <消息文件>"
     exit 0
 }

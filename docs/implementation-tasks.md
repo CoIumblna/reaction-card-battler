@@ -752,6 +752,19 @@ M1 那两行 tick 可以删掉（`player` / `enemies` 字段本身留给 E14 处
 **验收**：`tests/pending/order_test.gd` → **27/27**（当前基线 27 项 / 6 红，红的就是上面 #1 #2）。
 全绿后把文件移到 `tests/` 下 → 全套 **320 + 27 = 347**。
 
+> ⚠️ **兼容 M1 旧测试（必踩）**：`battle_m1_smoke_test` 里 `play_card(c, enemy)` 的 `enemy` 是 M1 `enemies` 数组里的对象、**不在棋盘上**，另外还有 `play_card(c, player)`。所以校验要放行"棋盘外但属于 `enemies` 或就是 `player`"的目标，**棋盘内的目标才按 owner/kind 校验**：
+>
+> ```text
+> on_board = board.position_of(target) 非空
+> legacy   = enemies.has(target) or target == player
+> if not on_board and not legacy: return false
+> if on_board: 再按 kind/owner 校验
+> ```
+>
+> 不加这条兼容分支，`battle_m1_smoke_test` 会红（E14 不该动 M1 的伤害管线测试）。
+>
+> ✅ **验收包已验证可通行**（2026-11-21，我在临时副本里按上面 3 条 + 兼容分支写了一份实现）：`order_test` **27/27**，全套 **347/347**、0 SCRIPT ERROR，`battle_m1_smoke_test` 58/58 无回归。
+
 **提交**：`feat(battle): 指令卡目标校验与死亡移除（E14）`
 
 ## 26. 牌堆 / 弃牌堆 / 换牌（E7）—— 规格待确认
