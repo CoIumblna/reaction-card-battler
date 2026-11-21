@@ -82,14 +82,14 @@
 | E4 | 部署：单位卡 → 上场、占格 | E2,A1 | `battle_test`（M2 版） | 3h | ⏳ |
 | E5 | 召唤失调：部署当回合不能行动 | E4 | `board_test` | 2h | ⏳ |
 | E6 | Kredit：1→N 增长、上限、回合回满 | D2 | `board_test` | 2h | ⏳ |
-| E7 | 牌堆/手牌/弃牌堆：抽、弃、洗回 | D2 | `board_test` | 3h | ⏳ |
+| E7 | 牌堆/手牌/弃牌堆：抽、弃、洗回 | D2 | `deck_test`（规格 §26，pending 18 项） | 3h | ⏳ |
 | E8 | 移动：支援线→前线（单向；撤退留给 M3 的 Retreat 关键词）、费用、限制 | E2,E5 | `board_test` | 4h | ⏳ |
 | E9 | 攻击：选目标、相邻线规则、互相反击、伤害永久 | E1,E2 | `combat_test` | 6h | ⏳ |
 | E10 | 行动花费（作战费）：移动/攻击额外付费 | E6,E8,E9 | `combat_test` | 2h | ⏳ |
 | E11 | 前线独占：对方占线时不能进 | E2,E8 | `board_test` | 2h | ⏳ |
 | E12 | 死亡与移除：防御 ≤0 离场 | E1 | `combat_test` | 1h | ⏳ |
 | E13 | 胜负改为打掉 HQ | E3,E9 | `battle_test`（M2 版） | 1h | ⏳ |
-| E14 | 指令卡（Order）：不进场的即时效果 | D4 | `battle_test` | 3h | ⏳ |
+| E14 | 指令卡（Order）：不进场的即时效果 | D4 | `order_test`（规格 §25，pending 27 项） | 3h | ⏳ |
 | E15 | 简单 AI：能部署就部署、能打就打（规格见 §23） | E4,E9,E11,E12 | 自动对局分出 WIN/LOSE | 4h | ⏳ |
 | E16 | 兵科（步兵/坦克/炮兵/空军） | E9 | M3 再做 | 8h | ⏳ |
 | E17 | 关键词框架（Blitz 等） | E9 | M3 再做 | 6h | ⏳ |
