@@ -201,6 +201,7 @@ func play_card(card: Card, target: Unit) -> bool:
 					_apply_aura(target,card.element,card.aura_amount)
 				_log("%s对%s造成%d伤害" % [card.display_name,target.display_name,disc])
 				if target.hp <= 0 && not target.is_hq:
+					_log("%s退场"%target.display_name)
 					board.remove(target)
 			"shield":
 				target.shield += card.power
