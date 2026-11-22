@@ -30,6 +30,14 @@
 | 21 | `battle.gd`（E7：牌堆/弃牌/换牌） | 4 | ★★★ | 80 | deck_test[0–6] | [ ] |
 | 22 | `card.gd`+`unit.gd`+`battle.gd`（M3.1：关键词 + 闪击） | 3 | ★★ | 60 | keywords_test | [ ] |
 | 23 | `battle.gd`（M3.2：护卫 Guard，待拍板） | 3 | ★★★ | 50 | guard_test | [ ] |
+| 24 | `unit.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | keywords_test | [ ] |
+| 25 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | guard_test | [ ] |
+| 26 | `battle.gd`（M3.3：兵科基础 + 空军越线） | 2 | ★★★ | 120 | combat_test 增补 | [ ] |
+| 27 | `data/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | data_test + validate_data | [ ] |
+| 28 | `battle.gd`+`data_loader.gd`（M3.5：卡组构筑 39+1） | 2 | ★★★ | 60 | deck_build_test | [ ] |
+| 29 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | aura_v3_test | [ ] |
+| 30 | `unit.gd`+`battle.gd`（M3.7：stat_mod 数值系统） | 1 | ★★ | 40 | status_test 增补 | [ ] |
+| 31 | 平衡（M3.8：balance_sim 调参） | 3 | ★★★ | 60 | docs/balance-report.md | [ ] |
 
 **建议顺序**：1 → 3 → 7 → 6 → 2 → 5 → 4 → 8（先打通数据链路，再写伤害算法，最后拼战斗流程）
 
@@ -843,6 +851,12 @@ M1 那两行 tick 可以删掉（`player` / `enemies` 字段本身留给 E14 处
 
 ---
 
+## 29. M3 任务索引
+
+M3 的**详细排期、任务分解、测试计划、依赖与风险**见 **`docs/m3-scope.md`**；
+规则决策见 `docs/adr/004-m3-keywords.md`（行动经济/Guard/兵科）与 `docs/adr/005-element-auras-v3.md`（元素多槽）。
+
+本文件 §27/§28 是 M3.1/M3.2 的初步任务卡；M3.1–M3.8 每块开工前，教练会把该块的详细任务卡补到本节下面（含函数表、验收、坑）。
 ## 附：常用 GDScript 手段速查
 
 | 想做的事 | 用什么 |

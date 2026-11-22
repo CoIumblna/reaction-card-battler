@@ -91,8 +91,8 @@
 | E13 | 胜负改为打掉 HQ | E3,E9 | `battle_test`（M2 版） | 1h | ⏳ |
 | E14 | 指令卡（Order）：不进场的即时效果 | D4 | `order_test`（规格 §25，pending 27 项） | 3h | ⏳ |
 | E15 | 简单 AI：能部署就部署、能打就打（规格见 §23） | E4,E9,E11,E12 | 自动对局分出 WIN/LOSE | 4h | ⏳ |
-| E16 | 兵科（步兵/坦克/炮兵/空军） | E9 | M3 再做 | 8h | ⏳ |
-| E17 | 关键词框架（Blitz 等） | E9 | M3 再做 | 6h | ⏳ |
+| E16 | 兵科（步兵/坦克/炮兵/战斗机/轰炸机，ADR-004） | E9 | `combat_test` 增补 | 8h | ⏳ |
+| E17 | 关键词框架（Blitz/Guard，ADR-004） | E9 | `keywords_test`/`guard_test` | 6h | ⏳ |
 
 ## F. 内容与平衡（M3）
 
@@ -100,12 +100,13 @@
 |---|---|---|---|---|---|
 | F1 | 卡牌扩到 20 张（含单位/指令/元素组合） | E14 | 内容可玩 | 6h | 🎨 |
 | F2 | 关卡/敌人 3 关 + 1 Boss | E15 | 能连续玩 | 4h | 🎨 |
-| F3 | 关键词实现（先做「闪击」） | E17 | `keywords_test`（规格 docs/m3-scope.md §M3.1） | 3h | ⏳ |
-| F4 | 卡组构筑（选 30 张） | E7 | UI 前先用 JSON 配置 | 4h | ⏳ |
+| F3 | 关键词实现（Blitz + Guard + 行动经济） | E17 | `keywords_test`/`guard_test`（ADR-004） | 6h | ⏳ |
+| F4 | 卡组构筑（39 张 + 1 HQ，同名上限） | E7 | `deck_build_test`（m3-scope §M3.5） | 4h | ⏳ |
 | F5 | 平衡模拟器 `tools/balance_sim.gd`：1 万场统计 | D8,E15 | 输出 CSV | 4h | 🔧 |
 | F6 | 平衡报告 `docs/balance-report.md` | F5 | 有表和结论 | 2h | 🎨 |
 | F7 | 数值调参（把胜率从 90% 调到 55% 附近） | F5,F6 | 报告数字合理 | 4h | 🎨 |
 | F8 | 元素 DoT：dot 每跳参与元素反应（燃烧/感电带元素） | C8,F5 | `docs/element-reactions.md` §7 定案 + 新测试 | 待定 | 🎨 |
+| F9 | 元素 v3：多槽附着 + 持续时间（ADR-005） | C8 | `aura_v3_test` | 16h | ⏳ |
 
 ## G. 界面（M4）
 
