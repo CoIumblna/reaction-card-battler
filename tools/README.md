@@ -107,4 +107,4 @@ $g = "..\..\..\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.e
 & $g --headless --path . --script res://tools/validate_data.gd
 ```
 
-检查：cards.json 字段/枚举/重复 id/count、reactions.json 元素配对与 effect 引用、statuses.json 效果字段、elements.json。**不查数值平衡**（那是 `balance_sim.gd`）。
+检查：cards.json 字段/枚举/重复 id/count、reactions.json 元素配对与 effect 引用、statuses.json 效果字段、elements.json、**data/decks/*.json（39 张、同名 ≤4、未知 id）**。**不查数值平衡**（那是 `balance_sim.gd`）。

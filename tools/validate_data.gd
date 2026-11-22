@@ -38,6 +38,7 @@ func _initialize() -> void:
 	_check_statuses(statuses)
 	_check_reactions(reactions, statuses, element_ids)
 	_check_cards(cards, statuses, element_ids)
+	_check_decks(cards)
 
 	print("---------------------------------------")
 	for w in warnings:
@@ -228,3 +229,51 @@ func _as_array(v: Variant) -> Array:
 
 func _error(where: String, msg: String) -> void:
 	errors.append("%s：%s" % [where, msg])
+
+# ---------------------------------------------------------------- 牌组校验（M3.5）
+
+const DECK_SIZE := 39
+const MAX_SAME_CARD := 4
+
+
+func _check_decks(cards: Array) -> void:
+	var dir := "res://data/decks"
+	if not DirAccess.dir_exists_absolute(dir):
+		return
+	var known := {}
+	for c in cards:
+		if typeof(c) == TYPE_DICTIONARY:
+			known[str(c.get("id", ""))] = true
+	var files := DirAccess.get_files_at(dir)
+	for f in files:
+		if not f.ends_with(".json"):
+			continue
+		var path := "%s/%s" % [dir, f]
+		var d = _read_json(path)
+		if typeof(d) != TYPE_DICTIONARY:
+			continue
+		var entries = d.get("cards", [])
+		if typeof(entries) != TYPE_ARRAY:
+			_error(path, "缺 cards 数组")
+			continue
+		var total := 0
+		var seen := {}
+		for e in entries:
+			if typeof(e) != TYPE_DICTIONARY:
+				_error(path, "cards 项不是对象")
+				continue
+			var id := str(e.get("id", ""))
+			var count := int(e.get("count", 0))
+			if id == "" or not known.has(id):
+				_error(path, "未知卡牌 id `%s`" % id)
+			if count <= 0:
+				_error(path, "卡 `%s` 的 count 必须 > 0" % id)
+			seen[id] = int(seen.get(id, 0)) + count
+			total += count
+		for id in seen:
+			if int(seen[id]) > MAX_SAME_CARD:
+				_error(path, "同名卡 `%s` 超过上限 %d（%d 张）" % [id, MAX_SAME_CARD, int(seen[id])])
+		if total != DECK_SIZE:
+			_error(path, "牌组张数必须 = %d（实际 %d）" % [DECK_SIZE, total])
+		else:
+			print("  [info] 牌组 %s：%d 张 ✓" % [f, total])

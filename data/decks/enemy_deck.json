@@ -1,0 +1,17 @@
+{
+  "_note": "敌方默认牌组：39 张 + 1 HQ。与玩家镜像，用于 balance_sim 基准。",
+  "name": "敌方默认牌组",
+  "cards": [
+    { "id": "footman", "count": 4 },
+    { "id": "archer", "count": 4 },
+    { "id": "fire_mage", "count": 4 },
+    { "id": "tank", "count": 4 },
+    { "id": "fire_bolt", "count": 4 },
+    { "id": "water_blade", "count": 4 },
+    { "id": "thunder_strike", "count": 4 },
+    { "id": "heavy_strike", "count": 4 },
+    { "id": "guard", "count": 3 },
+    { "id": "mend", "count": 2 },
+    { "id": "fire_burst", "count": 2 }
+  ]
+}

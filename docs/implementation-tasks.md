@@ -928,13 +928,13 @@ M3 的**详细排期、任务分解、测试计划、依赖与风险**见 **`doc
 - 数据：`data/decks/player_deck.json` / `enemy_deck.json`：`{ "name": ..., "cards": [{"id": ..., "count": N}] }`；总张数 **39**（HQ 不进牌库）；同名上限待定（建议 4）。
 - `DataLoader.load_deck(path) -> Array[Card]`：校验 id 存在、count>0、总数 39、同名 ≤ 上限；非法 → `push_error` + 返回空（不崩）。
 - `Battle.setup` 仍接收展开好的 `p_deck`，不改签名。
-- 验收测试 `tests/pending/deck_build_test.gd`（**待写**，12–15 项：展开张数/非法 id/超上限/总数不对/双方独立）。
+- 验收测试 `tests/pending/deck_build_test.gd`（**10 项**：展开张数/非法 id/超上限/总数不对/双方独立）。`data/decks/` 示例 + `validate_data` 牌组校验已备。
 
 ---
 
 ## 35. M3.6 元素 v3（多槽附着）
 
-规格见 `docs/adr/005-element-auras-v3.md`。实现前需先完成：`docs/element-reactions.md` 重写为 v3 + `elements.json`/`reactions.json` 数据迁移 + `tests/pending/aura_v3_test.gd`（20–26 项，**待写**）。这轮不动现有数据/测试（迁移与代码同批提交）。
+规格见 `docs/adr/005-element-auras-v3.md` + `docs/element-reactions-v3.md`（数据 schema/算法/迁移清单/测试用例清单）。实现前还需：数据迁移（elements/reactions v3）+ `tests/pending/aura_v3_test.gd`（按 v3 文档 §7 的 24 项）。这轮不动现有数据/测试（迁移与代码同批提交）。
 
 ---
 ## 附：常用 GDScript 手段速查

@@ -32,6 +32,9 @@
 | `tests/pending/guard_test.gd` | **M3.2 待启用**：Guard（ADR-004 定稿语义） | 8 | 2 |
 | `tests/pending/unit_class_test.gd` | **M3.3 待启用**：兵科（ADR-004） | 11 | 6 |
 | `tests/pending/opening_test.gd` | **P2 待启用**：起手 4/5 + 首回合抽牌 + mulligan | 16 | 13 |
+| `tests/pending/deck_build_test.gd` | **M3.5 待启用**：卡组构筑 39+1 | 10 | 待实现 |
+| `tests/pending/air_intercept_test.gd` | **M3.3b 待启用**：战斗机拦截轰炸机 | 3 | 待实现 |
+| `tests/pending/stat_mod_test.gd` | **M3.7 待启用**：defense_down 数值 | 6 | 待实现 |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
 
 > `run_tests.bat` 和 CI 都是**自动发现** `tests/*_test.gd`（`tests/pending/` 不算），加测试文件不用改脚本。

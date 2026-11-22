@@ -1,0 +1,17 @@
+{
+  "_note": "玩家构筑牌组：39 张 + 1 HQ（HQ 不进牌库，开局在场上）。同名上限 4。",
+  "name": "玩家默认牌组",
+  "cards": [
+    { "id": "footman", "count": 4 },
+    { "id": "archer", "count": 4 },
+    { "id": "fire_mage", "count": 4 },
+    { "id": "tank", "count": 4 },
+    { "id": "fire_bolt", "count": 4 },
+    { "id": "water_blade", "count": 4 },
+    { "id": "thunder_strike", "count": 4 },
+    { "id": "heavy_strike", "count": 4 },
+    { "id": "guard", "count": 3 },
+    { "id": "mend", "count": 2 },
+    { "id": "fire_burst", "count": 2 }
+  ]
+}
