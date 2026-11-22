@@ -187,7 +187,12 @@ func play_card(card: Card, target: Unit) -> bool:
 	if card.type == "unit":
 		return _deploy_unit(card,"player")
 	elif card.type == "order":
-		energy -= card.cost
+		var on_board = board.position_of(target) != []
+		var legacy = enemies.has(target) or target == player
+		if not on_board and not legacy: return false
+		if on_board:
+			if card.target == "enemy" and target.owner != "enemy":return false
+			if card.target == "self" and target.owner != "player":return false
 		match card.kind:
 			"damage":
 				var hit := compute_damage(card.power,card.element,target)
@@ -195,6 +200,8 @@ func play_card(card: Card, target: Unit) -> bool:
 				if not hit.get("immune",false):
 					_apply_aura(target,card.element,card.aura_amount)
 				_log("%s对%s造成%d伤害" % [card.display_name,target.display_name,disc])
+				if target.hp <= 0 && not target.is_hq:
+					board.remove(target)
 			"shield":
 				target.shield += card.power
 				_log("%s对%s添加%d护盾" % [card.display_name,target.display_name,card.power])
@@ -203,6 +210,7 @@ func play_card(card: Card, target: Unit) -> bool:
 				_log("%s对%s治疗%d点生命" % [card.display_name,target.display_name,card.power])
 			_:
 				_log("未知卡牌类型:%s"%card.kind)
+		energy -= card.cost
 		hand.erase(card)
 		return true
 	else:

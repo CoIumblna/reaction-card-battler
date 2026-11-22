@@ -35,7 +35,6 @@ static func from_dict(d: Dictionary) -> Card:
 	c.element = str(d.get("element",Element.NONE))
 	c.kind = str(d.get("kind","damage"))
 	c.power = int(d.get("power",0))
-	c.target = str(d.get("target","self"))
 	
 	c.type = str(d.get("type", "order"))
 	c.operation_cost = int(d.get("operation_cost", 1))
@@ -43,6 +42,8 @@ static func from_dict(d: Dictionary) -> Card:
 	c.attack = int(d.get("attack", 0))
 	c.defense = int(d.get("defense", 0))
 	c.aura_amount = float(d.get("aura_amount", 1.0))
+	var default_target := "enemy" if c.kind == "damage" else "self"
+	c.target = str(d.get("target", default_target))
 	return c
 
 
