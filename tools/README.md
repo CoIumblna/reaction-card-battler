@@ -108,3 +108,13 @@ $g = "..\..\..\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.e
 ```
 
 检查：cards.json 字段/枚举/重复 id/count、reactions.json 元素配对与 effect 引用、statuses.json 效果字段、elements.json、**data/decks/*.json（39 张、同名 ≤4、未知 id）**。**不查数值平衡**（那是 `balance_sim.gd`）。
+
+## setup_git.ps1（另一台机器 / 另一份 DSH 首次配置 git）
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\setup_git.ps1              # 当前项目目录
+powershell -ExecutionPolicy Bypass -File tools\setup_git.ps1 -CloneTo "D:\projects\reaction-card-battler"
+powershell -ExecutionPolicy Bypass -File tools\setup_git.ps1 -DryRun      # 只看会改什么
+```
+
+做的事：git 检查 → init/clone → user.name/email（默认 CoIumblna / awmrzhdlyb2010@163.com，可 `-Name`/`-Email` 覆盖）→ remote origin → `core.autocrlf=false` / `core.quotepath=false` / `core.longpaths` / `pull.rebase=false` → `safe.directory` → 凭据管理器检测。`-Global` 可把身份同时写进全局配置。
