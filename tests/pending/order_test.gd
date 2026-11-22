@@ -5,15 +5,20 @@ extends SceneTree
 ##   ... --headless --path . --script res://tests/pending/order_test.gd
 ##
 ## 规格：docs/implementation-tasks.md §25
-## 【启用方式】E14 实现全绿后，把本文件从 tests/pending/ 移到 tests/ 下
-## （run_tests.bat / CI 自动发现 tests/*_test.gd，不用改列表）。
+## 目标规则（2026-11-22 修订）：由 **卡牌数据 `Card.target`** 决定，不是写死 kind：
+##   - `enemy`：只能打敌方单位 / 敌方 HQ
+##   - `self`：只能打己方单位 / 己方 HQ
+##   - 数据没写 target 时，按 kind 推断默认值：damage → enemy，shield/heal → self
+##   - `target: "any"`（任意目标）留给 M3，E14 不做
+##
+## 【启用方式】E14 实现全绿后，把本文件从 tests/pending/ 移到 tests/ 下。
 
 var failures: int = 0
 var checks: int = 0
 var table: ReactionTable
 
 ## 全绿时应执行的检查项数（少执行一条也算红，防"静默跳过"）。
-const EXPECTED_CHECKS := 27
+const EXPECTED_CHECKS := 35
 
 
 func _initialize() -> void:
@@ -21,8 +26,9 @@ func _initialize() -> void:
 	table = ReactionTable.new()
 	table.load_from_file("res://data/tables/reactions.json")
 
-	_test_target_rules()
+	_test_default_target()
 	_test_shield_heal()
+	_test_explicit_target()
 	_test_reaction_status()
 	_test_death_and_hq()
 
@@ -63,11 +69,15 @@ func _new_battle() -> Battle:
 	return b
 
 
-func _order(id: String, cost: int, kind: String, power: int, element: String = Element.NONE, aura_amount: float = 1.0) -> Card:
-	return Card.from_dict({
+## target 不传（""）= 数据里没有 target 字段，测"按 kind 推断默认值"。
+func _order(id: String, cost: int, kind: String, power: int, element: String = Element.NONE, target: String = "", aura_amount: float = 1.0) -> Card:
+	var d := {
 		"id": id, "name": id, "type": "order", "cost": cost,
 		"element": element, "kind": kind, "power": power, "aura_amount": aura_amount,
-	})
+	}
+	if target != "":
+		d["target"] = target
+	return Card.from_dict(d)
 
 
 func _unit(id: String, hp: int, attack: int = 1, owner: String = "player", element: String = Element.NONE) -> Unit:
@@ -83,8 +93,8 @@ func _find_buff(u: Unit, kind: String) -> Buff:
 
 # ---------------------------------------------------------------- 用例
 
-func _test_target_rules() -> void:
-	print("[1] 目标规则：伤害打敌方、不进场、非法目标不扣费")
+func _test_default_target() -> void:
+	print("[1] 默认目标：damage → enemy（不写 target 时按 kind 推断）")
 	var b := _new_battle()
 	b.energy = 5
 	var foe := _unit("foe", 10, 2, "enemy")
@@ -93,6 +103,7 @@ func _test_target_rules() -> void:
 	b.board.place(mine, "player_support", 1)
 
 	var dmg := _order("fire_bolt", 1, "damage", 5, Element.FIRE)
+	_check_eq(dmg.target, "enemy", "未写 target 的伤害卡默认 target = enemy")
 	b.hand.append(dmg)
 	_check(b.play_card(dmg, foe), "伤害指令卡可以打敌方棋盘单位")
 	_check_eq(foe.hp, 5, "造成 power 点伤害（10 → 5）")
@@ -103,13 +114,13 @@ func _test_target_rules() -> void:
 	var dmg2 := _order("fire_bolt_2", 1, "damage", 5, Element.FIRE)
 	b.hand.append(dmg2)
 	var energy_before := b.energy
-	_check(not b.play_card(dmg2, mine), "伤害指令卡不能打己方单位（非法目标返回 false）")
+	_check(not b.play_card(dmg2, mine), "target=enemy 的伤害指令卡不能打己方单位")
 	_check_eq(b.energy, energy_before, "非法目标不扣费")
 	_check(b.hand.has(dmg2), "非法目标的卡留在手里")
 
 
 func _test_shield_heal() -> void:
-	print("[2] 护盾/治疗：只能打己方棋盘单位，治疗不超上限")
+	print("[2] 默认目标：shield/heal → self")
 	var b := _new_battle()
 	b.energy = 5
 	var mine := _unit("mine", 10, 2, "player")
@@ -117,6 +128,9 @@ func _test_shield_heal() -> void:
 	mine.hp = 6
 	var foe := _unit("foe", 10, 2, "enemy")
 	b.board.place(foe, "enemy_support", 1)
+
+	var heal0 := _order("mend_probe", 2, "heal", 6)
+	_check_eq(heal0.target, "self", "未写 target 的治疗卡默认 target = self")
 
 	var shield := _order("guard", 1, "shield", 6)
 	b.hand.append(shield)
@@ -131,12 +145,43 @@ func _test_shield_heal() -> void:
 	var heal2 := _order("mend_2", 2, "heal", 6)
 	b.hand.append(heal2)
 	var energy_before := b.energy
-	_check(not b.play_card(heal2, foe), "治疗指令卡不能打敌方单位")
+	_check(not b.play_card(heal2, foe), "target=self 的治疗指令卡不能打敌方单位")
 	_check_eq(b.energy, energy_before, "非法目标不扣费")
 
 
+func _test_explicit_target() -> void:
+	print("[3] 显式 target 覆盖：伤害可以打自己、治疗/护盾可以给对方（数据驱动）")
+	var b := _new_battle()
+	b.energy = 10
+	var mine := _unit("mine", 10, 2, "player")
+	b.board.place(mine, "player_support", 1)
+	var self_dmg := _order("ritual", 1, "damage", 5, Element.NONE, "self")
+	b.hand.append(self_dmg)
+	_check(b.play_card(self_dmg, mine), "target=self 的伤害卡可以打己方单位")
+	_check_eq(mine.hp, 5, "己方单位受到伤害（10 → 5）")
+
+	var b2 := _new_battle()
+	b2.energy = 10
+	var foe := _unit("foe", 10, 2, "enemy")
+	foe.hp = 5
+	b2.board.place(foe, "enemy_support", 1)
+	var enemy_heal := _order("field_medic", 2, "heal", 6, Element.NONE, "enemy")
+	b2.hand.append(enemy_heal)
+	_check(b2.play_card(enemy_heal, foe), "target=enemy 的治疗卡可以打敌方单位")
+	_check_eq(foe.hp, 10, "敌方单位被治疗（5 + 6 → 10）")
+
+	var b3 := _new_battle()
+	b3.energy = 10
+	var foe2 := _unit("foe2", 10, 2, "enemy")
+	b3.board.place(foe2, "enemy_support", 1)
+	var enemy_shield := _order("bribe", 1, "shield", 6, Element.NONE, "enemy")
+	b3.hand.append(enemy_shield)
+	_check(b3.play_card(enemy_shield, foe2), "target=enemy 的护盾卡可以给敌方单位")
+	_check_eq(foe2.shield, 6, "敌方单位获得护盾（0 → 6）")
+
+
 func _test_reaction_status() -> void:
-	print("[3] 元素/反应/状态：指令卡伤害走 compute_damage + _apply_aura")
+	print("[4] 元素/反应/状态：指令卡伤害走 compute_damage + _apply_aura")
 	var b := _new_battle()
 	b.energy = 5
 	var foe := _unit("foe", 10, 2, "enemy")
@@ -168,14 +213,14 @@ func _test_reaction_status() -> void:
 	b3.energy = 5
 	var foe3 := _unit("foe3", 20, 2, "enemy")
 	b3.board.place(foe3, "enemy_support", 1)
-	var burst := _order("fire_burst", 2, "damage", 8, Element.FIRE, 2.0)
+	var burst := _order("fire_burst", 2, "damage", 8, Element.FIRE, "enemy", 2.0)
 	b3.hand.append(burst)
 	b3.play_card(burst, foe3)
 	_check(foe3.aura_element == Element.FIRE and foe3.aura_amount == 2.0, "炎爆挂 2U 火附着（aura_amount 来自卡牌数据）")
 
 
 func _test_death_and_hq() -> void:
-	print("[4] 死亡移除 / HQ / 免疫")
+	print("[5] 死亡移除 / HQ / 免疫")
 	var b := _new_battle()
 	b.energy = 5
 	var foe := _unit("foe", 3, 2, "enemy")

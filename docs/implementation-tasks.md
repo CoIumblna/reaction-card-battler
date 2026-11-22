@@ -743,16 +743,16 @@ M1 那两行 tick 可以删掉（`player` / `enemies` 字段本身留给 E14 处
 
 | # | 要做的事 | 规则 |
 |---|---|---|
-| 1 | **目标合法性校验** | `kind == "damage"` → 目标必须是敌方单位/敌方 HQ（`target.owner == "enemy"`）；`kind == "shield" / "heal"` → 必须己方（`owner == "player"`）。目标还必须在棋盘上（`board.position_of(target)` 非空）。**非法目标 → `play_card` 返回 false，不扣费、卡留手里** |
+| 1 | **目标合法性校验（数据驱动）** | 由卡牌数据 `Card.target` 决定：`enemy` → 只能打敌方单位/敌方 HQ；`self` → 只能打己方单位/己方 HQ。数据没写 `target` 时按 kind 推断默认：**damage → enemy，shield/heal → self**。目标还必须在棋盘上（`board.position_of(target)` 非空）。**非法目标 → `play_card` 返回 false，不扣费、卡留手里**。`target: "any"` 留给 M3 |
 | 2 | **指令卡伤害后的死亡移除** | `hp <= 0` 的**普通单位** `board.remove()`；**HQ 不移除**（§21）。放在 `_apply_aura` 结算**之后**（死亡单位不该再挂附着/状态） |
 | 3 | 收尾 | `target == null` 先判空（`play_card` 开头已有 `target == null` 检查，确认别绕开）；日志补攻击者/卡名 |
 
-数据里的 `Card.target`（damage 默认 enemy、shield/heal 是 self）只作提示，**规则按 `kind` 判**。
+> **2026-11-22 修订**：原方案"规则按 kind 写死"已改为**数据驱动**——因为伤害指令也可以打自己（自残/配合）、治疗/护盾也可以给对方（怪卡/组合技）。`Card.from_dict` 的 `target` 缺省改为按 kind 推断（damage→enemy，shield/heal→self），显式 `target` 覆盖；`cards.json` 的伤害卡已补 `"target": "enemy"`。
 
 **不做的**：`run_auto()` 玩家侧 AI 仍然**不打指令卡**（E14 不扩 AI 出牌；以后想让 AI 打指令卡时另开任务）。
 
-**验收**：`tests/pending/order_test.gd` → **27/27**（当前基线 27 项 / 6 红，红的就是上面 #1 #2）。
-全绿后把文件移到 `tests/` 下 → 全套 **320 + 27 = 347**。
+**验收**：`tests/pending/order_test.gd` → **35/35**（含"显式 target 覆盖"用例：伤害打自己、治疗/护盾给对方）。
+全绿后把文件移到 `tests/` 下 → 全套 **320 + 35 = 355**。
 
 > ⚠️ **兼容 M1 旧测试（必踩）**：`battle_m1_smoke_test` 里 `play_card(c, enemy)` 的 `enemy` 是 M1 `enemies` 数组里的对象、**不在棋盘上**，另外还有 `play_card(c, player)`。所以校验要放行"棋盘外但属于 `enemies` 或就是 `player`"的目标，**棋盘内的目标才按 owner/kind 校验**：
 >
@@ -760,7 +760,7 @@ M1 那两行 tick 可以删掉（`player` / `enemies` 字段本身留给 E14 处
 > on_board = board.position_of(target) 非空
 > legacy   = enemies.has(target) or target == player
 > if not on_board and not legacy: return false
-> if on_board: 再按 kind/owner 校验
+> if on_board: 再按 card.target / owner 校验
 > ```
 >
 > 不加这条兼容分支，`battle_m1_smoke_test` 会红（E14 不该动 M1 的伤害管线测试）。

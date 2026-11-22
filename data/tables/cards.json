@@ -1,13 +1,13 @@
 {
   "_note": "卡牌内容只写数据，不写代码。type = order（指令卡）/ unit（单位卡，M2 起）。count = 这套牌组里放几份，load_cards 会按份数展开成牌库。加一张卡 = 加一项；改牌组张数 = 改 count。单位卡用 tools/add_unit_card.gd 生成。",
   "cards": [
-    { "id": "fire_bolt", "name": "火球", "type": "order", "cost": 1, "element": "fire", "kind": "damage", "power": 5, "count": 4 },
-    { "id": "water_blade", "name": "水刃", "type": "order", "cost": 1, "element": "water", "kind": "damage", "power": 5, "count": 4 },
-    { "id": "thunder_strike", "name": "雷击", "type": "order", "cost": 1, "element": "lightning", "kind": "damage", "power": 5, "count": 4 },
-    { "id": "heavy_strike", "name": "重击", "type": "order", "cost": 2, "element": "none", "kind": "damage", "power": 10, "count": 4 },
+    { "id": "fire_bolt", "name": "火球", "type": "order", "cost": 1, "element": "fire", "kind": "damage", "target": "enemy", "power": 5, "count": 4 },
+    { "id": "water_blade", "name": "水刃", "type": "order", "cost": 1, "element": "water", "kind": "damage", "target": "enemy", "power": 5, "count": 4 },
+    { "id": "thunder_strike", "name": "雷击", "type": "order", "cost": 1, "element": "lightning", "kind": "damage", "target": "enemy", "power": 5, "count": 4 },
+    { "id": "heavy_strike", "name": "重击", "type": "order", "cost": 2, "element": "none", "kind": "damage", "target": "enemy", "power": 10, "count": 4 },
     { "id": "guard", "name": "防御姿态", "type": "order", "cost": 1, "element": "none", "kind": "shield", "power": 6, "target": "self", "count": 4 },
     { "id": "mend", "name": "疗愈", "type": "order", "cost": 2, "element": "none", "kind": "heal", "power": 6, "target": "self", "count": 4 },
-    { "id": "fire_burst", "name": "炎爆", "type": "order", "cost": 2, "element": "fire", "kind": "damage", "power": 8, "aura_amount": 2, "count": 4 },
+    { "id": "fire_burst", "name": "炎爆", "type": "order", "cost": 2, "element": "fire", "kind": "damage", "target": "enemy", "power": 8, "aura_amount": 2, "count": 4 },
     { "id": "footman", "name": "步兵", "type": "unit", "cost": 1, "element": "none", "attack": 1, "defense": 2, "operation_cost": 1, "count": 4 },
     { "id": "archer", "name": "弓手", "type": "unit", "cost": 2, "element": "none", "attack": 2, "defense": 1, "operation_cost": 1, "count": 4 },
     { "id": "fire_mage", "name": "火法师", "type": "unit", "cost": 3, "element": "fire", "attack": 2, "defense": 3, "operation_cost": 1, "count": 4 },
