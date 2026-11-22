@@ -9,7 +9,7 @@
 
 当前状态：**M1、M2 均已完成（8 个测试文件 320/320 全绿）**。测试（规格）和文档写好了，实现由你来写。
 跑 `tools\check.bat` 看进度表 + 检查点 + pending 验收基线（它还会告诉你下一步做什么）。
-下一块任务：**E14 指令卡（§25）→ E7 弃牌堆/洗回（§26）**，两份验收测试已放在 `tests/pending/`（`order_test` 35 项 / `deck_test` 18 项），做完后移到 `tests\` 启用，全套会到 **373 项**。
+当前任务：**E7 牌堆/弃牌/洗回（§26）**——验收 `tests/pending/deck_test.gd` 18 项，做完启用后全套到 **373 项**；E14 指令卡已完成（当前 **355/355**）。
 离线作业清单见 `docs/离线工作包-E14-E7-2026-11-22.md`。
 
 ### 测试文件怎么分（按"被测单元"，不是按功能点）
@@ -26,8 +26,10 @@
 | `tests/battle_m1_smoke_test.gd` | M1 流程：回合推进、能量、附着、伤害转接 | 58 | 0 |
 | `tests/battle_m2_test.gd` | M2 流程：Kredit / 部署 / 召唤失调 / HQ 胜负 / 敌方 AI / 自动对局 | 63 | 0 |
 | `tests/status_test.gd` | C8：dot / disable / 反应挂状态 | 12 | 0 |
-| `tests/pending/order_test.gd` | **E14 待启用**：指令卡打棋盘单位（规格 §25，数据驱动 target） | 35 | 6 |
-| `tests/pending/deck_test.gd` | **E7 待启用**：弃牌堆 / 牌库洗回（规格 §26） | 18 | 待实现 |`n| `tests/pending/keywords_test.gd` | **M3 待启用**：关键词框架 + 闪击 Blitz（规格 m3-scope §M3.1） | 9 | 6 |`n| `tests/pending/guard_test.gd` | **M3 待启用**：护卫 Guard（选项 A 暂定，ADR-004） | 6 | 2 |
+| `tests/order_test.gd` | E14：指令卡目标（数据驱动 target）+ 死亡移除 | 35 | 0 |
+| `tests/pending/deck_test.gd` | **E7 待启用**：弃牌堆 / 牌库洗回（规格 §26） | 18 | 待实现 |
+| `tests/pending/keywords_test.gd` | **M3 待启用**：关键词框架 + 闪击 Blitz（规格 m3-scope §M3.1） | 9 | 6 |
+| `tests/pending/guard_test.gd` | **M3 待启用**：护卫 Guard（选项 A 暂定，ADR-004） | 6 | 2 |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
 
 > `run_tests.bat` 和 CI 都是**自动发现** `tests/*_test.gd`（`tests/pending/` 不算），加测试文件不用改脚本。
@@ -56,7 +58,7 @@
 
 | 任务 | 你要实现 | 验收 |
 |---|---|---|
-| **E14 指令卡** | `play_card`：按 `Card.target` 校验棋盘目标（默认按 kind 推断）+ 伤害后死亡移除 | `order_test` 35/35（规格 §25） |
+| ✅ E14 指令卡 | 按 `Card.target` 校验棋盘目标（默认按 kind 推断）+ 伤害后死亡移除 | `order_test` 35/35（已完成） |
 | **E7 弃牌堆** | `discard` / `enemy_discard`、出牌入弃牌堆、满手抽牌进弃牌堆、牌库空洗回 | `deck_test` 18/18（规格 §26） |
 ---
 
@@ -144,7 +146,7 @@ reaction-card-battler/
     ├── board_test.gd            # 棋盘（三条线 / HQ / 位置）
     ├── combat_test.gd           # 移动 / 攻击与反击 / 前线独占 / 死亡移除
     ├── status_test.gd           # C8：dot / disable / 反应挂状态
-    ├── pending/order_test.gd    # E14 待启用：指令卡（规格 §25）
+    ├── order_test.gd           # E14：指令卡目标（数据驱动）
     ├── pending/deck_test.gd     # E7 待启用：弃牌堆/洗回（规格 §26）
     └── run_battle.gd            # 手动跑一局看日志
 ```

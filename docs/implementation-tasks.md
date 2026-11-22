@@ -26,7 +26,7 @@
 | 17 | `battle.gd`（M2：胜负改 HQ）+ M1 测试退役 | 3 | ★★ | 40 | battle_m2_test[5] | [x] |
 | 18 | `battle.gd`（M2：敌方 AI + run_auto） | 4 | ★★★ | 150 | battle_m2_test[3][6][7] | [x] |
 | 19 | `battle.gd`（M2 收尾：状态效果 C8） | 4 | ★★★ | 120 | status_test[0–3] | [x] |
-| 20 | `battle.gd`（E14：指令卡打在棋盘单位上） | 3 | ★★ | 40 | order_test[1–4] | [ ] |
+| 20 | `battle.gd`（E14：指令卡打在棋盘单位上） | 3 | ★★ | 40 | order_test[1–5] | [x] |
 | 21 | `battle.gd`（E7：牌堆/弃牌/换牌） | 4 | ★★★ | 80 | deck_test[0–6] | [ ] |
 | 22 | `card.gd`+`unit.gd`+`battle.gd`（M3.1：关键词 + 闪击） | 3 | ★★ | 60 | keywords_test | [ ] |
 | 23 | `battle.gd`（M3.2：护卫 Guard，待拍板） | 3 | ★★★ | 50 | guard_test | [ ] |
@@ -752,7 +752,7 @@ M1 那两行 tick 可以删掉（`player` / `enemies` 字段本身留给 E14 处
 **不做的**：`run_auto()` 玩家侧 AI 仍然**不打指令卡**（E14 不扩 AI 出牌；以后想让 AI 打指令卡时另开任务）。
 
 **验收**：`tests/pending/order_test.gd` → **35/35**（含"显式 target 覆盖"用例：伤害打自己、治疗/护盾给对方）。
-全绿后把文件移到 `tests/` 下 → 全套 **320 + 35 = 355**。
+已启用：文件在 `tests/order_test.gd`，全套 **355/355**（2026-11-22 完成）。
 
 > ⚠️ **兼容 M1 旧测试（必踩）**：`battle_m1_smoke_test` 里 `play_card(c, enemy)` 的 `enemy` 是 M1 `enemies` 数组里的对象、**不在棋盘上**，另外还有 `play_card(c, player)`。所以校验要放行"棋盘外但属于 `enemies` 或就是 `player`"的目标，**棋盘内的目标才按 owner/kind 校验**：
 >

@@ -181,9 +181,14 @@ if (Test-Path $validatePath) {
 
 # ---------------------------------------------------------------- 结论
 Write-Host ""
-$statusEnabled = $outputs.ContainsKey("status_test")
-$target = 308
-if ($statusEnabled) { $target = 320 }
+# 目标项数 = 各启用测试文件里声明的 EXPECTED_CHECKS 之和（改测试只改那个常量即可）
+$target = 0
+foreach ($f in $files) {
+    $fileText = Get-Content $f.FullName -Raw
+    $em = [regex]::Match($fileText, "const EXPECTED_CHECKS := (\d+)")
+    if ($em.Success) { $target += [int]$em.Groups[1].Value }
+}
+if ($target -eq 0) { $target = $totalChecks }
 
 if ($totalFailed -eq 0 -and $totalScriptErrors -eq 0 -and $redFiles.Count -eq 0) {
     Write-Host ("===== ALL GREEN：{0}/{0} =====" -f $target) -ForegroundColor Green

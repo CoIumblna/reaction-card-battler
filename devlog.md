@@ -1,7 +1,9 @@
-## 2026-W47（M2 收尾：E15 敌方 AI + C8 状态效果）
+## 2026-W47（M2 收尾：E15 敌方 AI + C8 状态效果 + E14 指令卡）
 - 做了什么：E15 敌方/玩家共用 `_ai(owner)`（部署最贵可支付 → 推进 → 攻击先打 HQ）+ `run_auto` 双方自动对局；C8 状态生效（`status_table` 加载 / 回合开始四步 dot→死亡→disable→tick / 反应挂状态 + 同 kind 叠层）；删掉 `front_controller` 缓存和 M1 的 buff tick；全套 320/320 全绿，E15 与 C8 检查点全完成
 - 卡在哪：类型标注的字段不会自动 new（`var status_table: StatusTable` 是 null，调方法直接崩，连坐一屏错误）；`statuses.json` 的 `effects` 是数组不是字典；dot 必须在 tick **之前**结算（否则 duration 2 的燃烧只掉一次、duration 1 的冻结冻不住）
-- 下周：E14 指令卡打在棋盘单位上 / E7 弃牌堆与换牌；M3 前补 `balance_sim`（F5）
+- 追加：E14 指令卡完成——目标规则改为**数据驱动**（`Card.target`：enemy/self，缺省按 kind 推断），补伤害后死亡移除（HQ 不移除）与 M1 兼容放行；`order_test` 35 项启用，全套 **355/355**。
+- 卡在哪：目标校验一度写反（棋盘外/棋盘内两边互相拒绝），修好后 m1 回归消失；还要注意默认 target 要在 `kind` 赋值之后算。
+- 下周：E7 弃牌堆/洗回（先定 §26 的三个 ❓）→ M3（关键词 Blitz/Guard、兵科、卡池、balance_sim 调参）
 
 ## 2026-W46（规格 v2：附着量 / 免疫 / 复合元素 / 状态表）
 - 做了什么：元素扩到 6 基础 + 2 复合；反应表按 3.0 前原神填 14 条（增幅/剧变/结晶）；加入附着量 1U/2U 与反应消耗；补上免疫机制；新增状态表 statuses.json + StatusTable
