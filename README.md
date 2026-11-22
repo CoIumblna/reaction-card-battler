@@ -28,8 +28,10 @@
 | `tests/status_test.gd` | C8：dot / disable / 反应挂状态 | 12 | 0 |
 | `tests/order_test.gd` | E14：指令卡目标（数据驱动 target）+ 死亡移除 | 35 | 0 |
 | `tests/pending/deck_test.gd` | **E7a 待启用**：弃牌堆 / 抽干疲劳（规格 §26） | 20 | 待实现 |
-| `tests/pending/keywords_test.gd` | **M3 待启用**：关键词框架 + 闪击 Blitz（规格 m3-scope §M3.1） | 9 | 6 |
-| `tests/pending/guard_test.gd` | **M3 待启用**：护卫 Guard（选项 A 暂定，ADR-004） | 6 | 2 |
+| `tests/pending/keywords_test.gd` | **M3.1 待启用**：行动经济 + 关键词 + 闪击（ADR-004） | 17 | 14 |
+| `tests/pending/guard_test.gd` | **M3.2 待启用**：Guard（ADR-004 定稿语义） | 8 | 2 |
+| `tests/pending/unit_class_test.gd` | **M3.3 待启用**：兵科（ADR-004） | 11 | 6 |
+| `tests/pending/opening_test.gd` | **P2 待启用**：起手 4/5 + 首回合抽牌 + mulligan | 16 | 13 |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
 
 > `run_tests.bat` 和 CI 都是**自动发现** `tests/*_test.gd`（`tests/pending/` 不算），加测试文件不用改脚本。

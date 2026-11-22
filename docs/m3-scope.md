@@ -27,7 +27,7 @@
 | # | 任务 | 内容 | 估时 | 验收 | 状态 |
 |---|---|---|---|---|---|
 | P1 | **E7a 弃牌堆 + 疲劳** | `discard`/`enemy_discard`、出牌入弃牌、burn、抽干按 1,2,3… 扣自己 HQ | 1.5h | `deck_test` 20/20 → 375 | ✅ 规格+测试已备 |
-| P2 | **E7b 起手/换牌** | 先手起手4+首回合不抽；后手起手5+首回合抽1；mulligan ❓ | 1h | `opening_test`（待写） | 规格部分已定 |
+| P2 | **E7b 起手/换牌** | 先手起手4+首回合不抽；后手起手5+首回合抽1；mulligan ✅（每方一次） | 1.5h | `opening_test`（16 项，已写） | ✅ 规格+测试已备 |
 | M3.0 | **规则定稿** | ADR-004（行动经济/Guard/兵科）、ADR-005（元素 v3） | ✅ | 文档 | ✅ 完成 |
 | M3.1 | **行动经济 + 关键词 + Blitz** | 拆 `has_moved`/`has_attacked`；`Card/Unit.keywords` 解析传递；Blitz；Blitz+Tank | 3h | `keywords_test` 12–14 全绿 | 测试待重写 |
 | M3.2 | **Guard** | 同线相邻保护、不护 Guard、HQ 可保护、AI 遵守、指令卡默认无视 | 3h | `guard_test` 9–11 全绿 | 测试待重写 |
@@ -48,13 +48,13 @@
 
 | 文件 | 覆盖 | 项数（估） | 状态 |
 |---|---|---|---|
-| `tests/pending/keywords_test.gd` | 关键词解析/传递、Blitz、行动经济、Blitz+Tank | 12–14 | 按 ADR-004 重写 |
-| `tests/pending/guard_test.gd` | 同线相邻保护、不护 Guard、HQ、指令卡无视 | 9–11 | 按 ADR-004 重写 |
-| `tests/combat_test.gd` 增补 | 炮兵无反击、坦克移动+攻击、空军越线 | +10 | M3.3 时加 |
+| `tests/pending/keywords_test.gd` | 关键词解析/传递、Blitz、行动经济、Blitz+Tank | 17 | ✅ 已写（按 ADR-004 重写） |
+| `tests/pending/guard_test.gd` | 同线相邻保护、不护 Guard、HQ、指令卡无视 | 8 | ✅ 已写（按 ADR-004 重写） |
+| `tests/pending/unit_class_test.gd` | 炮兵无反击、坦克移动+攻击、战斗机/轰炸机越线/无反击 | 11 | ✅ 已写（M3.3b 拦截规则再补） |
 | `tests/pending/deck_build_test.gd` | 39+1 展开、同名上限、非法 id、双方独立 | 12–15 | M3.5 时写 |
 | `tests/pending/aura_v3_test.gd` | 多槽/叠加/反应/槽满/持续时间/感电冻结/dot/免疫 | 20–26 | M3.6 时写 |
 | `tests/status_test.gd` 增补 | `defense_down` 生效 | +2–3 | M3.7 时加 |
-| `tests/opening_test.gd` | E7b 起手 4/5、首回合抽牌、mulligan | 8–10 | P2 时写 |
+| `tests/pending/opening_test.gd` | E7b 起手 4/5、首回合抽牌、mulligan | 16 | ✅ 已写 |
 
 > 规则：`EXPECTED_CHECKS` 同步；`tests/pending/` 不进 CI；教练给测试前先用临时副本参考实现验证可通行。
 

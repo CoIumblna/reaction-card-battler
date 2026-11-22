@@ -30,9 +30,9 @@
 | 21 | `battle.gd`（E7：牌堆/弃牌/换牌） | 4 | ★★★ | 80 | deck_test[0–6] | [ ] |
 | 22 | `card.gd`+`unit.gd`+`battle.gd`（M3.1：关键词 + 闪击） | 3 | ★★ | 60 | keywords_test | [ ] |
 | 23 | `battle.gd`（M3.2：护卫 Guard，待拍板） | 3 | ★★★ | 50 | guard_test | [ ] |
-| 24 | `unit.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | keywords_test | [ ] |
-| 25 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | guard_test | [ ] |
-| 26 | `battle.gd`（M3.3：兵科基础 + 空军越线） | 2 | ★★★ | 120 | combat_test 增补 | [ ] |
+| 24 | `unit.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | keywords_test（17 项已写） | [ ] |
+| 25 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | guard_test（8 项已写） | [ ] |
+| 26 | `battle.gd`（M3.3：兵科基础 + 空军越线） | 2 | ★★★ | 120 | unit_class_test（11 项已写） | [ ] |
 | 27 | `data/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | data_test + validate_data | [ ] |
 | 28 | `battle.gd`+`data_loader.gd`（M3.5：卡组构筑 39+1） | 2 | ★★★ | 60 | deck_build_test | [ ] |
 | 29 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | aura_v3_test | [ ] |
@@ -857,6 +857,86 @@ M3 的**详细排期、任务分解、测试计划、依赖与风险**见 **`doc
 规则决策见 `docs/adr/004-m3-keywords.md`（行动经济/Guard/兵科）与 `docs/adr/005-element-auras-v3.md`（元素多槽）。
 
 本文件 §27/§28 是 M3.1/M3.2 的初步任务卡；M3.1–M3.8 每块开工前，教练会把该块的详细任务卡补到本节下面（含函数表、验收、坑）。
+## 30. E7b 起手与换牌（P2）
+
+**规则（KARDS，2026-11-22 确认）**：
+- 先手（玩家）：起手 **4** 张，**自己第一个回合不抽牌**；
+- 后手（敌方）：起手 **5** 张，**自己第一个回合照常抽 1 张**；
+- 之后双方每回合抽 1；
+- **mulligan**：开局（第一次行动前）每方可以换一次——把指定手牌洗回牌库、再抽等量。
+
+**API 约定**：`Battle.mulligan(owner: String, cards: Array[Card]) -> bool`
+- 成功 true；失败 false（不是自己手牌 / 已经用过 / 已过开局阶段 / 空列表）；
+- 每方每局只能成功一次；双方对称；洗回用 `Battle.rng`（可复现）。
+- 建议字段：`mulligan_used` / `enemy_mulligan_used`；常量 `PLAYER_OPENING_HAND=4`、`ENEMY_OPENING_HAND=5`。
+
+**改哪里**：`battle.gd` 的 `start_battle()` / `_begin_turn()` / `_enemy_turn()`（抽牌差异）+ 新 `mulligan()`。
+
+**验收**：`tests/pending/opening_test.gd` **16 项**（起手 4/5、玩家首回合不抽、敌方首回合抽、mulligan 成功/一次/非法/敌方对称/可复现）。
+全绿后移到 `tests/`。
+
+---
+
+## 31. M3.1 行动经济 + 关键词 + 闪击
+
+见 `docs/adr/004-m3-keywords.md` 决定 1。
+
+| 位置 | 要做 |
+|---|---|
+| `unit.gd` | `has_moved` / `has_attacked` 替代 `has_acted`；`keywords: Array[String]` + `Unit.from_dict` 解析 |
+| `card.gd` | 已有 `keywords` 字段，`Card.from_dict` 解析（逐项 append，别直接赋 untyped） |
+| `battle.gd` `_deploy_unit` | 拷 keywords/unit_class 到 Unit；召唤失调：普通单位两个标志 true，**闪击 Blitz 两个 false** |
+| `battle.gd` `move_unit` / `attack_unit` | 二选一规则：`has_moved`/`has_attacked` 互斥；**坦克（unit_class=="tank"）两者都能做** |
+| `_begin_turn` / `_enemy_turn` | 清己方非 HQ 的两个标志 |
+| 测试迁移 | 旧 `has_acted` 断言全部改（`battle_m2_test` / `status_test` 等）——**教练改**；`_settle_status` 的 disable 改为"两个标志都置 true" |
+
+**验收**：`tests/pending/keywords_test.gd` **17 项**（解析/召唤失调/闪击/二选一/坦克/闪击+坦克/回合清标志）。
+
+---
+
+## 32. M3.2 Guard
+
+见 `docs/adr/004-m3-keywords.md` 决定 2。
+
+| 位置 | 要做 |
+|---|---|
+| `attack_unit` | 目标被保护（同线相邻格有敌方 Guard、且目标本身不是 guard）→ 返回 false |
+| `_ai` 攻击段 | 选目标时跳过被保护目标（或优先打 Guard） |
+| `play_card`（order） | 默认**无视** Guard；以后要"尊重守护"的卡加 `respects_guard` 字段再处理 |
+
+**验收**：`tests/pending/guard_test.gd` **8 项**（相邻保护/Guard 可打/HQ 保护/不护 Guard/不相邻/跨线/指令卡无视）。
+
+---
+
+## 33. M3.3 兵科
+
+见 `docs/adr/004-m3-keywords.md` 决定 3。
+
+| 位置 | 要做 |
+|---|---|
+| `unit.gd` | `unit_class: String` 字段 + `Unit.from_dict` 解析；`_deploy_unit` 从 Card 拷贝 |
+| `battle.gd` `attack_unit` | 炮兵攻击不受反击；轰炸机攻击非战斗机不受反击、被攻击时也不反击；战斗机/轰炸机**可越线**（不受相邻线限制） |
+| 数据 | `cards.json` 给单位卡补 `unit_class`（M3.4 一并做） |
+
+**验收**：`tests/pending/unit_class_test.gd` **11 项**（炮兵/步兵反击、坦克移动+攻击、战斗机越线且步兵不能、轰炸机越线/无反击/被打不反击）。
+**M3.3b**：战斗机拦截轰炸机（"轰炸机攻击有战斗机的线只能打战斗机"）单独补 2–4 条。
+
+---
+
+## 34. M3.5 卡组构筑（39 张 + 1 HQ）
+
+- 数据：`data/decks/player_deck.json` / `enemy_deck.json`：`{ "name": ..., "cards": [{"id": ..., "count": N}] }`；总张数 **39**（HQ 不进牌库）；同名上限待定（建议 4）。
+- `DataLoader.load_deck(path) -> Array[Card]`：校验 id 存在、count>0、总数 39、同名 ≤ 上限；非法 → `push_error` + 返回空（不崩）。
+- `Battle.setup` 仍接收展开好的 `p_deck`，不改签名。
+- 验收测试 `tests/pending/deck_build_test.gd`（**待写**，12–15 项：展开张数/非法 id/超上限/总数不对/双方独立）。
+
+---
+
+## 35. M3.6 元素 v3（多槽附着）
+
+规格见 `docs/adr/005-element-auras-v3.md`。实现前需先完成：`docs/element-reactions.md` 重写为 v3 + `elements.json`/`reactions.json` 数据迁移 + `tests/pending/aura_v3_test.gd`（20–26 项，**待写**）。这轮不动现有数据/测试（迁移与代码同批提交）。
+
+---
 ## 附：常用 GDScript 手段速查
 
 | 想做的事 | 用什么 |
