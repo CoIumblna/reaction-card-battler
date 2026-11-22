@@ -9,7 +9,7 @@
 
 当前状态：**M1、M2 均已完成（8 个测试文件 320/320 全绿）**。测试（规格）和文档写好了，实现由你来写。
 跑 `tools\check.bat` 看进度表 + 检查点 + pending 验收基线（它还会告诉你下一步做什么）。
-当前任务：**E7 牌堆/弃牌/洗回（§26）**——验收 `tests/pending/deck_test.gd` 18 项，做完启用后全套到 **373 项**；E14 指令卡已完成（当前 **355/355**）。
+当前任务：**E7a 弃牌堆/抽干疲劳（§26，KARDS 式）**——验收 `tests/pending/deck_test.gd` 20 项，做完启用后全套到 **375 项**；E14 已完成（当前 **355/355**）。
 离线作业清单见 `docs/离线工作包-E14-E7-2026-11-22.md`。
 
 ### 测试文件怎么分（按"被测单元"，不是按功能点）
@@ -27,7 +27,7 @@
 | `tests/battle_m2_test.gd` | M2 流程：Kredit / 部署 / 召唤失调 / HQ 胜负 / 敌方 AI / 自动对局 | 63 | 0 |
 | `tests/status_test.gd` | C8：dot / disable / 反应挂状态 | 12 | 0 |
 | `tests/order_test.gd` | E14：指令卡目标（数据驱动 target）+ 死亡移除 | 35 | 0 |
-| `tests/pending/deck_test.gd` | **E7 待启用**：弃牌堆 / 牌库洗回（规格 §26） | 18 | 待实现 |
+| `tests/pending/deck_test.gd` | **E7a 待启用**：弃牌堆 / 抽干疲劳（规格 §26） | 20 | 待实现 |
 | `tests/pending/keywords_test.gd` | **M3 待启用**：关键词框架 + 闪击 Blitz（规格 m3-scope §M3.1） | 9 | 6 |
 | `tests/pending/guard_test.gd` | **M3 待启用**：护卫 Guard（选项 A 暂定，ADR-004） | 6 | 2 |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
@@ -59,7 +59,7 @@
 | 任务 | 你要实现 | 验收 |
 |---|---|---|
 | ✅ E14 指令卡 | 按 `Card.target` 校验棋盘目标（默认按 kind 推断）+ 伤害后死亡移除 | `order_test` 35/35（已完成） |
-| **E7 弃牌堆** | `discard` / `enemy_discard`、出牌入弃牌堆、满手抽牌进弃牌堆、牌库空洗回 | `deck_test` 18/18（规格 §26） |
+| **E7a 弃牌堆** | `discard` / `enemy_discard`、出牌入弃牌堆、满手 burn、抽干按 1,2,3… 扣自己 HQ | `deck_test` 20/20（规格 §26） |
 ---
 
 ## 快速开始
@@ -147,7 +147,7 @@ reaction-card-battler/
     ├── combat_test.gd           # 移动 / 攻击与反击 / 前线独占 / 死亡移除
     ├── status_test.gd           # C8：dot / disable / 反应挂状态
     ├── order_test.gd           # E14：指令卡目标（数据驱动）
-    ├── pending/deck_test.gd     # E7 待启用：弃牌堆/洗回（规格 §26）
+    ├── pending/deck_test.gd     # E7a 待启用：弃牌堆/疲劳（规格 §26）
     └── run_battle.gd            # 手动跑一局看日志
 ```
 

@@ -1,24 +1,29 @@
 extends SceneTree
-## E7 牌堆/弃牌/换牌验收测试（待实现）
+## E7a 弃牌堆 / 牌库抽干（KARDS 式疲劳）验收测试 —— 待实现
 ##
 ## 运行：
 ##   ... --headless --path . --script res://tests/pending/deck_test.gd
 ##
-## 规格：docs/implementation-tasks.md §26
-## 【暂定方案】弃牌堆记录"打出的指令卡 + 手牌满时抽到被丢弃的牌"；牌库抽空时把弃牌堆
-## 洗回牌库再抽（避免长局抽干）。§26 的 3 个 ❓ 拍板后，若方案不同我再改这份测试。
-## 【启用方式】E7 实现全绿后，把本文件移到 tests/ 下（runner 自动发现）。
+## 规格：docs/implementation-tasks.md §26（2026-11-22 定稿：KARDS 式，不洗回）
+##   - 打出的指令卡 → 弃牌堆；单位卡部署不进弃牌堆；失败/非法出牌不进弃牌堆
+##   - 手牌满 9 仍要抽 → 牌库照扣，抽到的牌进弃牌堆（burn）
+##   - 牌库抽空后仍要抽牌 → 不再抽牌，抽牌方**自己的 HQ** 受到递增伤害：
+##     第 1 次 1、第 2 次 2、第 3 次 3……（等差数列，双方独立计数；直接扣 HP，不走护盾/元素）
+##   - 敌方完全对称：enemy_discard + 自己的疲劳计数
+## E7b（起手 4/5 + 首个回合抽牌差异 + mulligan）另开测试，不在这份里。
+##
+## 【启用方式】E7a 全绿后移到 tests/ 下。
 
 var failures: int = 0
 var checks: int = 0
 var table: ReactionTable
 
 ## 全绿时应执行的检查项数（少执行一条也算红）。
-const EXPECTED_CHECKS := 18
+const EXPECTED_CHECKS := 20
 
 
 func _initialize() -> void:
-	print("========== 牌堆/弃牌测试（E7） ==========")
+	print("========== 弃牌堆 / 疲劳测试（E7a） ==========")
 	table = ReactionTable.new()
 	table.load_from_file("res://data/tables/reactions.json")
 
@@ -27,8 +32,9 @@ func _initialize() -> void:
 	_test_unit_not_discard()
 	_test_invalid_not_discard()
 	_test_overflow_to_discard()
-	_test_reshuffle_player()
-	_test_reshuffle_enemy()
+	_test_fatigue_player()
+	_test_fatigue_enemy()
+	_test_fatigue_independent()
 
 	if checks != EXPECTED_CHECKS:
 		printerr("  [FAIL] 覆盖不完整：本文件应执行 %d 项检查，实际 %d 项（有测试段被跳过 / 运行期脚本报错打断）" % [EXPECTED_CHECKS, checks])
@@ -62,17 +68,28 @@ func _new_battle() -> Battle:
 	var player := Unit.from_dict({ "id": "player", "name": "旅行者", "hp": 60 })
 	var enemy := Unit.from_dict({ "id": "enemy", "name": "训练假人", "hp": 9999 })
 	var enemies: Array[Unit] = [enemy]
-	b.setup(player, enemies, DataLoader.load_cards(), table, 20261122)
+	b.setup(player, enemies, DataLoader.load_cards(), table, 20261123)
 	b.start_battle()
 	return b
 
 
-func _order(id: String, cost: int, kind: String, power: int, element: String = Element.NONE) -> Card:
-	return Card.from_dict({ "id": id, "name": id, "type": "order", "cost": cost, "element": element, "kind": kind, "power": power })
+func _order(id: String, cost: int, kind: String, power: int, element: String = Element.NONE, target: String = "enemy") -> Card:
+	return Card.from_dict({
+		"id": id, "name": id, "type": "order", "cost": cost,
+		"element": element, "kind": kind, "power": power, "target": target,
+	})
 
 
 func _unit(id: String, hp: int, attack: int = 1, owner: String = "player") -> Unit:
 	return Unit.from_dict({ "id": id, "name": id, "hp": hp, "attack": attack, "owner": owner })
+
+
+func _player_hq(b: Battle) -> Unit:
+	return b.board.unit_at("player_support", 0)
+
+
+func _enemy_hq(b: Battle) -> Unit:
+	return b.board.unit_at("enemy_support", 0)
 
 
 # ---------------------------------------------------------------- 用例
@@ -124,13 +141,13 @@ func _test_invalid_not_discard() -> void:
 	b.energy = 0
 	var c := _order("fire_bolt", 1, "damage", 5, Element.FIRE)
 	b.hand.append(c)
-	_check(not b.play_card(c, b.player), "能量不足时出牌失败（E7 测试不依赖 E14 的目标规则）")
+	_check(not b.play_card(c, _enemy_hq(b)), "能量不足时出牌失败")
 	_check_eq(b.discard.size(), 0, "失败的出牌不进弃牌堆")
 	_check(b.hand.has(c), "失败的卡留在手里")
 
 
 func _test_overflow_to_discard() -> void:
-	print("[4] 手牌满 9 时抽到的牌进弃牌堆")
+	print("[4] 手牌满 9 时抽到的牌进弃牌堆（burn）")
 	var b := _new_battle()
 	if b.get("discard") == null:
 		_check(false, "还没有 discard 字段，跳过")
@@ -141,42 +158,51 @@ func _test_overflow_to_discard() -> void:
 	var marker := _order("marker", 1, "damage", 1)
 	b.deck.push_front(marker)
 	b.end_turn()
-	_check_eq(b.hand.size(), 9, "手牌保持 9 张上限（弃牌不入手）")
+	_check_eq(b.hand.size(), 9, "手牌保持 9 张上限（burn 不入手）")
 	_check(b.discard.has(marker), "满手牌时抽到的那张进弃牌堆（不是凭空消失）")
 
 
-func _test_reshuffle_player() -> void:
-	print("[5] 牌库空时弃牌堆洗回（玩家）")
+func _test_fatigue_player() -> void:
+	print("[5] 玩家牌库空：每次该抽牌时自己的 HQ 受递增伤害（1,2,3…）")
+	var b := _new_battle()
+	if b.get("discard") == null:
+		_check(false, "还没有 discard 字段，跳过")
+		return
+	b.deck.clear()
+	var hq := _player_hq(b)
+	var hand_before := b.hand.size()
+	b.end_turn()
+	_check_eq(hq.hp, 19, "牌库空后第 1 次抽牌：玩家 HQ 20 → 19（疲劳 1）")
+	b.end_turn()
+	_check_eq(hq.hp, 17, "第 2 次抽牌：再受 2 点（19 → 17，累计 1+2=3）")
+	_check_eq(b.hand.size(), hand_before, "牌库空时抽不到牌（手牌数不变）")
+
+
+func _test_fatigue_enemy() -> void:
+	print("[6] 敌方牌库空：对称疲劳")
 	var b := _new_battle()
 	if b.get("discard") == null:
 		_check(false, "还没有 discard 字段，跳过")
 		_check(false, "还没有 discard 字段，跳过")
+		return
+	b.enemy_deck.clear()
+	var ehq := _enemy_hq(b)
+	var phq := _player_hq(b)
+	b.end_turn()
+	_check_eq(ehq.hp, 19, "敌方回合抽空：敌方 HQ 20 → 19（疲劳 1）")
+	b.end_turn()
+	_check_eq(ehq.hp, 17, "敌方第 2 次抽空：再受 2 点（19 → 17）")
+	_check_eq(phq.hp, 20, "玩家 HQ 不受敌方疲劳影响")
+
+
+func _test_fatigue_independent() -> void:
+	print("[7] 双方疲劳独立计数")
+	var b := _new_battle()
+	if b.get("discard") == null:
 		_check(false, "还没有 discard 字段，跳过")
 		return
-	var marker := _order("marker", 1, "damage", 1)
-	b.discard.append(marker)
 	b.deck.clear()
-	var hand_before := b.hand.size()
-	b.end_turn()
-	_check_eq(b.hand.size(), hand_before + 1, "牌库空 + 弃牌堆有牌：洗回后照常抽 1 张（不崩）")
-	_check_eq(b.discard.size(), 0, "洗回后弃牌堆清空")
-	_check_eq(b.deck.size(), 0, "洗回的那张已被抽走")
-
-
-func _test_reshuffle_enemy() -> void:
-	print("[6] 敌方牌库空时洗回（对称）")
-	var b := _new_battle()
-	if b.get("enemy_discard") == null:
-		_check(false, "还没有 enemy_discard 字段，跳过")
-		_check(false, "还没有 enemy_discard 字段，跳过")
-		_check(false, "还没有 enemy_discard 字段，跳过")
-		return
-	var marker := _order("enemy_marker", 1, "damage", 1)
-	b.enemy_discard.append(marker)
 	b.enemy_deck.clear()
-	var hand_before := b.enemy_hand.size()
 	b.end_turn()
-	_check_eq(b.enemy_hand.size(), hand_before + 1, "敌方牌库空 + 弃牌堆有牌：洗回后照常抽 1 张")
-	_check_eq(b.enemy_discard.size(), 0, "敌方洗回后弃牌堆清空")
-	_check_eq(b.enemy_deck.size(), 0, "敌方洗回的那张已被抽走")
-
+	_check_eq(_enemy_hq(b).hp, 19, "敌方先抽空：敌方疲劳 1（HQ 19）")
+	_check_eq(_player_hq(b).hp, 19, "玩家随后抽空：玩家疲劳 1（HQ 19，独立计数）")
