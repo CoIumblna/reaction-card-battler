@@ -858,11 +858,11 @@ M1 那两行 tick 可以删掉（`player` / `enemies` 字段本身留给 E14 处
 run_tests.bat
 
 # 只跑相关的那个文件，看失败数有没有变少
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_m2_test.gd
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/combat_test.gd
+& $g --headless --path . --script res://tests/battle_m2_test.gd
+& $g --headless --path . --script res://tests/combat_test.gd
 
 # 想手动看一局（battle.gd 写完后才用得上）
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/run_battle.gd
+& $g --headless --path . --script res://tests/run_battle.gd
 ```
 
 **全绿 = 失败 0 项 + 退出码 0 + 输出里没有 `SCRIPT ERROR`。** 三个都要满足：

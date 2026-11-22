@@ -1,8 +1,13 @@
 @echo off
 chcp 65001 >nul
 setlocal
-REM If Godot moved, change the next line only.
-set "GODOT=C:\Users\LD\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe"
+REM Godot path: env GODOT first, else relative-to-repo default (portable).
+if not defined GODOT set "GODOT=%~dp0..\..\..\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe"
+if not exist "%GODOT%" (
+    echo [ERROR] Godot not found: %GODOT%
+    echo         set env GODOT to Godot console exe, or edit this file line 5.
+    exit /b 2
+)
 set "PROJ=%~dp0"
 set "OUTDIR=%TEMP%\whk_tests"
 set "FAILED=0"

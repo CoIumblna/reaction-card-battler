@@ -2,7 +2,7 @@ extends SceneTree
 ## M3.6 平衡模拟器：批量跑自动对局，统计胜率 / 回合数 / 超时，输出 CSV。
 ##
 ## 用法（项目根目录）：
-##   $g = "C:\Users\LD\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe"
+##   $g = "..\..\..\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe"   # 相对仓库根；或先 set GODOT
 ##   & $g --headless --path . --script res://tools/balance_sim.gd -- --games 10000 --seed 42 --out res://balance.csv
 ##
 ## 参数（都可选）：

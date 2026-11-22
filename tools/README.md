@@ -81,8 +81,8 @@ Godot_v4.x-stable_win64_console.exe --headless --path . --script res://tools/val
 批量跑自动对局并统计胜率 / 回合数 / 超时，输出 CSV。规格见 `docs/m3-scope.md` §M3.6。
 
 ```powershell
-$g = "C:\Users\LD\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe"
-cd "C:\Users\LD\Desktop\资料\whk\reaction-card-battler"
+# 在项目根目录执行（Godot 路径是相对仓库的）
+$g = "..\..\..\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe"
 # 100 场冒烟
 & $g --headless --path . --script res://tools/balance_sim.gd -- --games 100
 # 1 万场 + CSV（本地工具，不进 CI）

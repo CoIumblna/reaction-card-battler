@@ -62,24 +62,26 @@
 
 ## 快速开始
 
-```bash
+```powershell
+# 在项目根目录执行；脚本里的 Godot 路径是"相对仓库"的，仓库整体移动后不用改
+$g = "..\..\..\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe"
 # 1. 导入项目（第一次必须做，会生成 .godot/ 缓存）
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --import
+& $g --headless --path . --import
 
 # 2. 跑测试（8 个文件；退出码 0 = 该文件全绿，还要确认输出里没有 SCRIPT ERROR）
 #    推荐：双击 tools\check.bat —— 跑全套 + 进度表 + E15/C8 检查点 + 下一步建议
 #    严格版：run_tests.bat —— 每个文件要求 PASS + 无 [FAIL] + 无 SCRIPT ERROR
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/data_test.gd
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/unit_test.gd
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/damage_test.gd
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/board_test.gd
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_m1_smoke_test.gd
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/battle_m2_test.gd
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/status_test.gd
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/combat_test.gd
+& $g --headless --path . --script res://tests/data_test.gd
+& $g --headless --path . --script res://tests/unit_test.gd
+& $g --headless --path . --script res://tests/damage_test.gd
+& $g --headless --path . --script res://tests/board_test.gd
+& $g --headless --path . --script res://tests/battle_m1_smoke_test.gd
+& $g --headless --path . --script res://tests/battle_m2_test.gd
+& $g --headless --path . --script res://tests/status_test.gd
+& $g --headless --path . --script res://tests/combat_test.gd
 
 # 3. 看一场自动战斗的完整日志
-Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tests/run_battle.gd
+& $g --headless --path . --script res://tests/run_battle.gd
 ```
 
 图形界面也能打开：Godot → Import → 选 `project.godot`（目前没有主场景，只能看文件树，M4 才做界面）。

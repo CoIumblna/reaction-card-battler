@@ -11,11 +11,18 @@
 #   4. 打印 E15、C8 的检查点（哪些已经绿了）
 
 param(
-    [string]$Godot = "C:\Users\LD\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe",
+    [string]$Godot = "",
     [string]$ProjectRoot = ""
 )
 
 $ErrorActionPreference = "Continue"
+
+# Godot 路径：优先 -Godot 参数 / 环境变量 GODOT，否则用相对本仓库的默认位置（仓库可整体移动）。
+if ($Godot -eq "") {
+    if ($env:GODOT) { $Godot = $env:GODOT }
+    else { $Godot = Join-Path $PSScriptRoot "..\..\..\..\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe" }
+}
+$Godot = [System.IO.Path]::GetFullPath($Godot)
 
 if ($ProjectRoot -eq "") {
     $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
