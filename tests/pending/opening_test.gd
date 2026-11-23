@@ -4,7 +4,7 @@ extends SceneTree
 ## 运行：
 ##   ... --headless --path . --script res://tests/pending/opening_test.gd
 ##
-## 规格：docs/implementation-tasks.md §26-E7b（KARDS 式，2026-11-22 确认）
+## 规格：docs/implementation-tasks.md「## 30. E7b 起手与换牌（P2）」（KARDS 式，2026-11-22 确认）
 ##   - 先手（玩家）起手 4 张，**自己第一个回合不抽牌**
 ##   - 后手（敌方）起手 5 张，**自己第一个回合照常抽 1 张**
 ##   - 之后双方每回合抽 1
