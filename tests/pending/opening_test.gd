@@ -184,7 +184,10 @@ func _test_mulligan_player() -> void:
 	_check_eq(b.hand.size(), hand_before.size(), "换牌后手牌数不变（洗回 4 张再抽 4 张）")
 	_check_eq(b.deck.size(), deck_before, "换牌后牌库数不变")
 	_check(_hand_ids(b.hand) != hand_before, "换牌后手牌内容变了（真的洗回去再抽，不是原地不动）")
-	_check(not b.mulligan("player", [b.hand[0]]), "同一方每局只能 mulligan 一次（第二次返回 false）")
+	if b.hand.is_empty():
+		_check(false, "同一方每局只能 mulligan 一次（手牌为空，无法继续验证——mulligan 实现有误）")
+	else:
+		_check(not b.mulligan("player", [b.hand[0]]), "同一方每局只能 mulligan 一次（第二次返回 false）")
 
 
 func _test_mulligan_enemy() -> void:
@@ -195,6 +198,10 @@ func _test_mulligan_enemy() -> void:
 		_check(false, "跳过")
 		return
 	b.start_battle()
+	if b.enemy_hand.is_empty():
+		_check(false, "敌方也可以 mulligan 一次（敌方手牌为空，无法验证）")
+		_check(false, "跳过")
+		return
 	var give_back: Array = [b.enemy_hand[0]]
 	_check(b.mulligan("enemy", give_back), "敌方也可以 mulligan 一次（对称）")
 	_check_eq(b.enemy_hand.size(), 5, "敌方换 1 张后手牌数不变")
@@ -221,4 +228,7 @@ func _test_mulligan_after_opening() -> void:
 		return
 	b.start_battle()
 	b.begin_first_turn()
-	_check(not b.mulligan("player", [b.hand[0]]), "begin_first_turn() 之后 mulligan → false（已过开局阶段）")
+	if b.hand.is_empty():
+		_check(false, "begin_first_turn() 之后 mulligan → false（手牌为空，无法验证）")
+	else:
+		_check(not b.mulligan("player", [b.hand[0]]), "begin_first_turn() 之后 mulligan → false（已过开局阶段）")

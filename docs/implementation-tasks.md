@@ -885,7 +885,13 @@ M3 的**详细排期、任务分解、测试计划、依赖与风险**见 **`doc
 **连带改（教练做）**：`tests/battle_m1_smoke_test.gd`、`battle_m2_test.gd`、`combat_test.gd`、`deck_test.gd`、`order_test.gd`、`status_test.gd`、`tools/run_battle.gd` 的建局辅助函数——在 `start_battle()` 前固定 `first_move = "player"`，之后补 `begin_first_turn()`，使旧断言仍是"玩家先手"语义。
 
 **验收**：`tests/pending/opening_test.gd` **25 项**（随机/可复现/两种先手各验 4/5 起手/首回合不抽与抽/mulligan 成功·一次·非法·对称·阶段外/可复现）。
-全绿后移到 `tests/`。
+全绿后移到 `tests/`。验收包已用参考实现验证可通行：`G:\constraction\_ref_e7b\`（含 `E7b-reference.patch`，**不进 git**），opening_test 25/25 + 主套 375/375。
+
+**坑（都是本轮踩到的）**
+1. **`RandomNumberGenerator` 没有 `shuffle()`**，`Array.shuffle()` 用的是全局 RNG、不可复现 → 自己写 Fisher-Yates（`for i in range(n-1, 0, -1): j = rng.randi_range(0, i)`）。
+2. **`_ai` 攻击前必须判空**：前线可能在同一个循环里被前面的攻击打空，`find_first_unit("front")` 返回 null。而 `Board.position_of(null)` 会返回**假坐标**（`slots[l].find(null)` 命中空格子，实测 `["enemy_support", 1]`），一路穿过空值检查，最后在 `attack_unit` 的 `target.owner` 处 **Nil 崩**。必须先 `var tgt: Unit = board.find_first_unit("front"); if tgt == null: break`。
+   - 这个 bug 原来被"玩家先手"的顺序挡住，改成敌方先手后就会冒出来；**单独一个 `fix(battle):` 提交**，别混进 E7b。
+3. 敌方先手时 `begin_first_turn()` 会真的跑 `_enemy_turn()`（含 AI 行动），所以第一条日志来自敌方——测试里不要假设"开局第一件事是玩家"。
 
 ---
 
