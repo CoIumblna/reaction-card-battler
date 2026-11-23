@@ -28,11 +28,16 @@ var energy: int = 0
 var max_energy: int = 0
 var turn: int = 0
 var log_lines: Array[String] = []
+var discard : Array[Card] = []
+var fatigue_cnt: int = 0
+
 
 var enemy_energy: int = 0
 var enemy_max_energy: int = 0
 var enemy_hand: Array[Card] = []
 var enemy_deck: Array[Card] = []
+var enemy_discard : Array[Card] = []
+var enemy_fatigue_cnt: int = 0
 
 
 var rng = RandomNumberGenerator.new()
@@ -57,7 +62,10 @@ func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable
 	for i in p_deck:
 		enemy_deck.append(i)
 	reaction_table = table
-	
+	discard.clear()
+	enemy_discard.clear()
+	fatigue_cnt = 0
+	enemy_fatigue_cnt = 0
 
 
 func alive_enemies() -> Array[Unit]:
@@ -89,8 +97,8 @@ func get_log() -> String:
 
 func start_battle() -> void:
 	_log("START enemies:%s" % _enemy_names())
-	_draw_into(deck,hand,OPENING_HAND)
-	_draw_into(enemy_deck,enemy_hand,OPENING_HAND)
+	_draw_into("player",OPENING_HAND)
+	_draw_into("enemy",OPENING_HAND)
 	_begin_turn()
 	
 
@@ -104,7 +112,7 @@ func _begin_turn() -> void:
 	max_energy = min(max_energy+1,KREDIT_CAP)
 	turn += 1
 	energy = max_energy
-	_draw_into(deck,hand,1)
+	_draw_into("player",1)
 
 func _ai(owner:String) -> void:#这是初版ai,后续会加入各种流派卡组专用的ai
 	var utmp: Card = null
@@ -148,7 +156,7 @@ func _enemy_turn() -> void:
 	_settle_status("enemy")
 	enemy_max_energy = min(enemy_max_energy + 1, KREDIT_CAP)
 	enemy_energy = enemy_max_energy
-	_draw_into(enemy_deck, enemy_hand, 1)
+	_draw_into("enemy", 1)
 	_ai("enemy")
 
 
@@ -213,6 +221,7 @@ func play_card(card: Card, target: Unit) -> bool:
 				_log("未知卡牌类型:%s"%card.kind)
 		energy -= card.cost
 		hand.erase(card)
+		_discard_of("player").append(card)
 		return true
 	else:
 		_log("未知类型%s"%card.type)
@@ -321,13 +330,15 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 	return true
 
 
-func _draw_into(target_deck: Array[Card],target_hand: Array[Card], n: int) -> void:
+func _draw_into(owner:String, n: int) -> void:
 	for i in range(n):
-		if target_deck.is_empty():
-			break
-		if target_hand.size() < MAX_HAND:
-			target_hand.append(target_deck.front())
-		target_deck.pop_front()
+		if _deck_of(owner).is_empty():
+			_hq_of(owner).hp = max(0,_hq_of(owner).hp-_fatigue_add(owner))
+			continue
+		if _hand_of(owner).size() < MAX_HAND:
+			_hand_of(owner).append(_deck_of(owner).front())
+		else :_discard_of(owner).append(_deck_of(owner).front())
+		_deck_of(owner).pop_front()
 
 
 func _enemy_names() -> String:
@@ -363,6 +374,14 @@ func _hand_of(owner:String) -> Array[Card]:
 	return hand if owner == "player" else enemy_hand
 
 
+func _discard_of(owner:String) -> Array[Card]:
+	return discard if owner == "player" else enemy_discard
+
+
+func _deck_of(owner:String) -> Array[Card]:
+	return deck if owner == "player" else enemy_deck
+
+
 func _support_of(owner:String) -> String:
 	return "enemy_support" if owner == "enemy" else "player_support"
 
@@ -373,6 +392,19 @@ func _opposite(owner:String) -> String:
 
 func _opposite_hq(owner:String) -> Unit:
 	return board.PLAYER_HQ if owner == "enemy" else board.ENEMY_HQ
+
+
+func _hq_of(owner:String) -> Unit:
+	return board.PLAYER_HQ if owner == "player" else board.ENEMY_HQ
+
+
+func _fatigue_add(owner:String) -> int:
+	if owner == "player":
+		fatigue_cnt+=1
+		return fatigue_cnt
+	else: 
+		enemy_fatigue_cnt+=1
+		return enemy_fatigue_cnt
 
 
 func _settle_status(owner:String) -> void:
