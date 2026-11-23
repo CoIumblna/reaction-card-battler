@@ -99,6 +99,13 @@ Invoke-Git -GitArgs @("config", "pull.rebase", "false") | Out-Null
 Invoke-Git -GitArgs @("config", "init.defaultBranch", "main") | Out-Null
 
 # 5) remote origin
+# 本机若已有 GitHub SSH 密钥，优先用 SSH URL——否则重跑本脚本会把 origin 改回
+# HTTPS，push 又会卡在「要用户名/密码」。详见 HANDOFF 的 SSH 说明。
+$sshKey = Join-Path $env:USERPROFILE ".ssh\id_ed25519_github.pub"
+if ($RepoUrl -match '^https://github\.com/(.+?)(\.git)?$' -and (Test-Path $sshKey)) {
+    $RepoUrl = "git@github.com:" + $Matches[1] + ".git"
+    Info ("检测到 SSH 密钥，origin 改用 SSH：" + $RepoUrl)
+}
 $existing = Invoke-Git -GitArgs @("remote", "get-url", "origin") -AllowFail
 if ($existing -eq "") {
     Info ("添加 remote origin：" + $RepoUrl)
@@ -124,7 +131,7 @@ if ($cred.Count -eq 0) {
         Info "检测到 Git Credential Manager，写入全局 credential.helper=manager"
         Invoke-Git -GitArgs @("config", "--global", "credential.helper", "manager") | Out-Null
     } else {
-        Warn "没有凭据管理器：首次 push 时按提示登录，或使用 GitHub PAT（Personal Access Token）"
+        Warn "没有凭据管理器：若 origin 是 HTTPS 会要求登录；用 SSH origin 或 GitHub PAT"
     }
 } else {
     Info ("已配置凭据管理器：" + (($cred | Select-Object -First 1) -replace '\s+', ' '))
@@ -143,8 +150,8 @@ Write-Host ("当前分支    : " + $branchNow)
 Write-Host ""
 Write-Host "下一步："
 Write-Host "  git pull                 # 拉最新（首次 pull 会和远端合并）"
-Write-Host "  tools\check.bat          # 验证：主套应 355/355 ALL GREEN"
-Write-Host "  git push                 # 推提交（首次会要求登录 GitHub）"
+Write-Host "  tools\check.bat          # 验证：主套应 375/375 ALL GREEN"
+Write-Host "  git push                 # 推提交（本机已配 SSH，免登录）"
 Write-Host ""
 if ($DryRun) { Write-Host "（DryRun：以上改动没有实际执行）" -ForegroundColor Yellow }
 exit 0
