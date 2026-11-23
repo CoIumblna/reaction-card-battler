@@ -52,7 +52,7 @@ Godot_v4.x-stable_win64_console.exe --headless --path . --script res://tools/add
 `setup_git.ps1` 同理——**任何 .ps1 里只要有中文就必须带 BOM**，并且用编辑器/脚本改完要复查头 3 字节是不是 `EF BB BF`，
 否则 PowerShell 5.1 会把中文读成乱码）。Godot 路径变了就改 `check.ps1` 顶部的 `-Godot` 参数。
 
-当前目标：375/375（8 个测试文件）；`tests/pending/` 还剩 7 份红基线（71 项），逐个实现后移进 `tests\`。
+当前目标：375/375（8 个测试文件）；`tests/pending/` 还剩 7 份红基线（80 项），逐个实现后移进 `tests\`。
 
 ## 和 tests/ 的区别（重要）
 

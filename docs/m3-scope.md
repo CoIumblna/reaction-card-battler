@@ -28,7 +28,7 @@
 | # | 任务 | 内容 | 估时 | 验收 | 状态 |
 |---|---|---|---|---|---|
 | P1 | **E7a 弃牌堆 + 疲劳** | `discard`/`enemy_discard`、出牌入弃牌、burn、抽干按 1,2,3… 扣自己 HQ | 1.5h | `deck_test` 20/20 → 375 | ✅ 规格+测试已备 |
-| P2 | **E7b 起手/换牌** | 先手起手4+首回合不抽；后手起手5+首回合抽1；mulligan ✅（每方一次） | 1.5h | `opening_test`（16 项，已写） | ✅ 规格+测试已备 |
+| P2 | **E7b 起手/换牌** | **先手随机**；先手起手4+首回合不抽；后手起手5+首回合抽1；mulligan ✅（每方一次，独立开局阶段） | 1.5h | `opening_test`（25 项，已写） | ✅ 规格+测试已备 |
 | M3.0 | **规则定稿** | ADR-004（行动经济/Guard/兵科）、ADR-005（元素 v3） | ✅ | 文档 | ✅ 完成 |
 | M3.1 | **行动经济 + 关键词 + Blitz** | 拆 `has_moved`/`has_attacked`；`Card/Unit.keywords` 解析传递；Blitz；Blitz+Tank | 3h | `keywords_test` 12–14 全绿 | 测试待重写 |
 | M3.2 | **Guard** | 同线相邻保护、不护 Guard、HQ 可保护、AI 遵守、指令卡默认无视 | 3h | `guard_test` 9–11 全绿 | 测试待重写 |
@@ -57,7 +57,7 @@
 | `tests/pending/aura_v3_test.gd` | 多槽/叠加/反应/槽满/持续时间/感电冻结/dot/免疫 | 20–26 | M3.6 时写 |
 | `tests/pending/stat_mod_test.gd` | `defense_down` 生效/叠层/指令伤害/到期 | 6 | ✅ 已写 |
 | `tests/pending/air_intercept_test.gd` | 战斗机拦截轰炸机 | 3 | ✅ 已写 |
-| `tests/pending/opening_test.gd` | E7b 起手 4/5、首回合抽牌、mulligan | 16 | ✅ 已写 |
+| `tests/pending/opening_test.gd` | E7b 随机先手、起手 4/5、首回合抽牌、mulligan | 25 | ✅ 已写（2026-11-23 改随机先手） |
 
 > 规则：`EXPECTED_CHECKS` 同步；`tests/pending/` 不进 CI；教练给测试前先用临时副本参考实现验证可通行。
 

@@ -803,8 +803,8 @@ M1 那两行 tick 可以删掉（`player` / `enemies` 字段本身留给 E14 处
 
 > **规格已定稿，见本文件后面的「## 30. E7b 起手与换牌（P2）」——那里才是任务卡。**
 > 本节旧稿里「mulligan 是否做、换几张待定 ❓」已作废：2026-11-22 拍板为
-> 先手 4 张且首回合不抽、后手 5 张且首回合照常抽 1、双方各一次 mulligan。
-> 验收：`tests/pending/opening_test.gd`（16 项）。
+> **先手随机**（2026-11-23 改）4 张且首回合不抽、后手 5 张且首回合照常抽 1、双方各一次 mulligan。
+> 验收：`tests/pending/opening_test.gd`（25 项）。
 
 ### 坑
 
@@ -856,20 +856,35 @@ M3 的**详细排期、任务分解、测试计划、依赖与风险**见 **`doc
 本文件 §27/§28 是 M3.1/M3.2 的初步任务卡；M3.1–M3.8 每块开工前，教练会把该块的详细任务卡补到本节下面（含函数表、验收、坑）。
 ## 30. E7b 起手与换牌（P2）
 
-**规则（KARDS，2026-11-22 确认）**：
-- 先手（玩家）：起手 **4** 张，**自己第一个回合不抽牌**；
-- 后手（敌方）：起手 **5** 张，**自己第一个回合照常抽 1 张**；
-- 之后双方每回合抽 1；
-- **mulligan**：开局（第一次行动前）每方可以换一次——把指定手牌洗回牌库、再抽等量。
+> 2026-11-23 修改：**先手随机**（原来固定玩家先手），mulligan 提成独立阶段。
 
-**API 约定**：`Battle.mulligan(owner: String, cards: Array[Card]) -> bool`
-- 成功 true；失败 false（不是自己手牌 / 已经用过 / 已过开局阶段 / 空列表）；
-- 每方每局只能成功一次；双方对称；洗回用 `Battle.rng`（可复现）。
-- 建议字段：`mulligan_used` / `enemy_mulligan_used`；常量 `PLAYER_OPENING_HAND=4`、`ENEMY_OPENING_HAND=5`。
+**规则（KARDS）**：
+- 开局用 `rng.randi_range(0, 1)` 随机决定**先手方**，存 `Battle.first_move`（`"player"` / `"enemy"`）；不固定玩家先手。
+- 先手方：起手 **4** 张，**自己第一个回合不抽牌**；
+- 后手方：起手 **5** 张，**自己第一个回合照常抽 1 张**；
+- 之后双方每回合抽 1。
+- **mulligan 是独立阶段**：`start_battle()` 发完牌、`begin_first_turn()` 之前，双方各可换一次——把指定手牌洗回牌库、再抽等量。
 
-**改哪里**：`battle.gd` 的 `start_battle()` / `_begin_turn()` / `_enemy_turn()`（抽牌差异）+ 新 `mulligan()`。
+**API 约定**
 
-**验收**：`tests/pending/opening_test.gd` **16 项**（起手 4/5、玩家首回合不抽、敌方首回合抽、mulligan 成功/一次/非法/敌方对称/可复现）。
+| 方法 | 语义 |
+|---|---|
+| `setup(...)` | 除现有清理外，置 `first_move = ""`、`turn = 0`（开局阶段未定） |
+| `start_battle()` | `first_move` 为 `""` 时随机；按身份发牌（先手 4 / 后手 5）；**不开始任何回合**（`turn` 仍 0、`energy` 仍 0）；进入开局阶段 |
+| `begin_first_turn()` | 开始先手方第 1 回合：先手是玩家 → `_begin_turn()`；先手是敌方 → 先 `_enemy_turn()` 再 `_begin_turn()`；退出开局阶段 |
+| `mulligan(owner: String, cards: Array[Card]) -> bool` | 只在开局阶段、每方一次；成功 true；空列表 / 不是自己手牌 / 已用过 / 已过开局阶段 → false |
+
+- **可注入**：`start_battle()` 只在 `first_move == ""` 时随机。测试要确定性就在 `start_battle()` 前设 `b.first_move = "player"`。
+- 抽牌差异：`_begin_turn()` 里 `if not (first_move == "player" and turn == 1): _draw_into("player", 1)`；`_enemy_turn()` 用计数 `enemy_turns_taken`，`if not (first_move == "enemy" and enemy_turns_taken == 1): _draw_into("enemy", 1)`。
+- 常量：`FIRST_OPENING_HAND = 4`、`SECOND_OPENING_HAND = 5`（原 `OPENING_HAND` 拆成这两个）。
+- 洗回用 `Battle.rng`（可复现）；字段建议 `mulligan_used` / `enemy_mulligan_used`。
+- `end_turn()` 不变：玩家回合结束 → 敌方回合 → 玩家下回合。
+
+**改哪里**：`battle.gd` 的 `start_battle()` / 新 `begin_first_turn()` / `_begin_turn()` / `_enemy_turn()` / 新 `mulligan()`。
+
+**连带改（教练做）**：`tests/battle_m1_smoke_test.gd`、`battle_m2_test.gd`、`combat_test.gd`、`deck_test.gd`、`order_test.gd`、`status_test.gd`、`tools/run_battle.gd` 的建局辅助函数——在 `start_battle()` 前固定 `first_move = "player"`，之后补 `begin_first_turn()`，使旧断言仍是"玩家先手"语义。
+
+**验收**：`tests/pending/opening_test.gd` **25 项**（随机/可复现/两种先手各验 4/5 起手/首回合不抽与抽/mulligan 成功·一次·非法·对称·阶段外/可复现）。
 全绿后移到 `tests/`。
 
 ---
