@@ -141,7 +141,9 @@ func _ai(owner:String) -> void:#这是初版ai,后续会加入各种流派卡组
 		for u in board.units_in(_support_of(owner)):
 			if u.is_hq || u.has_acted || u.operation_cost > _energy_of(owner):
 				continue
-			attack_unit(u,board.find_first_unit("front"))
+			var tgu = board.find_first_unit("front")
+			if tgu == null: break
+			attack_unit(u,tgu)
 			u.has_acted = true
 
 
