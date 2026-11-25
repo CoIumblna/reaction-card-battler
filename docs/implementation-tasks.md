@@ -29,7 +29,7 @@
 | 20 | `battle.gd`（E14：指令卡打在棋盘单位上） | 3 | ★★ | 40 | 2–3 h | order_test[1–5] | [x] |
 | 21 | `battle.gd`（E7a+E7b：牌堆/弃牌/起手/换牌） | 4 | ★★★ | 80 | 5–7 h | deck_test + opening_test | [x] |
 | 22 | `unit.gd`+`card.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | **4–6 h**（实际约 4.5 h） | keywords_test（17 项，已启用） | [x] |
-| 23 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | **2–3 h** | guard_test（8 项已写） | [ ] |
+| 23 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | **2–3 h**（实际约 2 h） | guard_test（8 项，已启用） | [x] |
 | 24 | `battle.gd`（M3.3：兵科基础 + 空军越线） | 2 | ★★★ | 120 | **5–7 h** | unit_class_test（11 项已写） | [ ] |
 | 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **1.5–2 h** | air_intercept_test（3 项已写） | [ ] |
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **2–3 h**（创意为主） | data_test + validate_data | [ ] |
@@ -1053,8 +1053,17 @@ PART 2 跑 `tools/preflight.ps1` 做详细自检（数据校验 / `has_acted` �
 
 见 `docs/adr/004-m3-keywords.md` 决定 2。
 
+> **✅ 已完成（2026-11-25）**：`guard_test` 8/8 已启用，主套 **425/425** 全绿。
+> commit `d3bf911` `feat(battle):` Guard 相邻保护。下面保留任务卡原文作为备课模板。
+>
 > 2026-11-25：任务卡细化完毕，验收包已用参考实现验证**可通行**
-> （`G:\constraction\_ref_m32\`，补丁 `G:\constraction\_ref_m32_pkg\M32-impl.patch`，**不进 git**）。
+> （补丁 `G:\constraction\_ref_m32_pkg\M32-impl.patch`，**不进 git**）。
+>
+> **遗留（登记在案，M3.4 上真实 guard 卡前必须处理）**：学生版 `_ai` 选目标的标准是
+> 「不是 guard」，而不是「没被保护」。真实卡池有 guard 卡后，AI 会挑「被保护的单位」去打
+> → `attack_unit` 返回 false → **白扔一个 AI 回合**。正确做法：在 `battle.gd` 里用
+> `_is_guarded()` 挑目标（先找没被保护的敌人，找不到就打 Guard 本身），并补一条 AI 断言。
+> 现在测不出来是因为真实卡池里还没有 guard 卡。
 > 参考实现只改了 `src/core/battle.gd` 一个文件（+44/-2），核心是**一个 15 行的小函数 + 三处调用**。
 > 难度 ★★★、约 70 行，**预计 2–3 h**（顺利的话 1.5 h：核心逻辑不难，难在把「谁保护谁」的方向想清楚）。
 
@@ -1200,26 +1209,29 @@ func _is_guarded(target: Unit) -> bool:
 
 ## 写完一个文件的验收动作
 
-**只跑一条命令：`run_tests.bat`（在仓库根目录）。** 它现在是**两段式**，一次跑完教练手工验证的全部内容：
+**只跑一条命令：`run_tests.bat`（在仓库根目录）。** 它现在是**三段式**，一次跑完教练手工验证的全部内容：
 
 ```
 ################ PART 1  main suite (tests\*_test.gd) ################
   —— 自动发现 tests\*_test.gd；每文件判 退出码 + 有 PASS + 无 [FAIL] + 无 SCRIPT ERROR
-  —— 末行 ===== ALL GREEN ===== 才算过
+  —— 全绿时每个文件只打一行 [PASS]；有红就 dump 该文件完整日志
+
+############ PART 1.5  pending baseline (tests\pending\*_test.gd) ############
+  —— 每个待启用文件一行：[READY  ] name  N checks --> git mv ...   /  [PENDING] name  N checks / M failed
+  —— 只报告，永不判失败
 
 ################ PART 2  detailed preflight (tools\preflight) ################
-  [1] tests/pending 基线      每个待启用文件 项数 / 红 / SCRIPT ERROR（报告用，红是正常）
-  [2] 数据校验               validate_data.gd 必须 PASS
-  [3] 旧字段残留             src/ 里 has_acted 命中数（M3.1 启用后必须 0）
-  [4] EXPECTED_CHECKS       每个测试文件都必须声明，否则少跑会假绿
-  [5] 兵科覆盖               cards.json 单位卡的 unit_class 覆盖率
-  [6] 平衡冒烟               balance_sim 100 场：胜率 45–60% / 8–20 回合 / RUNNING < 1%
-  [7] 脚本编码               *.bat 必须 CRLF + 纯 ASCII；*.ps1 有中文必须带 UTF-8 BOM
-  [8] 工作区噪音             data/tables/*.json 的行尾换行假 diff + 未提交改动清单
+  [1] 数据校验               validate_data.gd 必须 PASS
+  [2] 旧字段残留             src/ 里 has_acted 命中数（M3.1 启用后必须 0）
+  [3] EXPECTED_CHECKS       每个测试文件都必须声明，否则少跑会假绿
+  [4] 兵科覆盖               cards.json 单位卡的 unit_class 覆盖率
+  [5] 平衡冒烟               balance_sim 100 场：胜率 45–60% / 8–20 回合 / RUNNING < 1%
+  [6] 脚本编码               *.bat 必须 CRLF + 纯 ASCII；*.ps1 有中文必须带 UTF-8 BOM
+  [7] 工作区噪音             data/tables/*.json 的行尾换行假 diff + 未提交改动清单
   —— 末行 ===== ALL GREEN ===== 才算过（PART 2 退出码非 0 也会把总结果拉成失败）
 ```
 
-两段都过才是 `===== ALL GREEN =====`，退出码 0。**别只看单个文件的退出码**：
+三段都过才是 `===== ALL GREEN =====`，退出码 0。**别只看单个文件的退出码**：
 
 ```bash
 # 只想跑某一个文件、看失败数有没有变少（调试用，不算验收）
