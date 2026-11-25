@@ -872,9 +872,12 @@ M3 的**详细排期、任务分解、测试计划、依赖与风险**见 **`doc
 | `setup(...)` | 除现有清理外，置 `first_move = ""`、`turn = 0`（开局阶段未定） |
 | `start_battle()` | `first_move` 为 `""` 时随机；按身份发牌（先手 4 / 后手 5）；**不开始任何回合**（`turn` 仍 0、`energy` 仍 0）；进入开局阶段 |
 | `begin_first_turn()` | 开始先手方第 1 回合：先手是玩家 → `_begin_turn()`；先手是敌方 → 先 `_enemy_turn()` 再 `_begin_turn()`；退出开局阶段 |
-| `mulligan(owner: String, cards: Array[Card]) -> bool` | 只在开局阶段、每方一次；成功 true；空列表 / 不是自己手牌 / 已用过 / 已过开局阶段 → false |
+| `mulligan(owner: String, cards: Array) -> bool` | 只在开局阶段、每方一次；成功 true；空列表 / 不是自己手牌 / 已用过 / 已过开局阶段 → false |
 
 - **可注入**：`start_battle()` 只在 `first_move == ""` 时随机。测试要确定性就在 `start_battle()` 前设 `b.first_move = "player"`。
+- 形参写弱类型 `cards: Array`（不是 `Array[Card]`）：`opening_test` 传的是 `var give_back: Array = b.hand.duplicate()`，
+  无类型 `Array` 实参传给 typed array 形参会在运行时抛
+  `Invalid type in function 'mulligan' ... does not have the same element type as the expected typed array argument`。
 - 抽牌差异：`_begin_turn()` 里 `if not (first_move == "player" and turn == 1): _draw_into("player", 1)`；`_enemy_turn()` 用计数 `enemy_turns_taken`，`if not (first_move == "enemy" and enemy_turns_taken == 1): _draw_into("enemy", 1)`。
 - 常量：`FIRST_OPENING_HAND = 4`、`SECOND_OPENING_HAND = 5`（原 `OPENING_HAND` 拆成这两个）。
 - 洗回用 `Battle.rng`（可复现）；字段建议 `mulligan_used` / `enemy_mulligan_used`。
