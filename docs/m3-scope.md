@@ -56,7 +56,7 @@
 | `tests/pending/deck_build_test.gd` | 39+1 展开、同名上限、非法 id、双方独立 | 10 | ✅ 已写 |
 | `tests/pending/aura_v3_test.gd` | 多槽/叠加/反应/槽满/持续时间/感电冻结/dot/免疫 | 20–26 | M3.6 时写 |
 | `tests/pending/stat_mod_test.gd` | `defense_down` 生效/叠层/指令伤害/到期 | 6 | ✅ 已写 |
-| `tests/pending/air_intercept_test.gd` | 战斗机拦截轰炸机 | 3 | ✅ 已写 |
+| `tests/pending/air_intercept_test.gd` | 战斗机拦截轰炸机 | 4 | ✅ 已写 |
 | `tests/pending/opening_test.gd` | E7b 随机先手、起手 4/5、首回合抽牌、mulligan | 25 | ✅ 已写（2026-11-23 改随机先手） |
 
 > 规则：`EXPECTED_CHECKS` 同步；`tests/pending/` 不进 CI；教练给测试前先用临时副本参考实现验证可通行。

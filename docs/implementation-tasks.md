@@ -31,7 +31,7 @@
 | 22 | `unit.gd`+`card.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | **4–6 h**（实际编码约 1.5 h） | keywords_test（17 项，已启用） | [x] |
 | 23 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | **2–3 h**（实际编码约 0.5–1 h） | guard_test（8 项，已启用） | [x] |
 | 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 140 | **5–7 h**（实际编码约 1–1.5 h） | unit_class_test（21 项，已启用） | [x] |
-| 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **0.5–1 h**（参考实现实际 ~20 min） | air_intercept_test（3 项已写，验收包已验证） | [ ] 备课完成 → 待学员实现 |
+| 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **0.5–1 h**（参考实现实际 ~20 min） | air_intercept_test（4 项已写，验收包已验证） | [ ] 备课完成 → 待学员实现 |
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [ ] |
 | 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（参考实现实际 ~25 min） | deck_build_test（11 项，验收包已验证） | [ ] 备课完成 → 待学员实现 |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（最大块；备课前粗估，风险最高） | aura_v3_test（24 项待写） | [ ] |
@@ -1367,9 +1367,9 @@ PROBE place(slot2) returned = true    → same=true, kw=["guard"]
 
 > **✅ 2026-11-25 验收包已验证可通行**：参考实现只动 `src/core/{battle,board}.gd` 两个文件（**+24/−4，测试一个字没改**），
 > patch 在 `G:\constraction\_ref_m33b_pkg\M33b-impl.patch`（**不进 git**）。
-> 实测：`air_intercept_test` **3/3 PASS**、主套 **449/449 全绿 0 SCRIPT ERROR**（15 文件）、
+> 实测：`air_intercept_test` **4/4 PASS**、主套 **450/450 全绿 0 SCRIPT ERROR**（15 文件）、
 > `validate_data` PASS、`balance_sim` 100 场 **48.0% / 13.0 回合 / RUNNING 0%**（真实卡池还没有空军卡，行为不变）。
-> 所以下面这 3 项是**可以跑通的红基线**，不是画饼。参考 worktree：`G:\constraction\_ref_m33b`（detached @ `ea92a38` + 未提交改动）。
+> 所以下面这 4 项是**可以跑通的红基线**，不是画饼。patch 在 `G:\constraction\_ref_m33b_pkg\M33b-impl.patch`。
 
 **难度 ★★、预计 0.5–1 h（原估 1.5–2 h，参考实现实际 ~20 min）。这是 M3 里最小的一块**，只加一条「目标合法性」规则，不动已有任何判定。
 
@@ -1420,20 +1420,22 @@ func has_fighter(line:String, owner:String = "") -> bool:
 	return false
 ```
 
-### 验收：`tests/pending/air_intercept_test.gd` **3 项**
+### 验收：`tests/pending/air_intercept_test.gd` **4 项**
 
 | # | 内容 | 项数 |
 |---|---|---|
 | [1] | 目标线有敌方战斗机时，轰炸机不能打该线非战斗机 | 1 |
 | [2] | 轰炸机可以打该线的战斗机 | 1 |
 | [3] | 目标线没有战斗机时，轰炸机照常打非战斗机 | 1 |
+| [4] | 目标线上**只有己方**战斗机时，轰炸机照常打非战斗机 | 1 |
 
-全绿后 `git mv tests/pending/air_intercept_test.gd tests/`，主套 14 → **15 文件、446 → 449 项**。
+全绿后 `git mv tests/pending/air_intercept_test.gd tests/`，主套 14 → **15 文件、446 → 450 项**。
 
 ### 6 条坑
 
 1. **判定必须「只在攻击者是轰炸机时生效」**。写成「目标线有战斗机就拒」，战斗机/步兵之间的正常互殴会一起被拒——`combat_test`(59) / `guard_test`(8) / `unit_class_test`(21) 会同时红一片。
 2. **必须判「敌方」战斗机，不能判「有战斗机」**。己方战斗机不该保护敌方单位；虽然正常战局里敌我不会同线，但 `air_intercept_test` 用 `board.place` 手工造局面，写错方向立刻红。
+   **[4] 就是专门抓这一条的**：2026-11-26 实测，`return not board.has_fighter(to_line)`（不传 `owner`）能通过 [1][2][3] 三项，只有 [4] 会红。所以 `has_fighter(to_line, target.owner)` 的 `target.owner` 一个都不能省。
 3. **`to_line` 要用 `tar[0]`（目标所在线），不是 `at[0]`（攻击者所在线）**。轰炸机是从 `front` 打 `enemy_support` 的，两线不同。用 `at[0]` 会去查攻击者自己那条线（一般是空的），于是**判定恒放行**。实测这个错法的红绿指纹是 **`[1]` `[2]` 红、`[3]` 绿（3 项红 2 项）**：`[1]` 因为没拒绝而红，`[2]` 是级联红（`[1]` 已经把轰炸机的 `has_attacked` 用掉了，所以 `[2]` 的「去打战斗机」也被拒）。**别被 `[3]` 的绿骗了**——它跟 `to_line` 对不对无关。
 4. **`has_fighter()` 里 `u.is_hq` 必须跳过**。HQ 的 `unit_class` 是 `""` 不会命中，但 HQ 的 `owner` 语义与普通单位不同，跟着 `owner` 过滤时容易误判；`u == null` 也必须判（`units_in()` 会返回 null 空位）。
 5. **不要动 `_line_span_to()` 和 `no_counter()`**。M3.3 刚验证过 21 项，本块只加「能不能选中这个目标」，不碰「能不能打到这条线」和「挨不挨反击」。轰炸机打战斗机**仍然会挨反击**（`no_counter` 只在目标是战斗机时返回 false）——这是 M3.3 就定好的，别顺手改。
