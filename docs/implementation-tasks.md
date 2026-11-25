@@ -1004,11 +1004,12 @@ func can_attack() -> bool:
 + `validate_data` PASS，且 `balance_sim` 100 场 **48/52、平均 16.0 回合**（未补兵科数据时）。
 **补完 `cards.json` 兵科后复测：胜率 48.0%、平均 13.0 回合**，仍全部在区间内。
 
-验收命令只有一条：**`run_tests.bat`**（仓库根）。它是两段式 —— PART 1 跑主套判四重条件，
-PART 2 跑 `tools/preflight.ps1` 做详细自检（pending 基线 / 数据校验 / `has_acted` 残留 /
-`EXPECTED_CHECKS` / 兵科覆盖 / **平衡冒烟 100 场** / 脚本编码 / 工作区噪音）。
-**本块的验收要看到**：PART 1 `===== ALL GREEN =====`（400 项）+ PART 2 `keywords_test 17 项 0 红`
-（在 pending 表里显示"就绪→可移入 tests/"）+ PART 2 `[详细自检] PASS`。
+验收命令只有一条：**`run_tests.bat`**（仓库根）。它分三段 —— PART 1 跑主套判四重条件；
+PART 1.5 把 `tests/pending/*_test.gd` 每个文件打一行 `[READY]`（0 红可启用）或 `[PENDING]`（还红着，只报告不判失败）；
+PART 2 跑 `tools/preflight.ps1` 做详细自检（数据校验 / `has_acted` 残留 / `EXPECTED_CHECKS` /
+兵科覆盖 / **平衡冒烟 100 场** / 脚本编码 / 工作区噪音）。
+**本块的验收要看到**：PART 1 `===== ALL GREEN =====`（400 项）+ PART 1.5 `[READY  ] keywords_test 17 checks`
++ PART 2 `[详细自检] PASS`。
 
 > **✅ 2026-11-25 实际验收结果**：`keywords_test` **17/17 PASS**，主套 **417/417**（12 个文件）、
 > 0 `[FAIL]`、0 `SCRIPT ERROR`，`validate_data` PASS，PART 2 `[详细自检] PASS（7 项通过、0 条提醒）`，
@@ -1043,7 +1044,7 @@ PART 2 跑 `tools/preflight.ps1` 做详细自检（pending 基线 / 数据校验
 6. **旧 `has_acted` 别留残影**
    改完 `grep -rn "has_acted" src/ tests/ tools/` 应只剩注释里的历史说明。留一个未改的
    `.has_acted = true` 不会报错（GDScript 动态属性），但会静默失效——主套红的时候很难查。
-   **`run_tests.bat` 的 PART 2 [3] 会自动数这个**：`tests/keywords_test.gd` 一旦启用，
+   **`run_tests.bat` 的 PART 2 [2] 会自动数这个**：`tests/keywords_test.gd` 一旦启用，
    `src/` 里还有 `has_acted` 就直接报 `[FAIL]`，不用自己 grep。
 
 ---

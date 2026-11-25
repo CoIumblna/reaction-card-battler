@@ -84,6 +84,7 @@ ERROR: Failed to open log file for writing: user://logs/godot.log
 | 某个测试文件全绿 | **一行** `[PASS] board_test` |
 | 某个测试文件有红 | 打印**该文件的完整日志**（每一条 `[ok]` / `[FAIL]` / `SCRIPT ERROR`），前后有 `<< FAILED` / `end of XXX` 包夹 |
 | PART 2 的某项检查通过 | 不打印（只有 `-Verbose` 才显示 `[ok]`） |
+| PART 1.5 的待启用测试 | 每个文件一行 `[READY]`/`[PENDING]`，永不判失败 |
 | PART 2 的某项检查失败/提醒 | 打印该节标题 + 失败原因 + 修法提示 |
 | 结尾 | `===== ALL GREEN =====  11 file(s) passed` 或 `===== SOME TESTS FAILED =====  1 file(s) failed, 10 passed` |
 
@@ -93,20 +94,31 @@ ERROR: Failed to open log file for writing: user://logs/godot.log
 | 段 | 内容 | 谁定的 |
 |---|---|---|
 | **PART 1 主套** | 自动发现 `tests\*_test.gd`；每个文件判 `退出码 0` + `有 PASS` + `无 [FAIL]` + `无 SCRIPT ERROR` | `run_tests.bat` 本体 |
-| **PART 2 详细自检** | 8 项：pending 基线 / 数据校验 / `has_acted` 残留 / `EXPECTED_CHECKS` / 兵科覆盖 / 平衡冒烟 / 脚本编码 / 工作区噪音 | `tools/preflight.ps1` |
+| **PART 1.5 待启用基线** | 自动发现 `tests\pending\*_test.gd`，每个文件打一行 `[READY]` 或 `[PENDING]`（项数/红/SCRIPT ERROR）。**只报告，永不判失败** | `run_tests.bat` 本体 |
+| **PART 2 详细自检** | 7 项：数据校验 / `has_acted` 残留 / `EXPECTED_CHECKS` / 兵科覆盖 / 平衡冒烟 / 脚本编码 / 工作区噪音 | `tools/preflight.ps1` |
 
-PART 2 的 8 项明细：
+PART 1.5 的两行输出（跟主套结果在同一个终端里，不用去别的报告里找）：
+
+```
+############ PART 1.5  pending baseline (tests\pending\*_test.gd) ############
+  [PENDING] guard_test  8 checks / 4 failed / 0 script errors
+  [READY  ] deck_build_test  10 checks  --> git mv tests/pending/deck_build_test.gd tests/
+```
+
+- `[PENDING]` = 还红着，继续实现就行，不影响 `ALL GREEN`；
+- `[READY  ]` = 0 失败 0 SCRIPT ERROR，**这时教练才把它 `git mv` 进 `tests/` 变成常驻回归**。
+
+PART 2 的 7 项明细：
 
 | # | 检查 | 判定 |
 |---|---|---|
-| 1 | `tests/pending` 基线 | **只列还没就绪的**（项数 / 红 / SCRIPT ERROR）；已全绿的收成一行「已就绪 N 份」 |
-| 2 | `validate_data.gd` | 必须 PASS，否则 `[FAIL]` 并打印全部 `[ERROR]` 行 |
-| 3 | `has_acted` 残留 | `tests/keywords_test.gd` 启用后 `src/` 里仍有残留 → `[FAIL]`；未启用时只提示 |
-| 4 | `EXPECTED_CHECKS` | `tests/*_test.gd` 每个文件都必须声明，缺了 → `[FAIL]`（漏跑会假绿） |
-| 5 | 兵科覆盖 | `cards.json` 单位卡没标 `unit_class` → 提醒（M3.3/M3.4 前应清零） |
-| 6 | 平衡冒烟 | `balance_sim` 100 场：胜率 45–60%、平均 8–20 回合、RUNNING < 1%；出界只提醒（调参归 M3.8） |
-| 7 | 脚本编码 | `*.bat` 必须 CRLF + 纯 ASCII；`*.ps1` 含中文必须 UTF-8 BOM；违规只提醒 |
-| 8 | 工作区噪音 | `data/tables/*.json` 行尾换行假 diff 提醒还原；未提交改动只在 `-Verbose` 下列出 |
+| 1 | `validate_data.gd` | 必须 PASS，否则 `[FAIL]` 并打印全部 `[ERROR]` 行 |
+| 2 | `has_acted` 残留 | `tests/keywords_test.gd` 启用后 `src/` 里仍有残留 → `[FAIL]`；未启用时只提示 |
+| 3 | `EXPECTED_CHECKS` | `tests/*_test.gd` 每个文件都必须声明，缺了 → `[FAIL]`（漏跑会假绿） |
+| 4 | 兵科覆盖 | `cards.json` 单位卡没标 `unit_class` → 提醒（M3.3/M3.4 前应清零） |
+| 5 | 平衡冒烟 | `balance_sim` 100 场：胜率 45–60%、平均 8–20 回合、RUNNING < 1%；出界只提醒（调参归 M3.8） |
+| 6 | 脚本编码 | `*.bat` 必须 CRLF + 纯 ASCII；`*.ps1` 含中文必须 UTF-8 BOM；违规只提醒 |
+| 7 | 工作区噪音 | `data/tables/*.json` 行尾换行假 diff 提醒还原；未提交改动只在 `-Verbose` 下列出 |
 
 ```bat
 REM 平时验收（两段一起跑）
@@ -140,8 +152,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 | `PROJ` | 变量 | 仓库根目录（`%~dp0`，末尾自带 `\`）。**带反斜杠**，所以后面写 `"%PROJ%tests\..."` 而不是 `"%PROJ%\tests\..."` | 全部命令 |
 | `OUTDIR` | 变量 | 单文件测试日志目录。优先 `%TEMP%\whk_tests`，建不出来退回 `%PROJ%_test_logs` | 每个测试的 `>` 重定向 |
 | `FAILED` | 变量 | 汇总失败标志，`0` 全绿 / `1` 有任何失败。PART 1、PART 2 都往它上面 `set` | `:summary`；`exit /b %FAILED%` |
+| `PASSED_FILES` / `FAILED_FILES` | 变量 | 通过 / 失败的**文件数**，只用于结尾那行汇总 | `:run_one` 里 `set /a`；`:summary` |
+| `:pending` | label | PART 1.5 入口：数 `tests\pending\*_test.gd`，没有就跳过整段；**只报告，不碰 `FAILED`** | 主套循环结束后 `goto :pending` |
+| `:pending_one` | label | 跑**单个**待启用测试，按 `[ok]` / `[FAIL]` / `SCRIPT ERROR` 行数算出「项数 / 红 / 错误」，打一行 `[READY  ]`（0 红 0 错误，可以 `git mv` 了）或 `[PENDING]` | `for %%f in ("%PROJ%tests\pending\*_test.gd")` 循环 |
 | `:run_one` | label | 跑**单个**测试文件并四重判定。入参 `%~1` = 不含扩展名的文件名（如 `board_test`）。依次检查：退出码 0 / 输出含 `PASS` / 输出不含 `[FAIL]` / 输出不含 `SCRIPT ERROR`，任一不满足就 `set FAILED=1` | `for %%f in (...)` 循环，每个 `*_test.gd` 一次 |
-| `:preflight` | label | PART 2 入口：`powershell -File tools\preflight.ps1` 传 `-Godot` / `-ProjectRoot`，`errorlevel 1` → `FAILED=1` | PART 1 循环结束后 `goto :preflight` |
+| `:preflight` | label | PART 2 入口：`powershell -File tools\preflight.ps1` 传 `-Godot` / `-ProjectRoot`，`errorlevel 1` → `FAILED=1` | PART 1.5（`:pending`）结束后 `goto :preflight` |
 | `:summary` | label | 打印 `===== ALL GREEN =====` 或 `===== SOME TESTS FAILED =====` + 日志目录，然后 `pause` + `exit /b %FAILED%` | `goto :summary` 与 fall-through |
 
 ### B. `tools/preflight.ps1` 的函数与参数
@@ -159,11 +174,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 | `Say-Info` | `([string]$Msg)` | 深灰缩进解释行（修法建议、清单）。**默认不打印**，只在 `-Verbose` 下显示；不计入任何计数 |
 | `Show-Section` | `()` | 延迟打印小节标题：只有该节真的要输出内容（有 FAIL/warn，或 `-Verbose`）时才打印标题 + 空行，避免"标题一堆但下面全是空的" |
 
+> `tests/pending` 的待启用基线**不在这里**了（2026-11-25 挪到 `run_tests.bat` 的 PART 1.5，`[READY]`/`[PENDING]` 直接打在主套结果下面）。
+
 > 为什么用 `$script:` 前缀：这些函数在脚本作用域执行，直接写 `$fails++` 会新建**函数局部**变量，
 > 调用方的计数器不动 → 退出码永远是 0（假绿）。`$script:` 才是改脚本级那一个。
 
-八段检查用注释分隔（`# ---- N. 标题`），每段内部都是「取数据 → 判 → Say-Xxx」，无独立函数。
-**加第九项检查的模板**：复制一段，改标题行、判定、`Say-Ok`/`Say-Fail` 分工即可。
+七段检查用注释分隔（`# ---- N. 标题`），每段内部都是「取数据 → 判 → Say-Xxx」，无独立函数。
+**加第八项检查的模板**：复制一段，改标题行、判定、`Say-Ok`/`Say-Fail` 分工即可。
 
 ### C. `tools/validate_data.gd` 的方法
 
@@ -218,7 +235,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 | `$e15` / `$c8` | 数组 | 检查点清单。`$e15` = 敌方 AI 七项（起手 5 张 / Kredit / 部署 / 推进前线 / 攻击 / 行动标志清零 / 能分胜负）；`$c8` = 状态效果四项（加载 statuses / 燃烧掉血 / 冻结不能动 / 感电挂 shock） |
 
 > `check.bat` 与 `run_tests.bat` 的分工：`check.bat` 面向「今天做到哪了」（进度/里程碑/下一步建议），
-> `run_tests.bat` 面向「这次改动能不能提交」（四重判定 + 八项详细自检）。**提交前必须跑 `run_tests.bat`**。
+> `run_tests.bat` 面向「这次改动能不能提交」（四重判定 + 七项详细自检）。**提交前必须跑 `run_tests.bat`**。
 
 ### G. 测试文件里的辅助方法（`tests/*_test.gd` 每个文件自己定义的）
 
@@ -235,7 +252,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 
 > `EXPECTED_CHECKS` 是每个文件顶部的常量。**它的作用是防假绿**：某段测试因为 SCRIPT ERROR 被中途打断，
 > `checks` 数会少于它，于是报"覆盖不完整"。所以改测试增删断言时**必须同步改这个常量**，
-> 否则 `run_tests.bat` 的 PART 2 [4] 或本文件的项数校验会红。
+> 否则 `run_tests.bat` 的 PART 2 [3] 或本文件的项数校验会红。
 
 **G2. 建局 / 造数据（同名不同签名的要看清文件）**
 

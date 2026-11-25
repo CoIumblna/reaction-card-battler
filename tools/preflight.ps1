@@ -5,18 +5,18 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1
 #   由 run_tests.bat 自动调用（所以平时只跑 run_tests.bat 就够了）
 #
-# 它做八件事（run_tests.bat / check.ps1 不做的部分）：
-#   1. 待启用基线 tests/pending —— 每个文件 项数 / 红 / SCRIPT ERROR（报告，不算失败）
-#   2. 数据校验 tools/validate_data.gd —— 必须 PASS
-#   3. 旧字段残留 has_acted —— M3.1 启用后必须 0 命中
-#   4. EXPECTED_CHECKS 声明完整性 —— 每个测试文件都必须声明
-#   5. 单位卡 unit_class 覆盖率 —— cards.json 里单位卡必须都标了兵科
-#   6. 平衡冒烟 balance_sim 100 场 —— 胜率 45–60%、平均回合 8–20、RUNNING 0
-#   7. 脚本编码 —— *.bat 必须 CRLF + 纯 ASCII；*.ps1 有中文必须 UTF-8 BOM
-#   8. 工作区噪音 —— statuses.json 的行尾换行假 diff
+# 它做七件事（run_tests.bat / check.ps1 不做的部分）：
+#   1. 数据校验 tools/validate_data.gd —— 必须 PASS
+#   2. 旧字段残留 has_acted —— M3.1 启用后必须 0 命中
+#   3. EXPECTED_CHECKS 声明完整性 —— 每个测试文件都必须声明
+#   4. 单位卡 unit_class 覆盖率 —— cards.json 里单位卡必须都标了兵科
+#   5. 平衡冒烟 balance_sim 100 场 —— 胜率 45–60%、平均回合 8–20、RUNNING 0
+#   6. 脚本编码 —— *.bat 必须 CRLF + 纯 ASCII；*.ps1 有中文必须 UTF-8 BOM
+#   7. 工作区噪音 —— statuses.json 的行尾换行假 diff
 #
-# 退出码：0 = 全部通过；1 = 有失败项（报告里的 [FAIL]）
-
+# 注意：tests/pending 的待启用基线不在本脚本里 —— 那一块由 run_tests.bat 的
+#       PENDING 段直接打印在主套结果下面（同一个终端一次看完），见 tools/README.md。
+#
 param(
     [string]$Godot = "",
     [string]$ProjectRoot = "",
@@ -73,61 +73,13 @@ function Say-Info { param([string]$Msg)
     if ($Verbose) { Show-Section; Write-Host ("  " + $Msg) -ForegroundColor DarkGray }
 }
 
-## 强制打印一节（不管绿不绿）：用于"报告类"小节，比如 tests/pending 基线表
-function Say-Always { param([string]$Msg)
-    Show-Section
-    Write-Host $Msg
-}
-
 Write-Host "========== 详细自检（主套之外） =========="
 Write-Host "项目：$ProjectRoot"
 Write-Host ("Godot：{0}" -f $Godot)
 
-# ---------------------------------------------------------------- 1. 待启用基线
-# 报告类小节：只列「还没就绪」的（这些是需要你去实现的），已就绪的收成一行。
-$sectionTitle = "[1] 待启用基线 tests/pending"
-$pendingDir = Join-Path $ProjectRoot "tests\pending"
-$pendingFiles = @()
-if (Test-Path $pendingDir) {
-    $pendingFiles = @(Get-ChildItem $pendingDir -Filter "*_test.gd" -File | Sort-Object Name)
-}
-if ($pendingFiles.Count -eq 0) {
-    Say-Info "tests/pending 下没有测试文件（全部已启用）"
-} else {
-    $ready = @()
-    $reds = @()
-    foreach ($pf in $pendingFiles) {
-        $pname = [System.IO.Path]::GetFileNameWithoutExtension($pf.Name)
-        $pout = & $Godot --headless --path $ProjectRoot --script ("res://tests/pending/" + $pname + ".gd") 2>&1 | Out-String
-        $pm = [regex]::Match($pout, "共 (\d+) 项检查，失败 (\d+) 项")
-        $pc = 0
-        $pfl = -1
-        if ($pm.Success) {
-            $pc = [int]$pm.Groups[1].Value
-            $pfl = [int]$pm.Groups[2].Value
-        }
-        $perr = ([regex]::Matches($pout, "SCRIPT ERROR")).Count
-        if ($pfl -eq 0 -and $perr -eq 0) {
-            $ready += ("{0}({1} 项)" -f $pname, $pc)
-        } else {
-            $reds += [pscustomobject]@{ Name = $pname; Checks = $pc; Fails = $pfl; Errs = $perr }
-        }
-    }
-    if ($reds.Count -gt 0) {
-        Show-Section
-        Write-Host ("  {0,-24} {1,7} {2,7} {3,14}  {4}" -f "文件", "项数", "红", "SCRIPT ERROR", "状态")
-        Write-Host ("  " + ("-" * 70))
-        foreach ($r in $reds) {
-            Write-Host ("  {0,-24} {1,7} {2,7} {3,14}  {4}" -f $r.Name, $r.Checks, $r.Fails, $r.Errs, "待实现") -ForegroundColor Yellow
-        }
-    }
-    if ($ready.Count -gt 0) {
-        Say-Ok ("已就绪 {0} 份：{1}" -f $ready.Count, ($ready -join "、"))
-    }
-}
 
-# ---------------------------------------------------------------- 2. 数据校验
-$sectionTitle = "[2] 数据校验 tools/validate_data.gd"
+# ---------------------------------------------------------------- 1. 数据校验
+$sectionTitle = "[1] 数据校验 tools/validate_data.gd"
 $validatePath = Join-Path $ProjectRoot "tools\validate_data.gd"
 if (-not (Test-Path $validatePath)) {
     Say-Warn "没有 tools/validate_data.gd，跳过"
@@ -145,7 +97,7 @@ if (-not (Test-Path $validatePath)) {
 }
 
 # ---------------------------------------------------------------- 3. 旧字段残留
-$sectionTitle = "[3] 旧字段残留 has_acted"
+$sectionTitle = "[2] 旧字段残留 has_acted"
 $m31Enabled = Test-Path (Join-Path $ProjectRoot "tests\keywords_test.gd")
 $srcDir = Join-Path $ProjectRoot "src"
 $hits = @()
@@ -167,8 +119,8 @@ if ($hits.Count -eq 0) {
     Say-Info ("还有 {0} 处 has_acted（M3.1 未启用，属正常）：{1}" -f $hits.Count, ($hits -join "、"))
 }
 
-# ---------------------------------------------------------------- 4. EXPECTED_CHECKS
-$sectionTitle = "[4] EXPECTED_CHECKS 声明完整性"
+# ---------------------------------------------------------------- 3. EXPECTED_CHECKS
+$sectionTitle = "[3] EXPECTED_CHECKS 声明完整性"
 $testFiles = @(Get-ChildItem (Join-Path $ProjectRoot "tests") -Filter "*_test.gd" -File | Sort-Object Name)
 $missing = @()
 foreach ($f in $testFiles) {
@@ -182,7 +134,7 @@ if ($missing.Count -eq 0) {
 }
 
 # ---------------------------------------------------------------- 5. 兵科覆盖
-$sectionTitle = "[5] 单位卡 unit_class 覆盖率（cards.json）"
+$sectionTitle = "[4] 单位卡 unit_class 覆盖率（cards.json）"
 $cardsPath = Join-Path $ProjectRoot "data\tables\cards.json"
 if (-not (Test-Path $cardsPath)) {
     Say-Warn "没有 data/tables/cards.json，跳过"
@@ -208,8 +160,8 @@ if (-not (Test-Path $cardsPath)) {
     }
 }
 
-# ---------------------------------------------------------------- 6. 平衡冒烟
-$sectionTitle = ("[6] 平衡冒烟 balance_sim {0} 场" -f $BalanceGames)
+# ---------------------------------------------------------------- 5. 平衡冒烟
+$sectionTitle = ("[5] 平衡冒烟 balance_sim {0} 场" -f $BalanceGames)
 $simPath = Join-Path $ProjectRoot "tools\balance_sim.gd"
 if (-not (Test-Path $simPath)) {
     Say-Warn "没有 tools/balance_sim.gd，跳过"
@@ -243,8 +195,8 @@ if (-not (Test-Path $simPath)) {
     }
 }
 
-# ---------------------------------------------------------------- 7. 脚本编码
-$sectionTitle = "[7] 脚本编码（.bat = CRLF + 纯 ASCII；.ps1 有中文 = UTF-8 BOM）"
+# ---------------------------------------------------------------- 6. 脚本编码
+$sectionTitle = "[6] 脚本编码（.bat = CRLF + 纯 ASCII；.ps1 有中文 = UTF-8 BOM）"
 $scriptFiles = @()
 $scriptFiles += @(Get-ChildItem $ProjectRoot -Filter "*.bat" -File -ErrorAction SilentlyContinue)
 $scriptFiles += @(Get-ChildItem (Join-Path $ProjectRoot "tools") -Filter "*.bat" -File -ErrorAction SilentlyContinue)
@@ -275,8 +227,8 @@ if ($encBad.Count -eq 0) {
     Say-Info "修法：.bat 用 CRLF + 纯 ASCII；.ps1 存成 UTF-8 with BOM"
 }
 
-# ---------------------------------------------------------------- 8. 工作区噪音
-$sectionTitle = "[8] 工作区噪音（编辑器自动改的行尾换行）"
+# ---------------------------------------------------------------- 7. 工作区噪音
+$sectionTitle = "[7] 工作区噪音（编辑器自动改的行尾换行）"
 $gitCmd = Get-Command git -ErrorAction SilentlyContinue
 if (-not $gitCmd -or -not (Test-Path (Join-Path $ProjectRoot ".git"))) {
     Say-Info "不是 git 仓库或没有 git，跳过"

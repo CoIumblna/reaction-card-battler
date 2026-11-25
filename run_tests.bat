@@ -20,12 +20,13 @@ set "FAILED_FILES=0"
 REM ============================================================================
 REM PART 1 -- main suite (tests\*_test.gd, auto-discovered)
 REM tests\pending\ is NOT picked up here (only the tests\ top level is scanned).
+REM It is reported by PART 1.5 below, right after this listing, and never fails.
 REM
 REM Exit code 0 is NOT enough: a swallowed SCRIPT ERROR still prints PASS,
 REM so every file must also print PASS and must not contain [FAIL] / SCRIPT ERROR.
 REM
 REM QUIET MODE:
-REM   PASS file -> one line only:       [PASS] board_test  38 checks
+REM   PASS file -> one line only:       [PASS] board_test
 REM   FAIL file -> whole log dumped:    every [ok]/[FAIL]/SCRIPT ERROR line
 REM So a green run is ~11 lines and you can see the whole thing at a glance;
 REM when something breaks you get the complete output of the broken file.
@@ -45,7 +46,7 @@ if not errorlevel 1 (
 )
 
 for %%f in ("%PROJ%tests\*_test.gd") do call :run_one "%%~nf"
-goto :preflight
+goto :pending
 
 :run_one
 set "T=%~1"
@@ -73,10 +74,49 @@ if "%BAD%"=="1" (
 goto :eof
 
 REM ============================================================================
-REM PART 2 -- detailed preflight (everything PART 1 does not cover)
-REM   tests\pending baseline / validate_data / has_acted residue /
-REM   EXPECTED_CHECKS / unit_class coverage / balance smoke /
-REM   script encoding / workspace noise
+REM PART 1.5 -- pending baseline (tests\pending\*_test.gd)
+REM   REPORT ONLY: this part never sets FAILED. A pending test joins the main
+REM   suite when the coach moves it into tests\, and that only happens after it
+REM   reaches 0 failed on the student's working tree.
+REM
+REM   [READY  ] = 0 failed + 0 SCRIPT ERROR  ->  move it:  git mv tests/pending/X.gd tests/
+REM   [PENDING] = still red                  ->  keep implementing, nothing to move
+REM ============================================================================
+
+:pending
+set "PEND_TOTAL=0"
+for %%f in ("%PROJ%tests\pending\*_test.gd") do set /a PEND_TOTAL+=1
+if "%PEND_TOTAL%"=="0" goto :preflight
+echo.
+echo ############ PART 1.5  pending baseline (tests\pending\*_test.gd) ############
+for %%f in ("%PROJ%tests\pending\*_test.gd") do call :pending_one "%%~nf"
+goto :preflight
+
+:pending_one
+set "T=%~1"
+set "PLOG=%OUTDIR%\pending_%T%.log"
+"%GODOT%" --headless --path "%PROJ%." --script "res://tests/pending/%T%.gd" > "%PLOG%" 2>&1
+REM Count lines by iterating the matches -- do NOT use "| find /c /v \"\"" here:
+REM inside for /f that empty-string arg gets mangled and find hangs on stdin.
+set "NCHK=0"
+set "NFL=0"
+set "NSERR=0"
+for /f %%c in ('findstr /C:"[ok]" "%PLOG%"') do set /a NCHK+=1
+for /f %%c in ('findstr /C:"[FAIL]" "%PLOG%"') do set /a NFL+=1
+for /f %%c in ('findstr /C:"SCRIPT ERROR" "%PLOG%"') do set /a NSERR+=1
+set /a NCHK+=NFL
+if not "%NFL%"=="0" goto :pending_red
+if not "%NSERR%"=="0" goto :pending_red
+echo   [READY  ] %T%  %NCHK% checks  --^> git mv tests/pending/%T%.gd tests/
+goto :eof
+:pending_red
+echo   [PENDING] %T%  %NCHK% checks / %NFL% failed / %NSERR% script errors
+goto :eof
+
+REM ============================================================================
+REM PART 2 -- detailed preflight (everything PART 1 / 1.5 does not cover)
+REM   validate_data / has_acted residue / EXPECTED_CHECKS / unit_class coverage /
+REM   balance smoke / script encoding / workspace noise
 REM Logic lives in tools\preflight.ps1 so both humans and agents run the same thing.
 REM It uses the same quiet rule: green checks are silent, only failures explain.
 REM ============================================================================
@@ -95,5 +135,5 @@ if "%FAILED%"=="1" (
 ) else (
     echo ===== ALL GREEN =====  %PASSED_FILES% file^(s^) passed. Logs: "%OUTDIR%"
 )
-pause
+if not "%NO_PAUSE%"=="1" pause
 exit /b %FAILED%
