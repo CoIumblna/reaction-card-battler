@@ -96,8 +96,10 @@ func _test_api_exists() -> void:
 func _test_load_player_deck() -> void:
 	print("[2] 加载玩家牌组（39 张）")
 	if not _has_load_deck():
-		_check(false, "还没有 load_deck，跳过")
-		_check(false, "跳过")
+		# 跳过分支的条数必须和正常分支一致，否则未实现时项数偏少、
+		# PART 1.5 的 checks 数就对不上 EXPECTED_CHECKS（2026-11-25 修）。
+		for i in range(3):
+			_check(false, "还没有 load_deck，跳过")
 		return
 	var deck: Array = _load_deck("res://data/decks/player_deck.json")
 	_check_eq(deck.size(), 39, "牌组展开后 39 张（HQ 不进牌库）")
@@ -109,8 +111,8 @@ func _test_load_player_deck() -> void:
 func _test_enemy_deck_independent() -> void:
 	print("[3] 敌方牌组独立加载")
 	if not _has_load_deck():
-		_check(false, "跳过")
-		_check(false, "跳过")
+		for i in range(3):
+			_check(false, "跳过")
 		return
 	var p: Array = _load_deck("res://data/decks/player_deck.json")
 	var e: Array = _load_deck("res://data/decks/enemy_deck.json")
