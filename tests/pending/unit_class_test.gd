@@ -16,7 +16,7 @@ var failures: int = 0
 var checks: int = 0
 var table: ReactionTable
 
-const EXPECTED_CHECKS := 17
+const EXPECTED_CHECKS := 21
 
 
 func _initialize() -> void:
@@ -143,17 +143,22 @@ func _test_bomber_no_counter_when_attacking() -> void:
 	var b := _new_battle()
 	var bomber := _place(b, _unit("bomber", 5, 3, "player", "bomber"), "front", 1)
 	var foe := _place(b, _unit("foe", 10, 2, "enemy"), "enemy_support", 1)
-	b.attack_unit(bomber, foe)
+	_check(b.attack_unit(bomber, foe), "轰炸机攻击成立（否则下面的断言是空跑）")
 	_check_eq(bomber.hp, 5, "轰炸机攻击非战斗机不受反击")
+	_check_eq(foe.hp, 7, "目标正常受伤（10 - 3 = 7）")
 
 
 func _test_bomber_no_counter_when_attacked() -> void:
 	print("[7] 轰炸机：被攻击时也不能反击")
 	var b := _new_battle()
+	# 攻击方是敌方单位，必须给它能量 —— 否则 attack_unit 直接因能量不足返回 false，
+	# 断言 foe.hp == 10 会「空跑变绿」（2026-11-25 教练修：这一项原来就是假绿）
+	b.enemy_energy = 10
 	var foe := _place(b, _unit("foe", 10, 2, "enemy"), "front", 1)
 	var bomber := _place(b, _unit("bomber", 5, 3, "player", "bomber"), "player_support", 1)
-	b.attack_unit(foe, bomber)
+	_check(b.attack_unit(foe, bomber), "敌方攻击轰炸机成立（否则下面的断言是空跑）")
 	_check_eq(foe.hp, 10, "轰炸机被打时不能反击（攻击方不掉血）")
+	_check_eq(bomber.hp, 3, "轰炸机确实挨了打（5 - 2 = 3）")
 
 
 ## 2026-11-25 学员补充规则：炮兵、轰炸机可以无视 Guard。

@@ -30,7 +30,7 @@
 | 21 | `battle.gd`（E7a+E7b：牌堆/弃牌/起手/换牌） | 4 | ★★★ | 80 | 5–7 h | deck_test + opening_test | [x] |
 | 22 | `unit.gd`+`card.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | **4–6 h**（实际约 4.5 h） | keywords_test（17 项，已启用） | [x] |
 | 23 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | **2–3 h**（实际约 2 h） | guard_test（8 项，已启用） | [x] |
-| 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 130 | **5–7 h** | unit_class_test（17 项，红基线） | [ ] |
+| 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 140 | **5–7 h** | unit_class_test（21 项，红基线） | [ ] |
 | 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **1.5–2 h** | air_intercept_test（3 项已写） | [ ] |
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **2–3 h**（创意为主） | data_test + validate_data | [ ] |
 | 27 | `battle.gd`+`data_loader.gd`（M3.5：卡组构筑 39+1） | 2 | ★★★ | 60 | **2–3 h** | deck_build_test（10 项已写） | [ ] |
@@ -1164,9 +1164,9 @@ func _is_guarded(target: Unit) -> bool:
 见 `docs/adr/004-m3-keywords.md` 决定 3。
 
 > **✅ 2026-11-25 验收包已验证可通行**：参考实现只动 `src/core/{unit,battle}.gd` 两个文件
-> （+57/−8，**测试一个字没改**），patch 在 `G:\constraction\_ref_m33_pkg\M33-impl.patch`（102 行，**不进 git**）。
-> 实测：`unit_class_test` **17/17 PASS**、主套 13 文件 **425/425 全绿 0 SCRIPT ERROR**、
-> `validate_data` PASS、`preflight` PASS（7 项）。所以下面这 17 项是**可以跑通的红基线**，不是画饼。
+> （+52/−8，**测试一个字没改**），patch 在 `G:\constraction\_ref_m33_pkg\M33-impl.patch`（**不进 git**）。
+> 实测：`unit_class_test` **21/21 PASS**、主套 13 文件 **425/425 全绿 0 SCRIPT ERROR**、
+> `validate_data` PASS、`preflight` PASS（7 项）。所以下面这 21 项是**可以跑通的红基线**，不是画饼。
 > 参考 worktree：`G:\constraction\_ref_m33`（detached @ `8c95536`）。
 
 **难度 ★★★、预计 5–7 h。这是 M3 唯一会动「攻击范围」的块**——现有 `attack_unit` 里那条
@@ -1177,7 +1177,7 @@ func _is_guarded(target: Unit) -> bool:
 |---|---|
 | `unit.gd` | `unit_class: String` + `Unit.from_dict` 解析；**已经做完了**（M3.1），本块只需读它 |
 | `unit.gd` | 新增 5 个谓词（照 `is_tank()` 的写法，集中放，别在 battle.gd 里散着写 `unit_class == "x"`）：`is_artillery()` / `is_fighter()` / `is_bomber()` / `is_air()` = fighter or bomber / `ignores_guard()` = artillery or bomber |
-| `battle.gd` 攻击范围 | 新增 `_is_support_line(line)` + `_line_span_ok(attacker, from, to)`：跨度 1 一律放行；跨度 2 **仅「空军 + 两条支援线对穿」**放行；其余 false。然后**替换** `attack_unit` 里那行相邻判断，别就地改条件 |
+| `battle.gd` 攻击范围 | 新增 `_line_span_ok(attacker, from, to)`：跨度 1 一律放行；跨度 2 **仅空军**放行；其余 false。然后**替换** `attack_unit` 里那行相邻判断，别就地改条件。**不需要**再判线名——三线棋盘上跨度 2 只可能是两条支援线对穿 |
 | `battle.gd` 反伤 | 用 `no_counter` 标志，**两个方向分开判**：① 攻击者不受反击 = `attacker.is_artillery() or (attacker.is_bomber() and not target.is_fighter())` ② 目标不反击 = `target.is_bomber()` |
 | `battle.gd` Guard | `if not attacker.ignores_guard() and _is_guarded(target): return false`（`_is_guarded()` 本身**不要改**） |
 | 数据 | ~~`cards.json` 补 `unit_class`~~ → **M3.1 已补**（步兵/弓手/火法师 = infantry、坦克 = tank）。M3.3 只需**新增**战斗机/轰炸机卡（归 M3.4） |
@@ -1192,25 +1192,32 @@ func _is_guarded(target: Unit) -> bool:
 | `fighter` 战斗机 | ✗ 二选一 | **✓**（支援线→支援线） | 是 | 是 | ✗ |
 | `bomber` 轰炸机 | ✗ 二选一 | **✓** | **否** | **否** | **✓** |
 
-**验收**：`tests/pending/unit_class_test.gd` **17 项**：
+**验收**：`tests/pending/unit_class_test.gd` **21 项**：
 
-| # | 内容 |
-|---|---|
-| [1] | 炮兵攻击不受反击 + 目标正常掉血（2 项） |
-| [2] | 步兵对照组：正常受反击（1 项） |
-| [3] | 坦克先移动再攻击（2 项） |
-| [4] | 战斗机跨两条线成功 + 步兵不能跨线（2 项） |
-| [5] | 轰炸机跨线成功（1 项） |
-| [6][7] | 轰炸机攻击非战斗机不反击 + 被打时不反击（2 项） |
-| [8] | **对照组**：步兵打不动被 Guard 保护的目标（1 项 + 2 项自检） |
-| [9] | 炮兵无视 Guard，能打被保护的目标（1 项 + 2 项自检） |
-| [10] | 轰炸机无视 Guard（1 项 + 2 项自检） |
+| # | 内容 | 项数 |
+|---|---|---|
+| [1] | 炮兵攻击不受反击 + 目标正常掉血 | 2 |
+| [2] | 步兵对照组：正常受反击 | 1 |
+| [3] | 坦克先移动再攻击 | 2 |
+| [4] | 战斗机跨两条线成功 + 步兵不能跨线 | 2 |
+| [5] | 轰炸机跨线成功 | 1 |
+| [6] | 轰炸机攻击非战斗机不受反击（含"攻击成立"+"目标掉血"两个防空跑断言） | 3 |
+| [7] | 轰炸机被打时不能反击（含"攻击成立"+"轰炸机挨打"两个防空跑断言） | 3 |
+| [8] | **对照组**：步兵打不动被 Guard 保护的目标 | 1 + 2 自检 |
+| [9] | 炮兵无视 Guard | 1 + 2 自检 |
+| [10] | 轰炸机无视 Guard | 1 + 2 自检 |
+
+> **[6][7] 的"防空跑"断言是 2026-11-25 补的**：原来这两项只写 `_check_eq(bomber.hp, 5, ...)`，
+> 但 `_new_battle()` 只给玩家侧 `energy = 10`、**敌方 `enemy_energy` 还是 0**，
+> 所以在 [7] 里 `b.attack_unit(foe, bomber)` 因为能量不足**直接返回 false**，
+> 断言 `foe.hp == 10` 就"空跑变绿"——即无论轰炸机是否真的不反击，这项都是绿的。
+> 现在先断言 `attack_unit(...) == true`，再断言血量，并补 `bomber.hp == 3` 证明轰炸机确实挨了打。
 
 **M3.3b**（另一块）：战斗机拦截轰炸机（「轰炸机攻击有战斗机的线只能打战斗机」）单独补 2–4 条。
 
 **改哪里**：`src/core/unit.gd`（小谓词）+ `src/core/battle.gd`（攻击范围 / 反伤 / Guard 三处）。
 
-**6 条坑**
+**7 条坑**
 
 1. **越线判定要单独写函数再替换**。直接把 `!= 1` 改成 `> 2` 或者 `not in [1,2]`，步兵就也能越线了，`[4]` 的第二项会立刻红。
 2. **反伤是两条路**：攻击者「不被反伤」（炮兵/轰炸机打非战斗机）≠ 攻击者「不反击」（轰炸机被打）。`attack_unit` 后半段那段 `compute_damage(target.attack, ...)` 要按「谁不能打回去」判断，不是按「谁不能被打」。
@@ -1218,6 +1225,7 @@ func _is_guarded(target: Unit) -> bool:
 4. **`Board.place()` 的返回值必须检查**。`player_support` / `enemy_support` 的 **0 号格是 HQ**（`const HQ_SLOT := 0`），单位只能放 1–4 格；往 0 格放**静默返回 false**，你不检查就会以为放下了，然后 `_is_guarded()` 查到的是 HQ（`is_guard()=false`），测试莫名其妙地红。（2026-11-25 教练自己踩了这个坑，见 §33.1）
 5. **查场上对象用 `board.unit_at(line, i)`**，别用你本地那个 `var u = Unit.from_dict(...)`。正常 `RefCounted` 引用是同一个，但一旦 `place()` 返回 false（比如落进 HQ 格），本地变量和棋盘完全没有关系。
 6. **`unit_class` 已经在 M3.1 打通了卡→场链路**（`_deploy_unit` 传 `unit_class`）。别再去改 `_deploy_unit` 加一遍，重复拷贝不会出错但会让 diff 变脏。
+7. **别给 `_line_span_ok` 加多余的线名判断**。三线棋盘上「跨度 2」已经等价于「两条支援线对穿」，再写 `_is_support_line()` 是同义反复（教练第一版就这么写了，验证后删掉）。同理**别担心它限制空军上前线**：任何单位站 front 攻击都是 span==1，走第一个分支，跟兵科完全无关。
 
 **参考写法（已验证 17/17，可以直接照这个形状写）**
 
@@ -1245,20 +1253,24 @@ func ignores_guard() -> bool:
 `src/core/battle.gd`（`move_unit` 之后、`attack_unit` 之前）：
 
 ```gdscript
-func _is_support_line(line: String) -> bool:
-	return line == "player_support" or line == "enemy_support"
-
 ## 线跨度判定：常规单位只能打相邻线（跨度 1）；
-## 战斗机/轰炸机额外可以「自己支援线 → 对方支援线」直打（跨度 2）。
+## 空军额外可以「自己支援线 → 对方支援线」直打（跨度 2）。
 ## 单独一个函数的原因见坑 1 —— 直接改 attack_unit 那行会把所有兵科一起放开。
+##
+## 为什么 span==2 只看 is_air()、不用再判线名：棋盘只有三条线
+## （Board.LINES = enemy_support / front / player_support），跨度 2 只可能是
+## 「两条支援线对穿」这一种形状，不可能出现「支援线 ↔ 前线」跨 2 格。
+## 判线名是同义反复（教练第一版写了个 _is_support_line()，验证后删掉了）。
+##
+## 另：任何单位站在 front 攻击都是 span==1，走第一个分支，**跟兵科无关** ——
+## 所以炮兵/飞机上前线打仗完全正常，这个函数只在「支援线打支援线」时才看兵科。
 func _line_span_ok(attacker: Unit, from_line: String, to_line: String) -> bool:
 	var span: int = abs(Board.LINES.find(from_line) - Board.LINES.find(to_line))
 	if span == 1:
 		return true
 	if span != 2:
 		return false
-	# 三条线里跨度 2 只有「两条支援线对穿」这一种形状，且只对空军成立
-	return attacker.is_air() and _is_support_line(from_line) and _is_support_line(to_line)
+	return attacker.is_air()
 ```
 
 `attack_unit` 里三处改动：
