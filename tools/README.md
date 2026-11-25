@@ -39,6 +39,40 @@ Godot_v4.x-stable_win64_console.exe --headless --path . --script res://tools/add
 写回格式跟手写的一致（2 空格缩进、每张卡一行、UTF-8 无 BOM），写完会重新解析一遍自检；
 万一手滑写坏了，`git checkout -- data/tables/cards.json` 一条命令回滚。
 
+## launch_editor.bat —— 带 user-data 重定向启动编辑器（**历史 workaround，现已不需要**）
+
+> **2026-11-24 更新：根因已定位并修复，直接用编辑器正常启动即可，本脚本仅在修复失效时作后备。**
+>
+> **根因**：`G:\constraction` 整棵树带 NTFS 完整性标签
+> `Mandatory Label\Low Mandatory Level:(OI)(CI)(NW)`，Godot 可执行文件继承该标签，
+> 于是 **Godot 进程以 Low IL（`S-1-16-4096`）运行**。Low IL 只能写同属 Low IL 的对象 ——
+> 所以它写 C:/D:/G 盘根全返回 `ERR_FILE_CANT_WRITE (12)`，读系统根证书库（需 Medium+）
+> 返回空串并打印 `ERROR: Failed to read the root certificate store.`，
+> 连它派生的 `cmd.exe` 子进程（继承 Low IL）写 C 盘也被拒。
+> 对照 bash/PowerShell 是 `High Mandatory Level (S-1-16-12288)`，写同一路径成功 —— 这就解释了
+> 为什么"权限全开却写不进去"。已排除：ACL、目录缺失、杀毒/CFA、AppContainer、IFEO、WDAC/AppLocker、
+> DSH 沙箱（用 WMI 脱离 bash 进程树启动 Godot 结果相同）。
+>
+> **修复命令**（已执行，重启 Godot 生效）：
+> ```bat
+> icacls "G:\constraction\Godot_v4.7.2-stable_win64.exe" /setintegritylevel Medium
+> ```
+> 验证：`WRITE_C=OK`、`CA_LEN=116191`（原为 0）、`--editor --quit` 下四条 ERROR 全消失、
+> `resthumb-*.png/.txt` 与 `logs/godot.log` 正常落回 C 盘默认目录、`board_test` 38/38、主套 375/375。
+> 若把引擎拷到 `G:\constraction\**` 的其他位置，新副本会重新继承 Low 标签，需再跑一次上面的命令。
+
+本脚本原来的作用：把 `LOCALAPPDATA` / `APPDATA` 指到 `G:\constraction\_gduser\`，再启动 Godot 编辑器，
+使当时刷屏的这三条报错消失：
+
+```
+ERROR: Can't save PNG at path: '...\AppData\Local\Godot\resthumb-<hash>.png'.
+ERROR: Cannot create file '...\AppData\Local\Godot\resthumb-<hash>.txt'. Check user write permissions.
+ERROR: Failed to open log file for writing: user://logs/godot.log
+```
+
+> 这从来**不是项目 bug**。`check.bat` / `run_tests.bat` / CI 走 `--headless --script`，
+> 判定不看这些 ERROR —— 不开 GUI 时本来就可以完全不管。
+
 ## check.bat —— 验收 / 进度工具（每天用）
 
 双击，或命令行 `tools\check.bat`。它做四件事：

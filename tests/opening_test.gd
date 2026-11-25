@@ -1,8 +1,8 @@
 extends SceneTree
-## E7b 起手与换牌（mulligan）验收测试 —— 待实现
+## E7b 起手与换牌（mulligan）验收测试 —— 已启用（2026-11-25）
 ##
 ## 运行：
-##   ... --headless --path . --script res://tests/pending/opening_test.gd
+##   ... --headless --path . --script res://tests/opening_test.gd
 ##
 ## 规格：docs/implementation-tasks.md「## 30. E7b 起手与换牌（P2）」（KARDS 式，2026-11-23 改随机先手）
 ##   - **先手随机**：`rng.randi_range(0, 1)` → `first_move` ∈ {"player", "enemy"}
@@ -14,7 +14,7 @@ extends SceneTree
 ##       - 成功 true / 失败 false（不是自己手牌、已用过、已过开局阶段、空列表 → false）
 ##   - 可注入：`start_battle()` 只在 `first_move == ""` 时随机，测试可先设 `b.first_move = "player"` 固定
 ##
-## 【启用方式】E7b 全绿后移到 tests/ 下。
+## 【已启用】E7b 实现全绿（2026-11-25 从 tests/pending/ 移入）。
 
 var failures: int = 0
 var checks: int = 0

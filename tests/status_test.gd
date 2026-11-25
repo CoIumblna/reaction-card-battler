@@ -95,7 +95,7 @@ func _test_status_data() -> void:
 func _test_dot() -> void:
 	print("[1] dot：回合开始掉血（burn）")
 	var b := _new_battle()
-	b.start_battle()
+	_start(b)
 	var u := _place(b, "player_support", 1, 5)
 	u.add_buff(Buff.make("burn", 2))
 
@@ -111,7 +111,7 @@ func _test_dot() -> void:
 func _test_disable() -> void:
 	print("[2] disable：本回合不能行动（immobilized）")
 	var b := _new_battle()
-	b.start_battle()
+	_start(b)
 	var u := _place(b, "player_support", 1, 5)
 	u.add_buff(Buff.make("immobilized", 1))
 
@@ -128,7 +128,7 @@ func _test_disable() -> void:
 func _test_reaction_status() -> void:
 	print("[3] 反应挂状态（感电 → shock / 冻结 → immobilized）")
 	var b := _new_battle()
-	b.start_battle()
+	_start(b)
 	var atk := _place(b, "front", 1, 5, 3, "player", Element.LIGHTNING)
 	var foe := _place(b, "enemy_support", 1, 10, 1, "enemy")
 	foe.aura_element = Element.WATER
@@ -142,7 +142,7 @@ func _test_reaction_status() -> void:
 		"shock 持续 2 回合、不叠 stack（数据来自 reactions.json）")
 
 	var b2 := _new_battle()
-	b2.start_battle()
+	_start(b2)
 	var atk2 := _place(b2, "front", 1, 5, 3, "player", Element.ICE)
 	var foe2 := _place(b2, "enemy_support", 1, 10, 1, "enemy")
 	foe2.aura_element = Element.WATER
@@ -150,3 +150,10 @@ func _test_reaction_status() -> void:
 	b2.energy = 5
 	b2.attack_unit(atk2, foe2)
 	_check(_find_buff(foe2, "immobilized") != null, "冻结反应把 immobilized 挂到目标身上")
+
+
+## 建局：固定玩家先手 + 开始第一个回合（E7b 后 start_battle() 只发牌）
+func _start(b: Battle) -> void:
+	b.first_move = "player"
+	b.start_battle()
+	b.begin_first_turn()

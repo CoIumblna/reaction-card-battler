@@ -12,7 +12,8 @@ extends RefCounted
 ## 每写完一步就跑一次测试，别一次写完再跑。
 
 const MAX_HAND := 9
-const OPENING_HAND := 5
+const FIRST_HAND := 4
+const SECOND_HAND := 5
 const KREDIT_CAP := 12
 const DATA_PATH := "res://data/tables/statuses.json"
 
@@ -23,6 +24,8 @@ var hand: Array[Card] = []
 var reaction_table: ReactionTable 
 var board = Board.new()
 var status_table: StatusTable = StatusTable.new()
+var first_move:String = ""
+var opening_phase = false
 
 var energy: int = 0
 var max_energy: int = 0
@@ -30,6 +33,7 @@ var turn: int = 0
 var log_lines: Array[String] = []
 var discard : Array[Card] = []
 var fatigue_cnt: int = 0
+var mulligan_used: bool = false
 
 
 var enemy_energy: int = 0
@@ -38,6 +42,8 @@ var enemy_hand: Array[Card] = []
 var enemy_deck: Array[Card] = []
 var enemy_discard : Array[Card] = []
 var enemy_fatigue_cnt: int = 0
+var enemy_turns_taken:int = 0
+var enemy_mulligan_used: bool = false
 
 
 var rng = RandomNumberGenerator.new()
@@ -46,11 +52,15 @@ func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable
 	status_table.load_from_file(DATA_PATH)
 	board.setup()
 	rng.seed = seed_value
+	opening_phase = false
 	turn = 0
 	max_energy = 0
 	hand.clear()
 	energy = max_energy
+	fatigue_cnt = 0
+	discard.clear()
 	log_lines.clear()
+	mulligan_used = false
 	player = p_player
 	enemies = p_enemies
 	deck.clear()
@@ -62,10 +72,10 @@ func setup(p_player: Unit, p_enemies: Array, p_deck: Array, table: ReactionTable
 	for i in p_deck:
 		enemy_deck.append(i)
 	reaction_table = table
-	discard.clear()
 	enemy_discard.clear()
-	fatigue_cnt = 0
 	enemy_fatigue_cnt = 0
+	enemy_turns_taken = 0
+	enemy_mulligan_used = false
 
 
 func alive_enemies() -> Array[Unit]:
@@ -96,11 +106,22 @@ func get_log() -> String:
 
 
 func start_battle() -> void:
-	_log("START enemies:%s" % _enemy_names())
-	_draw_into("player",OPENING_HAND)
-	_draw_into("enemy",OPENING_HAND)
+	#_log("START enemies:%s" % _enemy_names())
+	if first_move == "":
+		first_move = "enemy" if rng.randi_range(0,1) else "player"
+	_draw_into(first_move,FIRST_HAND)
+	_draw_into(_opposite(first_move),SECOND_HAND)
+	opening_phase = true
+
+
+func begin_first_turn() -> void:
+	opening_phase = false
+	if first_move == "enemy":
+		_enemy_turn()
+		if is_over():
+			return
 	_begin_turn()
-	
+
 
 func _begin_turn() -> void:
 	for i in Board.LINES:
@@ -112,6 +133,8 @@ func _begin_turn() -> void:
 	max_energy = min(max_energy+1,KREDIT_CAP)
 	turn += 1
 	energy = max_energy
+	if turn == 1 && first_move == "player":
+		return
 	_draw_into("player",1)
 
 func _ai(owner:String) -> void:#这是初版ai,后续会加入各种流派卡组专用的ai
@@ -156,9 +179,11 @@ func _enemy_turn() -> void:
 				continue
 			u.has_acted = false
 	_settle_status("enemy")
+	enemy_turns_taken += 1
 	enemy_max_energy = min(enemy_max_energy + 1, KREDIT_CAP)
 	enemy_energy = enemy_max_energy
-	_draw_into("enemy", 1)
+	if enemy_turns_taken != 1 || first_move != "enemy":
+		_draw_into("enemy", 1)
 	_ai("enemy")
 
 
@@ -171,6 +196,7 @@ func end_turn() -> void:
 ## 自动打完一整局（给测试和平衡模拟用）
 func run_auto(max_turns: int = 200) -> String:
 	start_battle()
+	begin_first_turn()
 	var guard:int = 0
 	while not is_over() and turn < max_turns and guard < max_turns:
 		_ai("player")
@@ -333,6 +359,8 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 
 
 func _draw_into(owner:String, n: int) -> void:
+	if _turn_of(owner) == 1 && first_move == owner:
+		return
 	for i in range(n):
 		if _deck_of(owner).is_empty():
 			_hq_of(owner).hp = max(0,_hq_of(owner).hp-_fatigue_add(owner))
@@ -431,3 +459,36 @@ func _settle_status(owner:String) -> void:
 						_:
 							pass
 			u.tick_buffs()
+
+
+func _mulligan_of(owner:String) -> bool:
+	return mulligan_used if owner == "player" else enemy_mulligan_used
+
+
+func _turn_of(owner:String) -> int:
+	return turn if owner == "player" else enemy_turns_taken
+
+
+func mulligan(owner: String, cards: Array) -> bool:
+	if opening_phase == false || _mulligan_of(owner) == true || cards.is_empty():
+		return false
+	for c in cards:
+		if not c in _hand_of(owner):
+			return false
+	var siz:int = cards.size()
+	for c in cards: 
+		_hand_of(owner).erase(c)
+		_deck_of(owner).append(c)
+	shuffle(_deck_of(owner))
+	_draw_into(owner,siz)
+	if owner == "player": mulligan_used = true
+	else: enemy_mulligan_used = true
+	return true
+
+
+func shuffle(dck:Array[Card]) -> void:
+	for i in range(dck.size()-1,0,-1):
+		var j:int =rng.randi_range(0,i)
+		var tmp = dck[i]
+		dck[i] = dck[j]
+		dck[j] = tmp

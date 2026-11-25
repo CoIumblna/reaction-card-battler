@@ -69,7 +69,7 @@ func _new_battle() -> Battle:
 	var enemy := Unit.from_dict({ "id": "enemy", "name": "训练假人", "hp": 9999 })
 	var enemies: Array[Unit] = [enemy]
 	b.setup(player, enemies, DataLoader.load_cards(), table, 20261123)
-	b.start_battle()
+	_start(b)
 	return b
 
 
@@ -206,3 +206,10 @@ func _test_fatigue_independent() -> void:
 	b.end_turn()
 	_check_eq(_enemy_hq(b).hp, 19, "敌方先抽空：敌方疲劳 1（HQ 19）")
 	_check_eq(_player_hq(b).hp, 19, "玩家随后抽空：玩家疲劳 1（HQ 19，独立计数）")
+
+
+## 建局：固定玩家先手 + 开始第一个回合（E7b 后 start_battle() 只发牌）
+func _start(b: Battle) -> void:
+	b.first_move = "player"
+	b.start_battle()
+	b.begin_first_turn()

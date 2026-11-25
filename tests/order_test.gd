@@ -65,7 +65,7 @@ func _new_battle() -> Battle:
 	var enemy := Unit.from_dict({ "id": "enemy", "name": "训练假人", "hp": 9999 })
 	var enemies: Array[Unit] = [enemy]
 	b.setup(player, enemies, DataLoader.load_cards(), table, 20261122)
-	b.start_battle()
+	_start(b)
 	return b
 
 
@@ -251,3 +251,10 @@ func _test_death_and_hq() -> void:
 	b2.hand.append(fire)
 	b2.play_card(fire, immune)
 	_check_eq(immune.hp, 10, "免疫火：指令卡伤害为 0、不触发反应")
+
+
+## 建局：固定玩家先手 + 开始第一个回合（E7b 后 start_battle() 只发牌）
+func _start(b: Battle) -> void:
+	b.first_move = "player"
+	b.start_battle()
+	b.begin_first_turn()

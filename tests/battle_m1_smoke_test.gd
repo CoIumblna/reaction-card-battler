@@ -118,10 +118,10 @@ func _test_turn_advance() -> void:
 	print("[2] 回合交换：推进 / 能量重置 / 每回合抽 1 张")
 	var b := _new_battle()
 	b.deck = _make_deck(20)
-	b.start_battle()
+	_start(b)
 	_check_eq(b.turn, 1, "开战后进入第 1 回合")
-	_check_eq(b.hand.size(), 6, "起手 5 张 + 第 1 回合抽 1 张")
-	_check_eq(b.deck.size(), 14, "牌库扣掉起手 5 张和抽的 1 张")
+	_check_eq(b.hand.size(), 4, "玩家先手：起手 4 张 + 第 1 回合不抽（E7b）")
+	_check_eq(b.deck.size(), 16, "牌库扣掉起手 4 张（首回合不抽）")
 
 	var hp_before := b.player.hp
 	var deck_before := b.deck.size()
@@ -131,13 +131,13 @@ func _test_turn_advance() -> void:
 	# M1 的「敌人每回合打玩家 4 点」在 E15 被删掉（胜负改成 HQ）。玩家血量不再由回合推进改变。
 	_check_eq(b.player.hp, hp_before, "end_turn() 不再白扣玩家血量（M1 直伤已退役）")
 	_check_eq(b.energy, b.max_energy, "新回合能量回满")
-	_check_eq(b.hand.size(), 7, "每回合只抽 1 张（不补满）")
+	_check_eq(b.hand.size(), 5, "每回合只抽 1 张（不补满；第 2 回合 4 → 5）")
 	_check_eq(b.deck.size(), deck_before - 1, "牌库每回合只扣 1 张")
 
 	# 手牌满时抽牌 → 爆牌：牌从牌堆顶弹出后直接丢弃
 	var c := _new_battle()
 	c.deck = _make_deck(20)
-	c.start_battle()
+	_start(c)
 	while c.hand.size() < Battle.MAX_HAND:
 		c.hand.append(Card.from_dict({ "id": "fill", "name": "填手牌", "cost": 1, "kind": "damage", "power": 1 }))
 	var full_deck := c.deck.size()
@@ -149,7 +149,7 @@ func _test_turn_advance() -> void:
 func _test_energy() -> void:
 	print("[3] 能量与出牌")
 	var b := _new_battle()
-	b.start_battle()
+	_start(b)
 	var heavy := Card.from_dict({ "id": "h", "name": "重击", "cost": 2, "kind": "damage", "power": 10 })
 	var light := Card.from_dict({ "id": "l", "name": "火球", "cost": 1, "element": "fire", "kind": "damage", "power": 5 })
 	var enemy: Unit = b.enemies[0]
@@ -168,7 +168,7 @@ func _test_energy() -> void:
 func _test_aura() -> void:
 	print("[4] 元素附着量（B8：附着 1U/2U、反应消耗、复合元素）")
 	var b := _new_battle()
-	b.start_battle()
+	_start(b)
 	var enemy: Unit = b.enemies[0]
 	_check_eq(enemy.aura_element, Element.NONE, "初始无附着")
 	_check_eq(enemy.aura_amount, 0.0, "初始附着量 0")
@@ -212,7 +212,7 @@ func _test_aura() -> void:
 
 	# 2U 强附着：目标无附着 → 直接挂 2U
 	var s1 := _new_battle()
-	s1.start_battle()
+	_start(s1)
 	var e1: Unit = s1.enemies[0]
 	s1.energy = 3
 	var strong1 := Card.from_dict({ "id": "sb1", "name": "炎爆", "cost": 1, "element": Element.FIRE, "kind": "damage", "power": 8, "aura_amount": 2 })
@@ -223,7 +223,7 @@ func _test_aura() -> void:
 
 	# 2U 火打 1U 水：水被扣光 → 攻击方残留 1U 火附着（原神式）
 	var s2 := _new_battle()
-	s2.start_battle()
+	_start(s2)
 	var e2: Unit = s2.enemies[0]
 	e2.aura_element = Element.WATER
 	e2.aura_amount = 1.0
@@ -236,7 +236,7 @@ func _test_aura() -> void:
 
 	# 2U 火打 2U 水：水剩 1U → 保留水，攻击方残留丢弃
 	var s3 := _new_battle()
-	s3.start_battle()
+	_start(s3)
 	var e3: Unit = s3.enemies[0]
 	e3.aura_element = Element.WATER
 	e3.aura_amount = 2.0
@@ -259,7 +259,7 @@ func _test_aura() -> void:
 
 	# 空附着时打无元素卡：不许凭空挂上 amount（附着量必须保持 0）
 	var fresh := _new_battle()
-	fresh.start_battle()
+	_start(fresh)
 	var fresh_enemy: Unit = fresh.enemies[0]
 	fresh.energy = 3
 	var plain2 := Card.from_dict({ "id": "p2", "name": "重击", "cost": 2, "element": "none", "kind": "damage", "power": 8 })
@@ -271,7 +271,7 @@ func _test_aura() -> void:
 	# wind / geo 不主动附着
 	for el in [Element.WIND, Element.GEO]:
 		var nb := _new_battle()
-		nb.start_battle()
+		_start(nb)
 		var ne: Unit = nb.enemies[0]
 		nb.energy = 3
 		var ec := Card.from_dict({ "id": "c_%s" % el, "name": el, "cost": 1, "element": el, "kind": "damage", "power": 4 })
@@ -282,7 +282,7 @@ func _test_aura() -> void:
 
 	# 但 wind / geo 照样参与反应：扩散 / 结晶都 consume 1.0，只是自己不留附着
 	var wb := _new_battle()
-	wb.start_battle()
+	_start(wb)
 	var w_enemy: Unit = wb.enemies[0]
 	w_enemy.aura_element = Element.FIRE
 	w_enemy.aura_amount = 2.0
@@ -294,7 +294,7 @@ func _test_aura() -> void:
 	_check_eq(w_enemy.aura_amount, 1.0, "风打火：消耗 1U（2.0 → 1.0）")
 
 	var wb2 := _new_battle()
-	wb2.start_battle()
+	_start(wb2)
 	var w_enemy2: Unit = wb2.enemies[0]
 	w_enemy2.aura_element = Element.FIRE
 	w_enemy2.aura_amount = 1.0
@@ -306,7 +306,7 @@ func _test_aura() -> void:
 	_check_eq(w_enemy2.aura_amount, 0.0, "风打火：附着量归零")
 
 	var gb := _new_battle()
-	gb.start_battle()
+	_start(gb)
 	var g_enemy: Unit = gb.enemies[0]
 	g_enemy.aura_element = Element.FIRE
 	g_enemy.aura_amount = 1.0
@@ -319,7 +319,7 @@ func _test_aura() -> void:
 
 	# 免疫：伤害 0、不触发反应、不消耗附着
 	var imm := _new_battle()
-	imm.start_battle()
+	_start(imm)
 	var slime: Unit = imm.enemies[0]
 	slime.immunities.append(Element.FIRE)
 	imm.energy = 3
@@ -345,3 +345,10 @@ func _test_delegation() -> void:
 
 	# 纯算法本身的更多用例在 tests/damage_test.gd
 	# 胜负判定 / 自动战斗的用例在 tests/battle_m2_test.gd（M2 起改为「打掉 HQ」）
+
+
+## 建局：固定玩家先手 + 开始第一个回合（E7b 后 start_battle() 只发牌）
+func _start(b: Battle) -> void:
+	b.first_move = "player"
+	b.start_battle()
+	b.begin_first_turn()

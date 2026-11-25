@@ -99,7 +99,7 @@ func _test_kredit() -> void:
 	var b := _new_battle()
 	_check_eq(b.max_energy, 0, "setup 后 Kredit 上限为 0（还没开战）")
 
-	b.start_battle()
+	_start(b)
 	_check_eq(b.turn, 1, "进入第 1 回合")
 	_check_eq(b.max_energy, 1, "第 1 回合 Kredit 上限 = 1")
 	_check_eq(b.energy, 1, "回合开始回满到上限")
@@ -123,7 +123,7 @@ func _test_kredit() -> void:
 func _test_deploy() -> void:
 	print("[2] 单位部署（M2 / E4）")
 	var b := _new_battle()
-	b.start_battle()
+	_start(b)
 	var board = b.get("board")
 	if board == null:
 		_check(false, "Battle 还没有 board 字段（部署的前置）")
@@ -166,7 +166,7 @@ func _test_deploy() -> void:
 
 	# 0 是合法值（免费移动/攻击），不能被"缺省"吃掉：显式写 operation_cost: 0 的单位要保留 0
 	var b9 := _new_battle()
-	b9.start_battle()
+	_start(b9)
 	b9.energy = 5
 	var scout_card := _unit_card("scout", 1, 1, 1, Element.NONE, 0)
 	b9.hand.append(scout_card)
@@ -178,7 +178,7 @@ func _test_deploy() -> void:
 func _test_summoning_sickness() -> void:
 	print("[3] 召唤失调（M2 / E5）")
 	var b := _new_battle()
-	b.start_battle()
+	_start(b)
 	var board = b.get("board")
 	if board == null:
 		_check(false, "Battle 还没有 board 字段（召唤失调的前置）")
@@ -258,10 +258,10 @@ func _test_enemy_ai() -> void:
 	# 敌方资源和玩家对称：setup 复制牌库、开局发 5 张、每回合抽 1 张、Kredit 每回合 +1
 	var total_deck: int = b.deck.size()
 	_check_eq(b.enemy_deck.size(), total_deck, "setup 给敌方复制了一份牌库（张数与玩家相同）")
-	b.start_battle()
+	_start(b)
 	_check_eq(b.enemy_hand.size(), 5, "敌方起手 5 张")
 	_check_eq(b.enemy_deck.size(), total_deck - 5, "敌方起手从敌方牌库扣 5 张")
-	_check_eq(b.deck.size(), total_deck - 6, "双方牌库各自扣牌（不是同一个 Array）")
+	_check_eq(b.deck.size(), total_deck - 4, "双方牌库各自扣牌（不是同一个 Array；玩家先手起手 4）")
 	var before: int = int(b.enemy_max_energy)
 	b.end_turn()
 	_check_eq(b.enemy_max_energy, before + 1, "敌方 Kredit 每回合 +1")
@@ -269,7 +269,7 @@ func _test_enemy_ai() -> void:
 
 	# 敌方会部署（手牌只给一张便宜的步兵；清空敌方牌库，免得"抽到哪张"影响断言）
 	var b2 := _new_battle()
-	b2.start_battle()
+	_start(b2)
 	b2.enemy_hand.clear()
 	b2.enemy_deck.clear()
 	b2.enemy_hand.append(Card.from_dict({ "id": "footman", "name": "步兵", "type": "unit", "cost": 1, "element": "none", "attack": 1, "defense": 2 }))
@@ -286,7 +286,7 @@ func _test_enemy_ai() -> void:
 
 	# 敌方会推进前线：推的是支援线的单位，不能把 HQ 挪出去
 	var b3 := _new_battle()
-	b3.start_battle()
+	_start(b3)
 	b3.enemy_hand.clear()
 	b3.enemy_deck.clear()
 	var foe := Unit.from_dict({ "id": "foe", "name": "敌兵", "hp": 3, "attack": 2, "owner": "enemy" })
@@ -302,7 +302,7 @@ func _test_enemy_ai() -> void:
 	# 注意：front 和 front 不是相邻线（前线独占 → 双方不可能同时在前线），
 	# 敌方前线单位的相邻线是我方【支援线】（player_support ↔ front），HQ 就在那儿。
 	var b4 := _new_battle()
-	b4.start_battle()
+	_start(b4)
 	b4.enemy_hand.clear()
 	b4.enemy_deck.clear()
 	var foe2 := Unit.from_dict({ "id": "foe2", "name": "敌兵", "hp": 5, "attack": 2, "owner": "enemy" })
@@ -325,7 +325,7 @@ func _test_enemy_ai() -> void:
 
 	# 打不到 HQ 的时候才打单位：敌方支援线单位够不到玩家 HQ（不相邻），只能打我方前线单位
 	var b5 := _new_battle()
-	b5.start_battle()
+	_start(b5)
 	b5.enemy_hand.clear()
 	b5.enemy_deck.clear()
 	var front_mine := Unit.from_dict({ "id": "fm", "name": "我前", "hp": 5, "attack": 1, "owner": "player" })
@@ -353,3 +353,10 @@ func _test_run_auto() -> void:
 	# （这条替代了原来的"日志非空"——日志量是实现细节，不该当验收标准）
 	var b2 := _new_battle(60, _make_unit_deck())
 	_check_eq(b2.run_auto(30), result, "同 seed 两局结果一致（run_auto 可复现）")
+
+
+## 建局：固定玩家先手 + 开始第一个回合（E7b 后 start_battle() 只发牌）
+func _start(b: Battle) -> void:
+	b.first_move = "player"
+	b.start_battle()
+	b.begin_first_turn()
