@@ -116,13 +116,13 @@ func _test_disable() -> void:
 	u.add_buff(Buff.make("immobilized", 1))
 
 	b.end_turn()                      # → 玩家第 2 回合开始：被冻结
-	_check_eq(u.has_acted, true, "冻结的单位本回合被标记为不能行动")
+	_check(u.has_moved and u.has_attacked, "冻结的单位本回合被标记为不能行动（两个标志都 true）")
 
 	b.energy = 5
 	_check_eq(b.move_unit(u, "front", 0), false, "冻结的单位不能移动")
 
 	b.end_turn()                      # → 第 3 回合：冻结已过期
-	_check_eq(u.has_acted, false, "冻结 1 回合后恢复（新回合解除）")
+	_check(u.has_moved == false and u.has_attacked == false, "冻结 1 回合后恢复（新回合解除）")
 
 
 func _test_reaction_status() -> void:

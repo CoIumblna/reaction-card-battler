@@ -128,7 +128,7 @@ func _begin_turn() -> void:
 		for u in board.units_in(i):
 			if u.owner != "player" || u.is_hq:
 				continue
-			u.has_acted = false
+			u.reset_actions()
 	_settle_status("player")
 	max_energy = min(max_energy+1,KREDIT_CAP)
 	turn += 1
@@ -150,24 +150,22 @@ func _ai(owner:String) -> void:#这是初版ai,后续会加入各种流派卡组
 	
 	if board.has_unit_of("front") != _opposite(owner):
 		for u in board.units_in(_support_of(owner)):
-			if u.is_hq || u.has_acted || u.operation_cost > _energy_of(owner):
+			if u.is_hq || not u.can_move() || u.operation_cost > _energy_of(owner):
 				continue
 			move_unit(u,"front",board.first_empty_unit_slot("front"))
 			
 	if board.has_unit_of("front") == owner:
 		for u in board.units_in("front"):
-			if u.is_hq || u.has_acted || u.operation_cost > _energy_of(owner):
+			if u.is_hq || not u.can_attack() || u.operation_cost > _energy_of(owner):
 				continue
 			attack_unit(u,_opposite_hq(owner))
-			u.has_acted = true
 	elif board.has_unit_of("front") == _opposite(owner):
 		for u in board.units_in(_support_of(owner)):
-			if u.is_hq || u.has_acted || u.operation_cost > _energy_of(owner):
+			if u.is_hq || not u.can_attack() || u.operation_cost > _energy_of(owner):
 				continue
 			var tgu = board.find_first_unit("front")
 			if tgu == null: break
 			attack_unit(u,tgu)
-			u.has_acted = true
 
 
 
@@ -177,7 +175,7 @@ func _enemy_turn() -> void:
 		for u in board.units_in(i):
 			if u.owner != "enemy" || u.is_hq:
 				continue
-			u.has_acted = false
+			u.reset_actions()
 	_settle_status("enemy")
 	enemy_turns_taken += 1
 	enemy_max_energy = min(enemy_max_energy + 1, KREDIT_CAP)
@@ -210,9 +208,21 @@ func _deploy_unit(card: Card, owner: String) -> bool:
 		return false
 	_spend(owner,card.cost)
 	var nu := Unit.new()
-	nu = Unit.from_dict({"id":card.id,"name":card.display_name,"hp":card.defense,"attack":card.attack,"element":card.element,"owner":owner,"operation_cost":card.operation_cost})
+	nu = Unit.from_dict({
+		"id":card.id,
+		"name":card.display_name,
+		"hp":card.defense,
+		"attack":card.attack,
+		"element":card.element,
+		"owner":owner,
+		"operation_cost":card.operation_cost,
+		"keywords":card.keywords,
+		"abilities":card.abilities,
+		"unit_class":card.unit_class
+		})
+	if nu.is_blitz():nu.reset_actions()
+	else:nu.block_actions()
 	board.place(nu,_line_of(owner),board.first_empty_unit_slot(_line_of(owner)))
-	nu.has_acted = true
 	_hand_of(owner).erase(card)
 	return true
 
@@ -305,7 +315,7 @@ func move_unit(unit: Unit, to_line: String, to_index: int) -> bool:
 	var pos := board.position_of(unit)
 	if pos.is_empty() or pos[0] != _line_of(unit.owner) or to_line != "front":
 		return false
-	if unit.has_acted:
+	if not unit.can_move():
 		return false
 	if board.unit_at(to_line, to_index) != null:      # 目标格空，自己判
 		return false
@@ -319,7 +329,7 @@ func move_unit(unit: Unit, to_line: String, to_index: int) -> bool:
 	if not board.move(_line_of(unit.owner), pos[1], "front", to_index):
 		_gain(unit.owner,fee)                                  # 兜底回滚（理论上不会走到）
 		return false
-	unit.has_acted = true                              # ← 只有真成功了才标记
+	unit.has_moved = true                              # ← 只有真成功了才标记
 	_log("%s移动到%s %d"%[unit.display_name,to_line,to_index])
 	return true
 
@@ -327,14 +337,14 @@ func move_unit(unit: Unit, to_line: String, to_index: int) -> bool:
 func attack_unit(attacker: Unit, target: Unit) -> bool:
 	var at = board.position_of(attacker)
 	var tar = board.position_of(target)
-	if at.is_empty() or tar.is_empty() or attacker.has_acted:
+	if at.is_empty() or tar.is_empty() or not attacker.can_attack():
 		return false
 	if abs(Board.LINES.find(at[0]) - Board.LINES.find(tar[0])) != 1:
 		return false
 	if _energy_of(attacker.owner) < attacker.operation_cost or attacker.owner == target.owner:
 		return false
 	_spend(attacker.owner,attacker.operation_cost)
-	attacker.has_acted = true
+	attacker.has_attacked = true
 	var dam:Dictionary = compute_damage(attacker.attack,attacker.element,target)
 	var disc:int = target.take_damage(dam["damage"])
 	if not dam["immune"]:
@@ -454,7 +464,7 @@ func _settle_status(owner:String) -> void:
 									board.remove(u)
 						"disable":
 							if e.get("timing","") == "action":
-								u.has_acted = true
+								u.block_actions()
 								_log("%s冻结"%u.display_name)
 						_:
 							pass

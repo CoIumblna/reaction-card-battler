@@ -1,8 +1,8 @@
 extends SceneTree
-## M3.1 行动经济 + 关键词 + 闪击验收测试 —— 待实现
+## M3.1 行动经济 + 关键词 + 闪击验收测试 —— 已启用（2026-11-25）
 ##
 ## 运行：
-##   ... --headless --path . --script res://tests/pending/keywords_test.gd
+##   ... --headless --path . --script res://tests/keywords_test.gd
 ##
 ## 规格：docs/adr/004-m3-keywords.md 决定 1 + docs/m3-scope.md §M3.1
 ##   - Unit.has_moved / has_attacked 替代 has_acted；回合开始都清

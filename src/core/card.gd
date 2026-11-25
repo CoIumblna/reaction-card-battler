@@ -44,6 +44,10 @@ static func from_dict(d: Dictionary) -> Card:
 	c.aura_amount = float(d.get("aura_amount", 1.0))
 	var default_target := "enemy" if c.kind == "damage" else "self"
 	c.target = str(d.get("target", default_target))
+	for x in d.get("keywords",[]):
+		c.keywords.append(str(x))
+	for x in d.get("abilities",[]):
+		c.abilities.append(str(x))
 	return c
 
 

@@ -16,16 +16,19 @@ var max_hp: int = 30
 var hp: int = 30
 var shield: int = 0
 var attack: int = 0
-var has_acted: bool = false
+var has_moved: bool = false
+var has_attacked: bool = 0
 var is_hq: bool =false
 var operation_cost: int = 1
 var owner: String = ""
+var unit_class: String = ""
 
 
 var element: String = Element.NONE          # 自身攻击元素（M2 用）
 var aura_element: String = Element.NONE     # 附着元素
 var aura_amount: float = 0.0                # 附着量，上限 2.0；复合元素上限 1.0
 var immunities: Array[String] = []
+var keywords: Array[String] = []
 
 var buffs: Array[Buff] = []
 
@@ -38,8 +41,8 @@ static func from_dict(d: Dictionary) -> Unit:
 	newu.attack = int(d.get("attack",0))
 	newu.is_hq = bool(d.get("is_hq",false))
 	newu.hp = newu.max_hp
-	newu.owner = String(d.get("owner",""))
-	
+	newu.owner = str(d.get("owner",""))
+	newu.unit_class = str(d.get("unit_class",""))
 	newu.shield = int(d.get("shield",0))
 	newu.element = str(d.get("element",Element.NONE))
 	newu.aura_element = str(d.get("aura_element",Element.NONE))
@@ -51,6 +54,9 @@ static func from_dict(d: Dictionary) -> Unit:
 	newu.buffs.clear()
 	for b in d.get("buffs", []):
 		newu.buffs.append(str(b))
+	newu.keywords.clear()
+	for k in d.get("keywords",[]):
+		newu.keywords.append(str(k))
 	return newu
 
 
@@ -110,3 +116,40 @@ func describe() -> String:
 		aura_amount,
 		shield
 	]
+
+
+func has_keyword(kw:String) -> bool:
+	return kw in keywords
+
+
+func is_tank() -> bool:
+	return unit_class == "tank"
+
+
+func is_blitz() -> bool:
+	return "blitz" in keywords
+
+
+func reset_actions() -> void:
+	has_attacked = false
+	has_moved = false
+
+
+func block_actions() -> void:
+	has_attacked = true
+	has_moved = true
+
+
+func can_move() -> bool:
+	if has_moved:
+		return false
+	if has_attacked and not is_tank():
+		return false
+	return true
+
+func can_attack() -> bool:
+	if has_attacked:
+		return false
+	if has_moved and not is_tank():
+		return false
+	return true

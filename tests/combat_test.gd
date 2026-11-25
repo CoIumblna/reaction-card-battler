@@ -91,25 +91,26 @@ func _test_move() -> void:
 	_check_eq(b.board.position_of(u), ["front", 0], "位置更新为 front / 0")
 	_check_eq(b.board.unit_at("player_support", 1), null, "原格清空")
 	_check(b.board.unit_at("front", 0) == u, "新格是这个单位")
-	_check_eq(u.has_acted, true, "移动后标记为已行动")
+	_check_eq(u.has_moved, true, "移动后标记为已移动")
 
 	# 不能跳线：支援线不能直接到敌方支援线
 	var u2 := _place(b, "player_support", 2, 2, 3)
 	b.energy = 20
 	_check_eq(b.move_unit(u2, "enemy_support", 0), false, "支援线不能直接跳到敌方支援线（不相邻）")
 	_check_eq(b.board.unit_at("player_support", 2) == u2, true, "失败的移动不改变位置")
-	_check_eq(u2.has_acted, false, "失败的移动不标记已行动")
+	_check(u2.has_moved == false and u2.has_attacked == false, "失败的移动不标记已移动")
 
 	# 目标格被占
 	var u3 := _place(b, "player_support", 3, 2, 3)
 	b.energy = 20
 	_check_eq(b.move_unit(u3, "front", 0), false, "目标格有人不能移过去")
-	_check_eq(u3.has_acted, false, "移动失败不算已行动")
+	_check(u3.has_moved == false and u3.has_attacked == false, "移动失败不算已移动")
 	_check_eq(b.energy, 20, "移动失败不扣作战费")
 
 	# 已行动的单位不能再动（含召唤失调）
 	var u4 := _place(b, "player_support", 4, 2, 3)
-	u4.has_acted = true
+	u4.has_moved = true
+	u4.has_attacked = true
 	b.energy = 20
 	_check_eq(b.move_unit(u4, "front", 1), false, "已行动 / 召唤失调的单位本回合不能再移动")
 
@@ -134,7 +135,7 @@ func _test_attack() -> void:
 	_check_eq(b.attack_unit(atk, def), true, "前线可以攻击敌方支援线")
 	_check_eq(def.hp, 1, "目标掉 3 点（4 - 3）")
 	_check_eq(atk.hp, 3, "攻击者吃反击 2 点（5 - 2）")
-	_check_eq(atk.has_acted, true, "攻击后标记为已行动")
+	_check_eq(atk.has_attacked, true, "攻击后标记为已攻击")
 
 	# 不相邻：我方支援线不能直接打敌方支援线
 	var b2 := _new_battle()
@@ -143,7 +144,7 @@ func _test_attack() -> void:
 	b2.energy = 20
 	_check_eq(b2.attack_unit(a2, d2), false, "支援线不能直接打敌方支援线（不相邻）")
 	_check_eq(d2.hp, 4, "失败的攻击不造成伤害")
-	_check_eq(a2.has_acted, false, "失败的攻击不标记已行动")
+	_check(a2.has_attacked == false and a2.has_moved == false, "失败的攻击不标记已攻击")
 
 	# 打 HQ：只掉 HQ 防，不反击
 	var b3 := _new_battle()
@@ -235,7 +236,7 @@ func _test_front_exclusive() -> void:
 	b.energy = 20
 	_check_eq(b.move_unit(mine, "front", 1), false, "敌方占着前线时不能移进前线")
 	_check_eq(b.board.unit_at("player_support", 1) == mine, true, "被拒绝时位置不变")
-	_check_eq(mine.has_acted, false, "被拒绝时不算已行动")
+	_check(mine.has_moved == false and mine.has_attacked == false, "被拒绝时不算已行动")
 
 	# 把敌方前线单位挪走（E12 死亡移除之前，先用棋盘 API 清场）
 	b.board.move("front", 0, "enemy_support", 3)

@@ -125,7 +125,7 @@ $e15 = @(
     @("敌方会部署（owner = enemy）", "敌方部署的单位 owner = enemy"),
     @("敌方会推进前线（不挪 HQ）", "敌方把支援线的单位推进了前线"),
     @("敌方会攻击（够得着 HQ 先打 HQ）", "敌方前线单位打了玩家 HQ"),
-    @("敌方 has_acted 每个敌方回合清零", "敌方单位下一回合能再次攻击"),
+    @("敌方行动标志每个敌方回合清零", "敌方单位下一回合能再次攻击"),
     @("自动对局能分出胜负（WIN/LOSE）", "自动对局能分出胜负")
 )
 $c8 = @(
@@ -193,7 +193,7 @@ if ($target -eq 0) { $target = $totalChecks }
 if ($totalFailed -eq 0 -and $totalScriptErrors -eq 0 -and $redFiles.Count -eq 0) {
     Write-Host ("===== ALL GREEN：{0}/{0} =====" -f $target) -ForegroundColor Green
     if ($pendingFiles.Count -gt 0) {
-        Write-Host "待启用验收在 tests/pending：实现在 docs §25（E14）/ §26（E7），全绿后移入 tests/ 再提交。"
+        Write-Host "待启用验收在 tests/pending：任务卡见 docs/implementation-tasks.md §31–§35，全绿后移入 tests/ 再提交。"
     }
     Write-Host "可以提交了：git add -A; git commit -F <消息文件>"
     exit 0

@@ -192,18 +192,19 @@ func _test_summoning_sickness() -> void:
 	if u == null:
 		_check(false, "部署失败，后面没法测召唤失调")
 		return
-	_check_eq(u.has_acted, true, "部署当回合就标记为已行动（不能动/攻击）")
+	_check(u.has_moved and u.has_attacked, "部署当回合两个标志都 true（不能动/攻击）")
 
 	b.end_turn()
-	_check_eq(u.has_acted, false, "进入下一回合后解除召唤失调")
+	_check(u.has_moved == false and u.has_attacked == false, "进入下一回合后解除召唤失调")
 
 	# §15 说的是"己方所有单位"：已经推进到前线的单位也要清
 	# （M2 遗留 bug：_begin_turn 只清 player_support → 前线单位永远不能攻击）
 	var front_unit := Unit.from_dict({ "id": "front_grunt", "name": "前线兵", "hp": 20, "attack": 1, "owner": "player" })
 	board.place(front_unit, "front", 0)
-	front_unit.has_acted = true
+	front_unit.has_moved = true
+	front_unit.has_attacked = true
 	b.end_turn()
-	_check_eq(front_unit.has_acted, false, "前线单位在新回合也解除已行动（不只支援线）")
+	_check(front_unit.has_moved == false and front_unit.has_attacked == false, "前线单位在新回合也解除已行动（不只支援线）")
 
 
 func _test_hq_wired() -> void:
@@ -315,13 +316,13 @@ func _test_enemy_ai() -> void:
 	b4.end_turn()
 	_check_eq(player_hq.hp, 18, "敌方前线单位打了玩家 HQ（攻击力 2，20 → 18）")
 	_check_eq(mine.hp, 5, "没有误打玩家支援线单位（攻击段优先打 HQ）")
-	_check(foe2.has_acted, "攻击后攻击者标记为已行动")
+	_check(foe2.has_attacked, "攻击后攻击者标记为已攻击")
 
-	# 敌方单位的 has_acted 也要在敌方回合清零，否则一辈子只能动一次
+	# 敌方单位的行动标志也要在敌方回合清零，否则一辈子只能动一次
 	b4.enemy_energy = 5
 	b4.enemy_max_energy = 5
 	b4.end_turn()
-	_check_eq(player_hq.hp, 16, "敌方单位下一回合能再次攻击（has_acted 有清零，HQ 18 → 16）")
+	_check_eq(player_hq.hp, 16, "敌方单位下一回合能再次攻击（标志有清零，HQ 18 → 16）")
 
 	# 打不到 HQ 的时候才打单位：敌方支援线单位够不到玩家 HQ（不相邻），只能打我方前线单位
 	var b5 := _new_battle()

@@ -67,7 +67,7 @@ func _test_unit_ext() -> void:
 	_check_eq(u.get("attack"), 5, "from_dict 读到攻击力")
 	_check_eq(u.hp, 3, "hp = 当前防御")
 	_check_eq(u.max_hp, 3, "max_hp = 最大防御")
-	_check_eq(u.get("has_acted"), false, "新单位本回合未行动")
+	_check(u.get("has_moved") == false and u.get("has_attacked") == false, "新单位本回合未行动")
 	_check_eq(u.get("is_hq"), false, "普通单位不是 HQ")
 
 	var hq := Unit.from_dict({ "id": "hq", "name": "HQ", "hp": 20, "is_hq": true })
