@@ -1052,13 +1052,100 @@ PART 2 跑 `tools/preflight.ps1` 做详细自检（pending 基线 / 数据校验
 
 见 `docs/adr/004-m3-keywords.md` 决定 2。
 
+> 2026-11-25：任务卡细化完毕，验收包已用参考实现验证**可通行**
+> （`G:\constraction\_ref_m32\`，补丁 `G:\constraction\_ref_m32_pkg\M32-impl.patch`，**不进 git**）。
+> 参考实现只改了 `src/core/battle.gd` 一个文件（+44/-2），核心是**一个 15 行的小函数 + 三处调用**。
+> 难度 ★★★、约 70 行，**预计 2–3 h**（顺利的话 1.5 h：核心逻辑不难，难在把「谁保护谁」的方向想清楚）。
+
+**规则（KARDS 护卫）**
+
+| 项 | 规则 |
+|---|---|
+| 保护范围 | Guard 保护**同线左右相邻格**（slot ±1）的**友军**；跨线不保护 |
+| 谁能保护 | 只有带 `guard` 词条的单位保护别人 |
+| 谁不能被选中 | 被保护的友军**不能被敌方单位攻击**：`attack_unit` 返回 false |
+| Guard 自己 | **Guard 之间互不保护** —— 带 `guard` 的单位永远可以被直接攻击 |
+| HQ | **HQ 可被保护**（HQ 在支援线 0 格，1 格有 Guard 时单位打不到 HQ） |
+| 指令卡 | **默认无视 Guard**（Order 直接选目标，不改 `play_card`）。以后要"尊重守护"的卡再加 `respects_guard` 字段 |
+| 双方 | 玩家与 AI 完全对称 |
+| AI | 选目标时跳过被保护的目标；**有 Guard 时退而打 Guard 本身**（别浪费一个回合空挥） |
+
+**API 约定**
+
 | 位置 | 要做 |
 |---|---|
-| `attack_unit` | 目标被保护（同线相邻格有敌方 Guard、且目标本身不是 guard）→ 返回 false |
-| `_ai` 攻击段 | 选目标时跳过被保护目标（或优先打 Guard） |
-| `play_card`（order） | 默认**无视** Guard；以后要"尊重守护"的卡加 `respects_guard` 字段再处理 |
+| `battle.gd` 新函数 | `_is_guarded(target: Unit) -> bool`：目标是否受保护（见下参考写法） |
+| `battle.gd` 新函数 | `_first_attackable(line: String, owner: String) -> Unit`：某线上第一个「打得中」的敌方单位（跳过被保护的），没有返回 null |
+| `battle.gd` `attack_unit` | **在相邻线校验之后、扣能量之前**插一句 `if _is_guarded(target): return false` |
+| `battle.gd` `_ai` 攻击段 | 原来直接 `attack_unit(u, _opposite_hq(owner))` / `find_first_unit("front")` → 改成先挑「没被保护的」目标，挑不到才 `break` |
+| `battle.gd` `play_card` | **不用改**（Order 默认无视 Guard），但要加注释说明这是刻意的 |
 
-**验收**：`tests/pending/guard_test.gd` **8 项**（相邻保护/Guard 可打/HQ 保护/不护 Guard/不相邻/跨线/指令卡无视）。
+**参考写法（照这个思路写，别照抄命名）**
+
+```gdscript
+## 目标是否被 Guard 保护：同线左右相邻格有**目标友方**的 guard 单位
+func _is_guarded(target: Unit) -> bool:
+	if target == null or target.has_keyword("guard"):
+		return false                       # Guard 之间互不保护
+	var tar := board.position_of(target)
+	if tar.is_empty():
+		return false
+	var line: String = tar[0]
+	var idx: int = tar[1]
+	for d in [-1, 1]:
+		var u: Unit = board.unit_at(line, idx + d)
+		if u != null and u.owner == target.owner and u.has_keyword("guard"):
+			return true
+	return false
+```
+
+**改哪里**：`src/core/battle.gd`（**只这一个文件**；`unit.gd` 的 `has_keyword()` 在 M3.1 已经写好了，直接用）。
+
+**连带改（教练做）**：**没有**。`guard_test.gd` 原样可跑（它不依赖 `begin_first_turn()`，
+`attack_unit` / `play_card` 都没有阶段校验），教练只需 `git mv` 启用 + 提交。
+主套 12 个文件 417 项**一项都不用改**（真实卡池里还没有 `guard` 卡，行为不变）。
+
+**验收**：`tests/pending/guard_test.gd` **8 项**
+
+```
+[1] Guard 在 slot1 时，同线相邻 slot2 的单位不能被攻击
+[2] 可以直接攻击 Guard 本身
+[3] 支援线 1 格有 Guard 时，单位不能攻击相邻的敌方 HQ
+[4] 相邻的另一个 Guard 不受保护，可以直接打
+[5] 距离 Guard 2 格（slot3）的单位不受保护
+[6] Guard 在敌方支援线，不保护前线的单位（跨线）
+[7] 被 Guard 保护的敌人仍可被指令卡选中
+[8] 指令卡伤害正常结算（10 → 5）
+```
+
+参考实现实测（`_ref_m32`）：**guard_test 8/8 PASS**、主套 **417/417**、`validate_data` PASS、
+`balance_sim` 100 场 **48.0% / 13.0 回合 / RUNNING 0%**（与改动前完全一致 —— 本块不动平衡）。
+
+**坑（参考实现真踩到的，按严重度排）**
+
+1. **「谁保护谁」的方向最容易写反**（参考实现第一版就是这么错的，红了 [1][3] 两项）
+   ```gdscript
+   if u != null and u.owner != target.owner and u.has_keyword("guard"):  # ❌ 反了
+   if u != null and u.owner == target.owner and u.has_keyword("guard"):  # ✅
+   ```
+   想清楚：保护者是**目标的友军**，不是攻方的友军。写反了 `[1] 相邻保护` 和 `[3] HQ 保护` 会同时红，
+   而 `[2][4][5][6][7]` 全绿 —— 这个红绿组合本身就是「方向写反」的指纹。
+
+2. **Guard 自己不受保护**：`_is_guarded` 第一行必须挡掉 `target.has_keyword("guard")`。
+   漏了的直接后果：`[4] 相邻的另一个 Guard 不受保护` 红，而且两个 Guard 并排时会变成"都打不到"的死局。
+
+3. **`attack_unit` 里插判断的位置**：必须在**相邻线校验之后**（跨线本来就不允许）、
+   **扣能量之前**（打不中就不该花钱）。放在 `_spend()` 之后会出现"没打到但能量没了"。
+   顺序：位置合法 → 相邻线 → **`_is_guarded`** → 能量/同owner → `_spend`。
+
+4. **AI 不能只判空就 break**：`attack_unit` 现在是"可能失败"的（被 Guard 挡住），
+   旧写法 `if tgu == null: break` 在"有敌人但全被保护"时不会退出，会白打一整轮。
+   要么用 `_first_attackable()` 挑，要么在 `attack_unit` 返回 false 时 `break`。
+
+5. **不要改 `play_card`**：指令卡默认无视 Guard 是 ADR-004 的明确规定（`[7]` 就是验这个）。
+   顺手"补上保护"会让 `[7]` 红，也会让 `[8]` 的伤害结算失败。
+
+6. **别动 `tests/`**：8 项断言是验收标准。红了说明实现没对，不是断言写错了。
 
 ---
 
