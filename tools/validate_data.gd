@@ -15,7 +15,8 @@ var warnings: Array[String] = []
 const KNOWN_EFFECT_KINDS := ["damage", "status", "aura", "shield", "heal", "dot", "disable", "stat_mod"]
 const KNOWN_CARD_KINDS := ["damage", "shield", "heal"]
 const KNOWN_KEYWORDS := ["blitz", "guard"]   # M3 首批；以后加关键词同步这里
-const KNOWN_UNIT_CLASSES := ["", "infantry", "tank", "artillery", "air"]
+# 与 docs/adr/004-m3-keywords.md 决定 3 保持一致（5 类兵科；"" = 未标注，M3.4 补）
+const KNOWN_UNIT_CLASSES := ["", "infantry", "tank", "artillery", "fighter", "bomber"]
 
 
 func _initialize() -> void:
