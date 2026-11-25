@@ -30,8 +30,8 @@
 | 21 | `battle.gd`（E7a+E7b：牌堆/弃牌/起手/换牌） | 4 | ★★★ | 80 | 5–7 h | deck_test + opening_test | [x] |
 | 22 | `unit.gd`+`card.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | **4–6 h**（实际约 4.5 h） | keywords_test（17 项，已启用） | [x] |
 | 23 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | **2–3 h**（实际约 2 h） | guard_test（8 项，已启用） | [x] |
-| 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 140 | **5–7 h** | unit_class_test（21 项，红基线） | [ ] |
-| 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **1.5–2 h** | air_intercept_test（3 项已写） | [ ] |
+| 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 140 | **5–7 h**（实际约 3 h） | unit_class_test（21 项，已启用） | [x] |
+| 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **1.5–2 h**（参考实现实际 ~20 min） | air_intercept_test（3 项已写，验收包已验证） | [ ] 备课完成 → 待学员实现 |
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **2–3 h**（创意为主） | data_test + validate_data | [ ] |
 | 27 | `battle.gd`+`data_loader.gd`（M3.5：卡组构筑 39+1） | 2 | ★★★ | 60 | **2–3 h** | deck_build_test（10 项已写） | [ ] |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **12–16 h**（最大块） | aura_v3_test（24 项待写） | [ ] |
@@ -1163,10 +1163,14 @@ func _is_guarded(target: Unit) -> bool:
 
 见 `docs/adr/004-m3-keywords.md` 决定 3。
 
-> **✅ 2026-11-25 验收包已验证可通行**：参考实现只动 `src/core/{unit,battle}.gd` 两个文件
+> **✅ 已完成（2026-11-25）**：`unit_class_test` **21/21** 已启用，主套 **446/446**（14 文件）全绿。
+> commit `ea92a38` `feat(battle):` 兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard。
+> 下面保留任务卡原文作为备课模板；学员实际写法和参考实现的差异见 §33.2。
+>
+> **✅ 验收包已验证可通行**：参考实现只动 `src/core/{unit,battle}.gd` 两个文件
 > （+52/−8，**测试一个字没改**），patch 在 `G:\constraction\_ref_m33_pkg\M33-impl.patch`（**不进 git**）。
-> 实测：`unit_class_test` **21/21 PASS**、主套 13 文件 **425/425 全绿 0 SCRIPT ERROR**、
-> `validate_data` PASS、`preflight` PASS（7 项）。所以下面这 21 项是**可以跑通的红基线**，不是画饼。
+> 实测：`unit_class_test` **21/21 PASS**、主套 **446/446** 全绿 0 SCRIPT ERROR、
+> `validate_data` PASS、`preflight` PASS（7 项）。
 > 参考 worktree：`G:\constraction\_ref_m33`（detached @ `8c95536`）。
 
 **难度 ★★★、预计 5–7 h。这是 M3 唯一会动「攻击范围」的块**——现有 `attack_unit` 里那条
@@ -1327,6 +1331,98 @@ PROBE place(slot2) returned = true    → same=true, kw=["guard"]
 
 `Board.place()` 只是 `slots[line][index] = unit`，不拷贝、不改单位。**根因是往 HQ 格放单位 + 没看返回值。**
 教训：**测试辅助函数里 `place()` 的返回值必须断言**，否则会得到「测试假红 → 怀疑引擎 → 浪费半小时」的路径。
+
+### 33.2 学员实现与参考实现的差异（2026-11-25 落地后记录）
+
+结论先说：**行为等价，21 项全绿，参考实现可以放心丢**。差异只有三处，都是「可接受但值得知道」：
+
+| 差异 | 参考实现 | 学员实现 | 评价 |
+|---|---|---|---|
+| 越线判定函数名 | `_line_span_ok(attacker, from, to)` | `_line_span_to(attacker, from, to)` | 名字更贴调用处（`if not _line_span_to(...)`），语义相同，**不用改** |
+| 反伤判定收口 | 在 `attack_unit` 里用局部 `var no_counter: bool` + `if/elif` | 抽成类方法 `no_counter(attacker, target) -> bool`，三个 `if` 依次 `return true` | **形态更好**：抽成方法后三个判据各占一行，比内联 `if/elif` 更好读。缺点是缺前缀 `_`（项目里私有方法都带 `_`），属风格 nit |
+| 攻击方退场位置 | 在反伤段 `if not no_counter: ...` 之后 | 放进 `if not no_counter:` 块内部末尾（`if attacker.hp <= 0: board.remove(attacker)`） | **更正确**：不反击时攻击方根本不会掉血，退场判断放块外要多跑一次无用判断。参考实现当初放块外只是为了少缩进一层 |
+
+另有一处 **死代码**（已记在 commit message 里）：`src/core/board.gd:128 has_fighter(line)` 是 M3.3 为 M3.3b 预留的，**本块无任何调用方**。M3.3b 会正式用起来（并补 `owner` 参数），所以**不要删**。
+
+---
+
+## 33b. M3.3b 战斗机拦截轰炸机
+
+见 `docs/adr/004-m3-keywords.md` 决定 3：`fighter` 战斗机「敌方轰炸机攻击有战斗机的线时只能打战斗机」。
+
+> **✅ 2026-11-25 验收包已验证可通行**：参考实现只动 `src/core/{battle,board}.gd` 两个文件（**+24/−4，测试一个字没改**），
+> patch 在 `G:\constraction\_ref_m33b_pkg\M33b-impl.patch`（**不进 git**）。
+> 实测：`air_intercept_test` **3/3 PASS**、主套 **449/449 全绿 0 SCRIPT ERROR**（15 文件）、
+> `validate_data` PASS、`balance_sim` 100 场 **48.0% / 13.0 回合 / RUNNING 0%**（真实卡池还没有空军卡，行为不变）。
+> 所以下面这 3 项是**可以跑通的红基线**，不是画饼。参考 worktree：`G:\constraction\_ref_m33b`（detached @ `ea92a38` + 未提交改动）。
+
+**难度 ★★、预计 1.5–2 h。这是 M3 里最小的一块**，只加一条「目标合法性」规则，不动已有任何判定。
+
+### 规则（一句话）
+
+> 轰炸机攻击某条线时，如果**那条线上有该目标的敌方战斗机**，就只能打战斗机，不能打非战斗机。
+> 线上没有战斗机（或战斗机是自己人的）→ 一切照旧。
+
+三线棋盘上「一条线」= `enemy_support` / `front` / `player_support` 三个之一。
+所以这条规则只在**轰炸机 vs 支援线**时才有意义：轰炸机站 `front` 可以越线打 `enemy_support`，
+如果 `enemy_support` 上有敌方战斗机，那它只能挑战斗机打。
+
+### 要改哪里
+
+| 位置 | 要做 |
+|---|---|
+| `src/core/board.gd` | `has_fighter(line: String)` **已经存在**（M3.3 预留，`board.gd:128`），但它只判 `u.unit_class == "fighter"`。**给 `owner` 补一个默认参数** `has_fighter(line: String, owner: String = "")`：`owner` 非空时只算该方；顺手修掉两个隐患——`u == null` 会崩、`u.is_hq` 的 `unit_class` 是 `""` 要跳过 |
+| `src/core/battle.gd` | 新增 `_bomber_target_ok(attacker, target, to_line) -> bool`，`attack_unit` 里**在 `_is_guarded` 之后、`_spend` 之前**插一行 `if not _bomber_target_ok(attacker, target, tar[0]): return false` |
+| ~~`src/core/unit.gd`~~ | **不用动**。`is_bomber()` / `is_fighter()` M3.3 已经有了 |
+
+### 参考写法（已验证 3/3，可以直接照这个形状写）
+
+`src/core/battle.gd`（加在 `_line_span_to` 之后）：
+
+```gdscript
+## M3.3b：轰炸机攻击「有敌方战斗机驻守的线」时，只能打那一线的战斗机。
+## 判定只在「攻击者是轰炸机、且目标不是战斗机」时生效；其余情况一律放行。
+func _bomber_target_ok(attacker:Unit, target:Unit, to_line:String) -> bool:
+	if not attacker.is_bomber():
+		return true
+	if target.is_fighter():
+		return true
+	return not board.has_fighter(to_line, target.owner)
+```
+
+`src/core/board.gd`：
+
+```gdscript
+## 该线上是否有战斗机（owner 非空时只算该方的战斗机）
+func has_fighter(line:String, owner:String = "") -> bool:
+	for u in units_in(line):
+		if u == null or u.is_hq:
+			continue
+		if owner != "" and u.owner != owner:
+			continue
+		if u.is_fighter():
+			return true
+	return false
+```
+
+### 验收：`tests/pending/air_intercept_test.gd` **3 项**
+
+| # | 内容 | 项数 |
+|---|---|---|
+| [1] | 目标线有敌方战斗机时，轰炸机不能打该线非战斗机 | 1 |
+| [2] | 轰炸机可以打该线的战斗机 | 1 |
+| [3] | 目标线没有战斗机时，轰炸机照常打非战斗机 | 1 |
+
+全绿后 `git mv tests/pending/air_intercept_test.gd tests/`，主套 14 → **15 文件、446 → 449 项**。
+
+### 6 条坑
+
+1. **判定必须「只在攻击者是轰炸机时生效」**。写成「目标线有战斗机就拒」，战斗机/步兵之间的正常互殴会一起被拒——`combat_test`(59) / `guard_test`(8) / `unit_class_test`(21) 会同时红一片。
+2. **必须判「敌方」战斗机，不能判「有战斗机」**。己方战斗机不该保护敌方单位；虽然正常战局里敌我不会同线，但 `air_intercept_test` 用 `board.place` 手工造局面，写错方向立刻红。
+3. **`to_line` 要用 `tar[0]`（目标所在线），不是 `at[0]`（攻击者所在线）**。轰炸机是从 `front` 打 `enemy_support` 的，两线不同。用 `at[0]` 会去查攻击者自己那条线（一般是空的），于是**判定恒放行**。实测这个错法的红绿指纹是 **`[1]` `[2]` 红、`[3]` 绿（3 项红 2 项）**：`[1]` 因为没拒绝而红，`[2]` 是级联红（`[1]` 已经把轰炸机的 `has_attacked` 用掉了，所以 `[2]` 的「去打战斗机」也被拒）。**别被 `[3]` 的绿骗了**——它跟 `to_line` 对不对无关。
+4. **`has_fighter()` 里 `u.is_hq` 必须跳过**。HQ 的 `unit_class` 是 `""` 不会命中，但 HQ 的 `owner` 语义与普通单位不同，跟着 `owner` 过滤时容易误判；`u == null` 也必须判（`units_in()` 会返回 null 空位）。
+5. **不要动 `_line_span_to()` 和 `no_counter()`**。M3.3 刚验证过 21 项，本块只加「能不能选中这个目标」，不碰「能不能打到这条线」和「挨不挨反击」。轰炸机打战斗机**仍然会挨反击**（`no_counter` 只在目标是战斗机时返回 false）——这是 M3.3 就定好的，别顺手改。
+6. **插在 `_spend()` 之前**。放后面就成了「先扣能量再拒绝」，`attack_unit` 返回 false 但能量没了，`order_test` / `battle_m2_test` 里连续攻击的用例会莫名能量不足。
 
 ---
 
