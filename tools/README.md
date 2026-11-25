@@ -77,6 +77,19 @@ ERROR: Failed to open log file for writing: user://logs/godot.log
 
 仓库根目录的 `run_tests.bat` 现在分两段跑，两段都过才打印 `===== ALL GREEN =====`、退出码 0：
 
+**输出原则：通过的东西不刷屏，失败的东西全给你。**
+
+| 情况 | 输出 |
+|---|---|
+| 某个测试文件全绿 | **一行** `[PASS] board_test` |
+| 某个测试文件有红 | 打印**该文件的完整日志**（每一条 `[ok]` / `[FAIL]` / `SCRIPT ERROR`），前后有 `<< FAILED` / `end of XXX` 包夹 |
+| PART 2 的某项检查通过 | 不打印（只有 `-Verbose` 才显示 `[ok]`） |
+| PART 2 的某项检查失败/提醒 | 打印该节标题 + 失败原因 + 修法提示 |
+| 结尾 | `===== ALL GREEN =====  11 file(s) passed` 或 `===== SOME TESTS FAILED =====  1 file(s) failed, 10 passed` |
+
+所以**全绿时整份输出约 20 行**，一眼能扫完；一旦有红，红的那部分会是完整日志，不用再去翻文件。
+每个文件的完整日志始终留在 `%TEMP%\whk_tests\` 里（结尾那行会打印路径）。
+
 | 段 | 内容 | 谁定的 |
 |---|---|---|
 | **PART 1 主套** | 自动发现 `tests\*_test.gd`；每个文件判 `退出码 0` + `有 PASS` + `无 [FAIL]` + `无 SCRIPT ERROR` | `run_tests.bat` 本体 |
@@ -86,14 +99,14 @@ PART 2 的 8 项明细：
 
 | # | 检查 | 判定 |
 |---|---|---|
-| 1 | `tests/pending` 基线 | 只报告（每个文件 项数 / 红 / SCRIPT ERROR）；全绿的文件标"就绪→可移入 tests/" |
-| 2 | `validate_data.gd` | 必须 PASS，否则 `[FAIL]` |
+| 1 | `tests/pending` 基线 | **只列还没就绪的**（项数 / 红 / SCRIPT ERROR）；已全绿的收成一行「已就绪 N 份」 |
+| 2 | `validate_data.gd` | 必须 PASS，否则 `[FAIL]` 并打印全部 `[ERROR]` 行 |
 | 3 | `has_acted` 残留 | `tests/keywords_test.gd` 启用后 `src/` 里仍有残留 → `[FAIL]`；未启用时只提示 |
 | 4 | `EXPECTED_CHECKS` | `tests/*_test.gd` 每个文件都必须声明，缺了 → `[FAIL]`（漏跑会假绿） |
 | 5 | 兵科覆盖 | `cards.json` 单位卡没标 `unit_class` → 提醒（M3.3/M3.4 前应清零） |
 | 6 | 平衡冒烟 | `balance_sim` 100 场：胜率 45–60%、平均 8–20 回合、RUNNING < 1%；出界只提醒（调参归 M3.8） |
 | 7 | 脚本编码 | `*.bat` 必须 CRLF + 纯 ASCII；`*.ps1` 含中文必须 UTF-8 BOM；违规只提醒 |
-| 8 | 工作区噪音 | `data/tables/*.json` 行尾换行假 diff 提醒还原 + 列出未提交改动 |
+| 8 | 工作区噪音 | `data/tables/*.json` 行尾换行假 diff 提醒还原；未提交改动只在 `-Verbose` 下列出 |
 
 ```bat
 REM 平时验收（两段一起跑）
@@ -101,6 +114,9 @@ run_tests.bat
 
 REM 只跑 PART 2（刚补完数据想确认兵科齐不齐、平衡有没有出界）
 tools\preflight.bat
+
+REM 想看 PART 2 每一项的 [ok] 明细（排查"到底是哪项在报"时用）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Verbose
 
 REM 只跑 PART 2 且少跑点平衡场次（默认 100）
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -BalanceGames 30
@@ -135,11 +151,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 | `-Godot` | `[string]` 参数 | Godot 控制台 exe 路径。空 → 读环境变量 `GODOT` → 再空就用相对默认值。文件不存在时打印红字并 `exit 2` |
 | `-ProjectRoot` | `[string]` 参数 | 项目根。空 → 取脚本所在目录的上一级（`Resolve-Path ..`） |
 | `-BalanceGames` | `[int]` 参数，默认 100 | 平衡冒烟跑多少场。想快就传 `-BalanceGames 30` |
+| `-Verbose` | `[switch]` 开关 | 把每一节的 `[ok]` / `[info]` 全部打印出来。不加时只输出「失败/提醒」的节 + 结论行 |
 | `$fails` / `$warns` | 脚本级计数器 | `fails` 决定退出码（0 = 无 FAIL）；`warns` 只影响结尾括注，**不影响退出码** |
 | `Say-Fail` | `([string]$Msg)` | 打印红色 `[FAIL]` 并 `$script:fails++`。**只有它会把退出码拉成非 0** |
 | `Say-Warn` | `([string]$Msg)` | 打印黄色 `[warn]` 并 `$script:warns++`。只提醒，不阻塞提交（如平衡出界、兵科没标、编码不合规） |
-| `Say-Ok` | `([string]$Msg)` | 打印绿色 `[ok]`，什么都不加 |
-| `Say-Info` | `([string]$Msg)` | 打印深灰缩进信息行（附带的解释、修法建议、未提交清单），不计任何数 |
+| `Say-Ok` | `([string]$Msg)` | 计一次通过（`$oks++`）。**默认不打印**，只有加 `-Verbose` 才显示绿色 `[ok]` —— 一屏几十条绿行会把真正的问题刷没 |
+| `Say-Info` | `([string]$Msg)` | 深灰缩进解释行（修法建议、清单）。**默认不打印**，只在 `-Verbose` 下显示；不计入任何计数 |
+| `Show-Section` | `()` | 延迟打印小节标题：只有该节真的要输出内容（有 FAIL/warn，或 `-Verbose`）时才打印标题 + 空行，避免"标题一堆但下面全是空的" |
 
 > 为什么用 `$script:` 前缀：这些函数在脚本作用域执行，直接写 `$fails++` 会新建**函数局部**变量，
 > 调用方的计数器不动 → 退出码永远是 0（假绿）。`$script:` 才是改脚本级那一个。

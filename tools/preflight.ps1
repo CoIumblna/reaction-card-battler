@@ -20,7 +20,8 @@
 param(
     [string]$Godot = "",
     [string]$ProjectRoot = "",
-    [int]$BalanceGames = 100
+    [int]$BalanceGames = 100,
+    [switch]$Verbose
 )
 
 $ErrorActionPreference = "Continue"
@@ -41,29 +42,50 @@ if (-not (Test-Path $Godot)) {
 
 $fails = 0
 $warns = 0
+$oks = 0
+$sectionTitle = ""
+
+# 静默原则：一节的标题只在「这节有问题要说」或者 -Verbose 时才打印。
+# 全绿时整份报告只剩结论那一行，红的地方立刻跳出来。
+function Show-Section {
+    if ($sectionTitle -ne "") {
+        Write-Host ""
+        Write-Host $sectionTitle
+        $script:sectionTitle = ""
+    }
+}
 
 function Say-Fail { param([string]$Msg)
+    Show-Section
     Write-Host ("  [FAIL] " + $Msg) -ForegroundColor Red
     $script:fails++
 }
 function Say-Warn { param([string]$Msg)
+    Show-Section
     Write-Host ("  [warn] " + $Msg) -ForegroundColor Yellow
     $script:warns++
 }
 function Say-Ok { param([string]$Msg)
-    Write-Host ("  [ok]   " + $Msg) -ForegroundColor Green
+    $script:oks++
+    if ($Verbose) { Show-Section; Write-Host ("  [ok]   " + $Msg) -ForegroundColor Green }
 }
 function Say-Info { param([string]$Msg)
-    Write-Host ("  " + $Msg) -ForegroundColor DarkGray
+    if ($Verbose) { Show-Section; Write-Host ("  " + $Msg) -ForegroundColor DarkGray }
+}
+
+## 强制打印一节（不管绿不绿）：用于"报告类"小节，比如 tests/pending 基线表
+function Say-Always { param([string]$Msg)
+    Show-Section
+    Write-Host $Msg
 }
 
 Write-Host "========== 详细自检（主套之外） =========="
 Write-Host "项目：$ProjectRoot"
-Write-Host "Godot：$Godot"
-Write-Host ""
+Write-Host ("Godot：{0}" -f $Godot)
 
 # ---------------------------------------------------------------- 1. 待启用基线
-Write-Host "[1] 待启用基线 tests/pending（报告用，红是正常的）"
+# 报告类小节：只列「还没就绪」的（这些是需要你去实现的），已就绪的收成一行。
+$sectionTitle = "[1] 待启用基线 tests/pending"
 $pendingDir = Join-Path $ProjectRoot "tests\pending"
 $pendingFiles = @()
 if (Test-Path $pendingDir) {
@@ -72,8 +94,8 @@ if (Test-Path $pendingDir) {
 if ($pendingFiles.Count -eq 0) {
     Say-Info "tests/pending 下没有测试文件（全部已启用）"
 } else {
-    Write-Host ("  {0,-24} {1,7} {2,7} {3,14}  {4}" -f "文件", "项数", "红", "SCRIPT ERROR", "状态")
-    Write-Host ("  " + ("-" * 70))
+    $ready = @()
+    $reds = @()
     foreach ($pf in $pendingFiles) {
         $pname = [System.IO.Path]::GetFileNameWithoutExtension($pf.Name)
         $pout = & $Godot --headless --path $ProjectRoot --script ("res://tests/pending/" + $pname + ".gd") 2>&1 | Out-String
@@ -86,16 +108,26 @@ if ($pendingFiles.Count -eq 0) {
         }
         $perr = ([regex]::Matches($pout, "SCRIPT ERROR")).Count
         if ($pfl -eq 0 -and $perr -eq 0) {
-            Write-Host ("  {0,-24} {1,7} {2,7} {3,14}  {4}" -f $pname, $pc, $pfl, $perr, "就绪→可移入 tests/") -ForegroundColor Green
+            $ready += ("{0}({1} 项)" -f $pname, $pc)
         } else {
-            Write-Host ("  {0,-24} {1,7} {2,7} {3,14}  {4}" -f $pname, $pc, $pfl, $perr, "待实现") -ForegroundColor Yellow
+            $reds += [pscustomobject]@{ Name = $pname; Checks = $pc; Fails = $pfl; Errs = $perr }
         }
+    }
+    if ($reds.Count -gt 0) {
+        Show-Section
+        Write-Host ("  {0,-24} {1,7} {2,7} {3,14}  {4}" -f "文件", "项数", "红", "SCRIPT ERROR", "状态")
+        Write-Host ("  " + ("-" * 70))
+        foreach ($r in $reds) {
+            Write-Host ("  {0,-24} {1,7} {2,7} {3,14}  {4}" -f $r.Name, $r.Checks, $r.Fails, $r.Errs, "待实现") -ForegroundColor Yellow
+        }
+    }
+    if ($ready.Count -gt 0) {
+        Say-Ok ("已就绪 {0} 份：{1}" -f $ready.Count, ($ready -join "、"))
     }
 }
 
 # ---------------------------------------------------------------- 2. 数据校验
-Write-Host ""
-Write-Host "[2] 数据校验 tools/validate_data.gd"
+$sectionTitle = "[2] 数据校验 tools/validate_data.gd"
 $validatePath = Join-Path $ProjectRoot "tools\validate_data.gd"
 if (-not (Test-Path $validatePath)) {
     Say-Warn "没有 tools/validate_data.gd，跳过"
@@ -105,14 +137,15 @@ if (-not (Test-Path $validatePath)) {
     if ($vpass) {
         Say-Ok "PASS（cards/reactions/statuses/elements 合法）"
     } else {
-        Say-Fail "validate_data FAIL —— 改 data/ 后必须过；逐条错误用下面这条看："
-        Say-Info "& `$g --headless --path . --script res://tools/validate_data.gd"
+        Say-Fail "validate_data FAIL —— 改 data/ 后必须过。逐条错误："
+        Show-Section
+        Write-Host $vout
+        Write-Host "  手动跑：& `$g --headless --path . --script res://tools/validate_data.gd"
     }
 }
 
 # ---------------------------------------------------------------- 3. 旧字段残留
-Write-Host ""
-Write-Host "[3] 旧字段残留 has_acted"
+$sectionTitle = "[3] 旧字段残留 has_acted"
 $m31Enabled = Test-Path (Join-Path $ProjectRoot "tests\keywords_test.gd")
 $srcDir = Join-Path $ProjectRoot "src"
 $hits = @()
@@ -135,8 +168,7 @@ if ($hits.Count -eq 0) {
 }
 
 # ---------------------------------------------------------------- 4. EXPECTED_CHECKS
-Write-Host ""
-Write-Host "[4] EXPECTED_CHECKS 声明完整性"
+$sectionTitle = "[4] EXPECTED_CHECKS 声明完整性"
 $testFiles = @(Get-ChildItem (Join-Path $ProjectRoot "tests") -Filter "*_test.gd" -File | Sort-Object Name)
 $missing = @()
 foreach ($f in $testFiles) {
@@ -150,8 +182,7 @@ if ($missing.Count -eq 0) {
 }
 
 # ---------------------------------------------------------------- 5. 兵科覆盖
-Write-Host ""
-Write-Host "[5] 单位卡 unit_class 覆盖率（cards.json）"
+$sectionTitle = "[5] 单位卡 unit_class 覆盖率（cards.json）"
 $cardsPath = Join-Path $ProjectRoot "data\tables\cards.json"
 if (-not (Test-Path $cardsPath)) {
     Say-Warn "没有 data/tables/cards.json，跳过"
@@ -178,8 +209,7 @@ if (-not (Test-Path $cardsPath)) {
 }
 
 # ---------------------------------------------------------------- 6. 平衡冒烟
-Write-Host ""
-Write-Host ("[6] 平衡冒烟 balance_sim {0} 场" -f $BalanceGames)
+$sectionTitle = ("[6] 平衡冒烟 balance_sim {0} 场" -f $BalanceGames)
 $simPath = Join-Path $ProjectRoot "tools\balance_sim.gd"
 if (-not (Test-Path $simPath)) {
     Say-Warn "没有 tools/balance_sim.gd，跳过"
@@ -214,8 +244,7 @@ if (-not (Test-Path $simPath)) {
 }
 
 # ---------------------------------------------------------------- 7. 脚本编码
-Write-Host ""
-Write-Host "[7] 脚本编码（.bat = CRLF + 纯 ASCII；.ps1 有中文 = UTF-8 BOM）"
+$sectionTitle = "[7] 脚本编码（.bat = CRLF + 纯 ASCII；.ps1 有中文 = UTF-8 BOM）"
 $scriptFiles = @()
 $scriptFiles += @(Get-ChildItem $ProjectRoot -Filter "*.bat" -File -ErrorAction SilentlyContinue)
 $scriptFiles += @(Get-ChildItem (Join-Path $ProjectRoot "tools") -Filter "*.bat" -File -ErrorAction SilentlyContinue)
@@ -247,8 +276,7 @@ if ($encBad.Count -eq 0) {
 }
 
 # ---------------------------------------------------------------- 8. 工作区噪音
-Write-Host ""
-Write-Host "[8] 工作区噪音（编辑器自动改的行尾换行）"
+$sectionTitle = "[8] 工作区噪音（编辑器自动改的行尾换行）"
 $gitCmd = Get-Command git -ErrorAction SilentlyContinue
 if (-not $gitCmd -or -not (Test-Path (Join-Path $ProjectRoot ".git"))) {
     Say-Info "不是 git 仓库或没有 git，跳过"
@@ -274,16 +302,16 @@ if (-not $gitCmd -or -not (Test-Path (Join-Path $ProjectRoot ".git"))) {
     if ($dirty.Count -eq 0) {
         Say-Ok "工作区干净"
     } else {
-        Say-Info ("工作区有 {0} 项改动（提交前确认都是本块要的）：" -f $dirty.Count)
+        # 未提交改动是常态（学员正在写代码），只在 -Verbose 下列出来，不算问题
+        Say-Info ("工作区有 {0} 项改动：" -f $dirty.Count)
         foreach ($line in $dirty) { Say-Info ("    " + $line) }
     }
 }
 
 # ---------------------------------------------------------------- 结论
-Write-Host ""
 Write-Host ("------------------------------")
 if ($fails -eq 0) {
-    Write-Host ("[详细自检] PASS（{0} 条提醒）" -f $warns) -ForegroundColor Green
+    Write-Host ("[详细自检] PASS（{0} 项通过、{1} 条提醒）" -f $oks, $warns) -ForegroundColor Green
     exit 0
 }
 Write-Host ("[详细自检] FAIL（{0} 条失败、{1} 条提醒）" -f $fails, $warns) -ForegroundColor Red
