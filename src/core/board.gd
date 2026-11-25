@@ -111,6 +111,11 @@ func find_first_unit(line:String) -> Unit:
 			return u
 	return null
 
+func find_first_attackable(line:String, owner:String) -> Unit:
+	for u in units_in(line):
+		if u != null && not u.is_guard() && u.owner != owner:
+			return u
+	return null
 
 func has_unit_of(line:String) -> String:
 	for u in units_in(line):

@@ -163,7 +163,7 @@ func _ai(owner:String) -> void:#这是初版ai,后续会加入各种流派卡组
 		for u in board.units_in(_support_of(owner)):
 			if u.is_hq || not u.can_attack() || u.operation_cost > _energy_of(owner):
 				continue
-			var tgu = board.find_first_unit("front")
+			var tgu = board.find_first_attackable("front",owner)
 			if tgu == null: break
 			attack_unit(u,tgu)
 
@@ -343,6 +343,7 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 		return false
 	if _energy_of(attacker.owner) < attacker.operation_cost or attacker.owner == target.owner:
 		return false
+	if _is_guarded(target): return false
 	_spend(attacker.owner,attacker.operation_cost)
 	attacker.has_attacked = true
 	var dam:Dictionary = compute_damage(attacker.attack,attacker.element,target)
@@ -502,3 +503,13 @@ func shuffle(dck:Array[Card]) -> void:
 		var tmp = dck[i]
 		dck[i] = dck[j]
 		dck[j] = tmp
+
+
+func _is_guarded(target:Unit) -> bool:
+	if target.is_guard(): return false
+	var tmp = board.position_of(target)
+	for i in range(Board.SLOT_COUNT):
+		if abs(i-tmp[1]) == 1:
+			if board.slots[tmp[0]][i] != null && board.slots[tmp[0]][i].is_guard():
+				return true
+	return false

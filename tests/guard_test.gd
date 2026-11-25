@@ -1,8 +1,8 @@
 extends SceneTree
-## M3.2 护卫 Guard 验收测试 —— 待实现
+## M3.2 护卫 Guard 验收测试 —— 已启用（2026-11-25）
 ##
 ## 运行：
-##   ... --headless --path . --script res://tests/pending/guard_test.gd
+##   ... --headless --path . --script res://tests/guard_test.gd
 ##
 ## 规格：docs/adr/004-m3-keywords.md 决定 2
 ##   - Guard 保护**同线左右相邻格**的友军（slot ±1）；跨线不保护

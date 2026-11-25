@@ -130,6 +130,10 @@ func is_blitz() -> bool:
 	return "blitz" in keywords
 
 
+func is_guard() -> bool:
+	return "guard" in keywords
+
+
 func reset_actions() -> void:
 	has_attacked = false
 	has_moved = false
