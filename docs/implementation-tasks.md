@@ -28,7 +28,7 @@
 | 19 | `battle.gd`（M2 收尾：状态效果 C8） | 4 | ★★★ | 120 | 5–6 h | status_test[0–3] | [x] |
 | 20 | `battle.gd`（E14：指令卡打在棋盘单位上） | 3 | ★★ | 40 | 2–3 h | order_test[1–5] | [x] |
 | 21 | `battle.gd`（E7a+E7b：牌堆/弃牌/起手/换牌） | 4 | ★★★ | 80 | 5–7 h | deck_test + opening_test | [x] |
-| 22 | `unit.gd`+`card.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | **4–6 h** | keywords_test（17 项已写） | [~] |
+| 22 | `unit.gd`+`card.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | **4–6 h**（实际约 4.5 h） | keywords_test（17 项，已启用） | [x] |
 | 23 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | **2–3 h** | guard_test（8 项已写） | [ ] |
 | 24 | `battle.gd`（M3.3：兵科基础 + 空军越线） | 2 | ★★★ | 120 | **5–7 h** | unit_class_test（11 项已写） | [ ] |
 | 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **1.5–2 h** | air_intercept_test（3 项已写） | [ ] |
@@ -913,6 +913,10 @@ M3 的**详细排期、任务分解、测试计划、依赖与风险**见 **`doc
 
 见 `docs/adr/004-m3-keywords.md` 决定 1。
 
+> **✅ 已完成（2026-11-25）**：`keywords_test` 17/17 已启用，主套 417/417 全绿。
+> commit `6edd3ea`（数据/白名单）+ `71b0ded`（实现 + 测试迁移 + 启用）。
+> 下面保留任务卡原文，作为「同类任务怎么备课」的模板；本轮踩到的坑见 `docs/review-m31-2026-11-25.md` §4。
+>
 > 2026-11-25：本任务卡细化完毕，验收包已用参考实现验证可通行
 > （`G:\constraction\_ref_m31\`，含 `M31-impl.patch` / `M31-tests.patch` / `M31-tools.patch`，**不进 git**）。
 
@@ -1005,6 +1009,10 @@ PART 2 跑 `tools/preflight.ps1` 做详细自检（pending 基线 / 数据校验
 `EXPECTED_CHECKS` / 兵科覆盖 / **平衡冒烟 100 场** / 脚本编码 / 工作区噪音）。
 **本块的验收要看到**：PART 1 `===== ALL GREEN =====`（400 项）+ PART 2 `keywords_test 17 项 0 红`
 （在 pending 表里显示"就绪→可移入 tests/"）+ PART 2 `[详细自检] PASS`。
+
+> **✅ 2026-11-25 实际验收结果**：`keywords_test` **17/17 PASS**，主套 **417/417**（12 个文件）、
+> 0 `[FAIL]`、0 `SCRIPT ERROR`，`validate_data` PASS，PART 2 `[详细自检] PASS（7 项通过、0 条提醒）`，
+> pending 剩 5 份 38 项。`keywords_test` 已由 `tests/pending/` 移入 `tests/`。
 
 **坑（都是本轮参考实现真的踩到的）**
 
