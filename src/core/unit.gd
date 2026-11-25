@@ -126,6 +126,25 @@ func is_tank() -> bool:
 	return unit_class == "tank"
 
 
+func is_artillery() -> bool:
+	return unit_class == "artillery"
+
+
+func is_fighter() -> bool:
+	return unit_class == "fighter"
+
+
+func is_bomber() -> bool:
+	return unit_class == "bomber"
+
+
+func is_air() -> bool:
+	return unit_class == "bomber" || unit_class == "fighter"
+
+
+func ignores_guard() -> bool:
+	return unit_class == "artillery" || unit_class == "bomber"
+
 func is_blitz() -> bool:
 	return "blitz" in keywords
 

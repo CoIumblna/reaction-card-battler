@@ -339,11 +339,11 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 	var tar = board.position_of(target)
 	if at.is_empty() or tar.is_empty() or not attacker.can_attack():
 		return false
-	if abs(Board.LINES.find(at[0]) - Board.LINES.find(tar[0])) != 1:
+	if not _line_span_to(attacker,at[0],tar[0]):
 		return false
 	if _energy_of(attacker.owner) < attacker.operation_cost or attacker.owner == target.owner:
 		return false
-	if _is_guarded(target): return false
+	if _is_guarded(target) and not attacker.ignores_guard(): return false
 	_spend(attacker.owner,attacker.operation_cost)
 	attacker.has_attacked = true
 	var dam:Dictionary = compute_damage(attacker.attack,attacker.element,target)
@@ -354,18 +354,19 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 	else : _log("%s攻击%s,伤害被免疫"%[attacker.display_name,target.display_name])
 	if target.is_hq:
 		return true
-	var hurt:Dictionary = compute_damage(target.attack,target.element,attacker)
-	var rdisc:int = attacker.take_damage(hurt["damage"])
-	if not hurt["immune"]:
-		_apply_aura(attacker,target.element,1.0)
-		_log("%s攻击%s,造成%d%s元素伤害"%[target.display_name,attacker.display_name,rdisc,Element.display_name(target.element)])
-	else : _log("%s攻击%s,伤害被免疫"%[target.display_name,attacker.display_name])
+	if not no_counter(attacker,target):
+		var hurt:Dictionary = compute_damage(target.attack,target.element,attacker)
+		var rdisc:int = attacker.take_damage(hurt["damage"])
+		if not hurt["immune"]:
+			_apply_aura(attacker,target.element,1.0)
+			_log("%s攻击%s,造成%d%s元素伤害"%[target.display_name,attacker.display_name,rdisc,Element.display_name(target.element)])
+		else : _log("%s攻击%s,伤害被免疫"%[target.display_name,attacker.display_name])
+		if attacker.hp <= 0:
+			board.remove(attacker)
+			_log("%s退场"%attacker.display_name)
 	if target.hp <= 0:
 		board.remove(target)
 		_log("%s退场"%target.display_name)
-	if attacker.hp <= 0:
-		board.remove(attacker)
-		_log("%s退场"%attacker.display_name)
 	return true
 
 
@@ -512,4 +513,22 @@ func _is_guarded(target:Unit) -> bool:
 		if abs(i-tmp[1]) == 1:
 			if board.slots[tmp[0]][i] != null && board.slots[tmp[0]][i].is_guard():
 				return true
+	return false
+
+
+func no_counter(attacker:Unit, target:Unit) -> bool:
+	if attacker.is_bomber() and not target.is_fighter():
+		return true
+	if attacker.is_artillery():
+		return true
+	if target.is_bomber():
+		return true
+	return false
+
+
+func _line_span_to(attacker:Unit, from:String, to:String) -> bool:
+	if abs(Board.LINES.find(from)-Board.LINES.find(to)) == 1:
+		return true	
+	elif attacker.is_air():
+		return true
 	return false

@@ -1,8 +1,8 @@
 extends SceneTree
-## M3.3 兵科验收测试 —— 待实现
+## M3.3 兵科验收测试 —— 已启用（2026-11-25）
 ##
 ## 运行：
-##   ... --headless --path . --script res://tests/pending/unit_class_test.gd
+##   ... --headless --path . --script res://tests/unit_class_test.gd
 ##
 ## 规格：docs/adr/004-m3-keywords.md 决定 3（KARDS 5 类）
 ##   infantry 步兵 / tank 坦克 / artillery 炮兵 / fighter 战斗机 / bomber 轰炸机
@@ -10,7 +10,7 @@ extends SceneTree
 ##   （战斗机拦截轰炸机的"只能打战斗机"规则单独在 M3.3b 补）
 ##   另含 2026-11-25 学员补充的三条：[8] 步兵对照组、[9] 炮兵无视 Guard、[10] 轰炸机无视 Guard
 ##
-## 【启用方式】M3.3 全绿后移到 tests/ 下。
+## 本文件 21 项，主套（13 → 14 文件）已含。
 
 var failures: int = 0
 var checks: int = 0
