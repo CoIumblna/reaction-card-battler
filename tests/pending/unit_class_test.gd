@@ -8,6 +8,7 @@ extends SceneTree
 ##   infantry 步兵 / tank 坦克 / artillery 炮兵 / fighter 战斗机 / bomber 轰炸机
 ##   本文件覆盖：炮兵无反击、坦克移动+攻击、战斗机/轰炸机越线、轰炸机无反击/不反击
 ##   （战斗机拦截轰炸机的"只能打战斗机"规则单独在 M3.3b 补）
+##   另含 2026-11-25 学员补充的三条：[8] 步兵对照组、[9] 炮兵无视 Guard、[10] 轰炸机无视 Guard
 ##
 ## 【启用方式】M3.3 全绿后移到 tests/ 下。
 
@@ -15,14 +16,13 @@ var failures: int = 0
 var checks: int = 0
 var table: ReactionTable
 
-const EXPECTED_CHECKS := 11
+const EXPECTED_CHECKS := 17
 
 
 func _initialize() -> void:
 	print("========== 兵科测试（M3.3） ==========")
 	table = ReactionTable.new()
 	table.load_from_file("res://data/tables/reactions.json")
-
 	_test_artillery_no_counter()
 	_test_infantry_counter()
 	_test_tank_move_and_attack()
@@ -30,6 +30,9 @@ func _initialize() -> void:
 	_test_bomber_cross_line()
 	_test_bomber_no_counter_when_attacking()
 	_test_bomber_no_counter_when_attacked()
+	_test_infantry_blocked_by_guard()
+	_test_artillery_ignores_guard()
+	_test_bomber_ignores_guard()
 
 	if checks != EXPECTED_CHECKS:
 		printerr("  [FAIL] 覆盖不完整：本文件应执行 %d 项检查，实际 %d 项" % [EXPECTED_CHECKS, checks])
@@ -151,3 +154,50 @@ func _test_bomber_no_counter_when_attacked() -> void:
 	var bomber := _place(b, _unit("bomber", 5, 3, "player", "bomber"), "player_support", 1)
 	b.attack_unit(foe, bomber)
 	_check_eq(foe.hp, 10, "轰炸机被打时不能反击（攻击方不掉血）")
+
+
+## 2026-11-25 学员补充规则：炮兵、轰炸机可以无视 Guard。
+## ADR-004 决定 2 原本只写了「指令卡默认无视 Guard」，没写这两种兵科，这里补上。
+## 【注意】[9][10] 两项在学员实现前是**预期红的**，这是红基线，不是教练的测试写错。
+##
+## 局面一律照抄 guard_test 里已验证的形状：Guard 在 enemy_support 1、被保护的敌兵在
+## enemy_support 2、攻手放在 front —— 因为 player_support / enemy_support 的 0 号格
+## 被 HQ 占着（const HQ_SLOT := 0），单位只能放 1~4 格，别往 0 格塞。
+
+func _guarded_line(b: Battle) -> Array:
+	var g := Unit.from_dict({ "id": "guard", "name": "护卫", "hp": 5, "attack": 1, "owner": "enemy", "keywords": ["guard"] })
+	if not b.board.place(g, "enemy_support", 1):
+		_check(false, "（自检）Guard 放置失败")
+	var victim := Unit.from_dict({ "id": "victim", "name": "敌兵", "hp": 10, "attack": 1, "owner": "enemy" })
+	if not b.board.place(victim, "enemy_support", 2):
+		_check(false, "（自检）被保护单位放置失败")
+	# 自检：场上那个 Guard 必须真的带 guard 词条（查棋盘里的对象，不要查本地变量）
+	_check(b.board.unit_at("enemy_support", 1).is_guard(), "（自检）场上 Guard 带 guard 词条")
+	return [g, victim]
+
+
+func _test_infantry_blocked_by_guard() -> void:
+	print("[8] 对照组：步兵打不动被 Guard 保护的目标")
+	var b := _new_battle()
+	var pair := _guarded_line(b)
+	var inf := Unit.from_dict({ "id": "inf", "name": "步兵", "hp": 9, "attack": 2, "owner": "player", "unit_class": "infantry" })
+	b.board.place(inf, "front", 1)
+	_check(not b.attack_unit(inf, pair[1]), "步兵无法攻击被保护的目标（对照组，现状应为 true）")
+
+
+func _test_artillery_ignores_guard() -> void:
+	print("[9] 炮兵：无视 Guard")
+	var b := _new_battle()
+	var pair := _guarded_line(b)
+	var arty := Unit.from_dict({ "id": "arty", "name": "炮兵", "hp": 9, "attack": 2, "owner": "player", "unit_class": "artillery" })
+	b.board.place(arty, "front", 1)
+	_check(b.attack_unit(arty, pair[1]), "炮兵无视 Guard，能攻击被保护的目标")
+
+
+func _test_bomber_ignores_guard() -> void:
+	print("[10] 轰炸机：无视 Guard")
+	var b := _new_battle()
+	var pair := _guarded_line(b)
+	var bomber := Unit.from_dict({ "id": "bomber", "name": "轰炸机", "hp": 9, "attack": 2, "owner": "player", "unit_class": "bomber" })
+	b.board.place(bomber, "front", 1)
+	_check(b.attack_unit(bomber, pair[1]), "轰炸机无视 Guard，能攻击被保护的目标")

@@ -30,7 +30,7 @@
 | 21 | `battle.gd`（E7a+E7b：牌堆/弃牌/起手/换牌） | 4 | ★★★ | 80 | 5–7 h | deck_test + opening_test | [x] |
 | 22 | `unit.gd`+`card.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | **4–6 h**（实际约 4.5 h） | keywords_test（17 项，已启用） | [x] |
 | 23 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | **2–3 h**（实际约 2 h） | guard_test（8 项，已启用） | [x] |
-| 24 | `battle.gd`（M3.3：兵科基础 + 空军越线） | 2 | ★★★ | 120 | **5–7 h** | unit_class_test（11 项已写） | [ ] |
+| 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 130 | **5–7 h** | unit_class_test（17 项，红基线） | [ ] |
 | 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **1.5–2 h** | air_intercept_test（3 项已写） | [ ] |
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **2–3 h**（创意为主） | data_test + validate_data | [ ] |
 | 27 | `battle.gd`+`data_loader.gd`（M3.5：卡组构筑 39+1） | 2 | ★★★ | 60 | **2–3 h** | deck_build_test（10 项已写） | [ ] |
@@ -1163,14 +1163,76 @@ func _is_guarded(target: Unit) -> bool:
 
 见 `docs/adr/004-m3-keywords.md` 决定 3。
 
+**难度 ★★★、预计 5–7 h。这是 M3 唯一会动「攻击范围」的块**——现有 `attack_unit` 里那条
+`abs(Board.LINES.find(at[0]) - Board.LINES.find(tar[0])) != 1 → return false` 是**所有单位共用**的相邻限制，
+空军要开例外，但**不能把普通单位一起放开**。
+
 | 位置 | 要做 |
 |---|---|
-| `unit.gd` | `unit_class: String` 字段 + `Unit.from_dict` 解析；`_deploy_unit` 从 Card 拷贝 |
-| `battle.gd` `attack_unit` | 炮兵攻击不受反击；轰炸机攻击非战斗机不受反击、被攻击时也不反击；战斗机/轰炸机**可越线**（不受相邻线限制） |
-| 数据 | ~~`cards.json` 给单位卡补 `unit_class`（M3.4 一并做）~~ → **M3.1 已补**（2026-11-25）：步兵/弓手/火法师 = infantry、坦克 = tank；`validate_data` 的 `KNOWN_UNIT_CLASSES` 已改正为 `fighter`/`bomber`（原 `air` 是错的）。M3.3 只需**新增**战斗机/轰炸机卡（归 M3.4） |
+| `unit.gd` | `unit_class: String` + `Unit.from_dict` 解析；**已经做完了**（M3.1），本块只需读它 |
+| `unit.gd` | 建议加三个小谓词：`is_artillery()` / `is_fighter()` / `is_bomber()`（照 `is_tank()` 的写法） |
+| `battle.gd` 攻击范围 | 新增一个「这个兵科能不能越线」判定（fighter / bomber）；**替换**那行相邻判断，别就地改条件 |
+| `battle.gd` 反伤 | 炮兵攻击时**不受反击**；轰炸机攻击非战斗机**不受反击**；轰炸机**被打时也不反击**。注意这是**两个方向的两个条件**，别写成一个 |
+| `battle.gd` Guard | 炮兵 / 轰炸机**无视 Guard**（`_is_guarded()` 前先判断兵科）；普通单位照旧被挡 |
+| 数据 | ~~`cards.json` 补 `unit_class`~~ → **M3.1 已补**（步兵/弓手/火法师 = infantry、坦克 = tank）。M3.3 只需**新增**战斗机/轰炸机卡（归 M3.4） |
 
-**验收**：`tests/pending/unit_class_test.gd` **11 项**（炮兵/步兵反击、坦克移动+攻击、战斗机越线且步兵不能、轰炸机越线/无反击/被打不反击）。
-**M3.3b**：战斗机拦截轰炸机（"轰炸机攻击有战斗机的线只能打战斗机"）单独补 2–4 条。
+**兵科规则速查**
+
+| 兵科 | 移动+攻击 | 越线 | 攻击时受反击 | 被打时反击 | 无视 Guard |
+|---|---|---|---|---|---|
+| `infantry` 步兵 | ✗ 二选一 | ✗ | 是 | 是 | ✗ |
+| `tank` 坦克 | ✓ | ✗ | 是 | 是 | ✗ |
+| `artillery` 炮兵 | ✗ 二选一 | ✗ | **否** | 是 | **✓** |
+| `fighter` 战斗机 | ✗ 二选一 | **✓**（支援线→支援线） | 是 | 是 | ✗ |
+| `bomber` 轰炸机 | ✗ 二选一 | **✓** | **否** | **否** | **✓** |
+
+**验收**：`tests/pending/unit_class_test.gd` **17 项**：
+
+| # | 内容 |
+|---|---|
+| [1] | 炮兵攻击不受反击 + 目标正常掉血（2 项） |
+| [2] | 步兵对照组：正常受反击（1 项） |
+| [3] | 坦克先移动再攻击（2 项） |
+| [4] | 战斗机跨两条线成功 + 步兵不能跨线（2 项） |
+| [5] | 轰炸机跨线成功（1 项） |
+| [6][7] | 轰炸机攻击非战斗机不反击 + 被打时不反击（2 项） |
+| [8] | **对照组**：步兵打不动被 Guard 保护的目标（1 项 + 2 项自检） |
+| [9] | 炮兵无视 Guard，能打被保护的目标（1 项 + 2 项自检） |
+| [10] | 轰炸机无视 Guard（1 项 + 2 项自检） |
+
+**M3.3b**（另一块）：战斗机拦截轰炸机（「轰炸机攻击有战斗机的线只能打战斗机」）单独补 2–4 条。
+
+**改哪里**：`src/core/unit.gd`（小谓词）+ `src/core/battle.gd`（攻击范围 / 反伤 / Guard 三处）。
+
+**6 条坑**
+
+1. **越线判定要单独写函数再替换**。直接把 `!= 1` 改成 `> 2` 或者 `not in [1,2]`，步兵就也能越线了，`[4]` 的第二项会立刻红。
+2. **反伤是两条路**：攻击者「不被反伤」（炮兵/轰炸机打非战斗机）≠ 攻击者「不反击」（轰炸机被打）。`attack_unit` 后半段那段 `compute_damage(target.attack, ...)` 要按「谁不能打回去」判断，不是按「谁不能被打」。
+3. **Guard 判定和兵科判定要放在一起看**。`_is_guarded(target)` 只回答「目标被保护」，炮兵/轰炸机要绕开它——建议在 `attack_unit` 里写成 `if _is_guarded(target) and not attacker.ignores_guard(): return false`（`ignores_guard()` 放 `Unit`）。
+4. **`Board.place()` 的返回值必须检查**。`player_support` / `enemy_support` 的 **0 号格是 HQ**（`const HQ_SLOT := 0`），单位只能放 1–4 格；往 0 格放**静默返回 false**，你不检查就会以为放下了，然后 `_is_guarded()` 查到的是 HQ（`is_guard()=false`），测试莫名其妙地红。（2026-11-25 教练自己踩了这个坑，见 §33.1）
+5. **查场上对象用 `board.unit_at(line, i)`**，别用你本地那个 `var u = Unit.from_dict(...)`。正常 `RefCounted` 引用是同一个，但一旦 `place()` 返回 false（比如落进 HQ 格），本地变量和棋盘完全没有关系。
+6. **`unit_class` 已经在 M3.1 打通了卡→场链路**（`_deploy_unit` 传 `unit_class`）。别再去改 `_deploy_unit` 加一遍，重复拷贝不会出错但会让 diff 变脏。
+
+### 33.1 教练侧踩坑记录（2026-11-25，给后面的人省时间）
+
+给本块加 [8][9][10] 三条 Guard 相关测试时，教练第一版写成了
+
+```gdscript
+_place(b, g, "player_support", 0)     # ← 0 号格是 HQ，place 静默返回 false
+```
+
+看到的现象是「场上那个单位 keywords 变成了 `[]`」，误判成 **`Board.place()` 会丢 keywords**。
+实际原因与 `place()` 毫无关系：
+
+```
+PROBE place(slot0) returned = false
+PROBE slot0 里坐的是 HQ：is_hq=true  kw=[]
+PROBE g 自己没被改坏：kw=["guard"]  is_guard=true
+PROBE place(slot2) returned = true    → same=true, kw=["guard"]
+```
+
+`Board.place()` 只是 `slots[line][index] = unit`，不拷贝、不改单位。**根因是往 HQ 格放单位 + 没看返回值。**
+教训：**测试辅助函数里 `place()` 的返回值必须断言**，否则会得到「测试假红 → 怀疑引擎 → 浪费半小时」的路径。
 
 ---
 
