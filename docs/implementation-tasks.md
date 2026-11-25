@@ -5,39 +5,50 @@
 
 ## 进度总览
 
-| # | 文件 | 任务数 | 难度 | 预计行数 | 验收（测试分组） | 完成 |
-|---|---|---|---|---|---|---|
-| 1 | `element.gd` | 3 | ★ | 15 | data_test[3] | [x] |
-| 2 | `damage.gd` | 5 | ★★ | 40 | damage_test[D1–D6] | [x] |
-| 3 | `card.gd` | 2 | ★ | 20 | data_test[1] | [x] |
-| 4 | `buff.gd` | 2 | ★ | 10 | unit_test[5] | [x] |
-| 5 | `unit.gd` | 7 | ★★ | 45 | unit_test[1–4] | [x] |
-| 6 | `reaction_table.gd` | 4 | ★★ | 25 | data_test[4] | [x] |
-| 7 | `data_loader.gd` | 3 | ★★ | 40 | data_test[1][2] | [x] |
-| 8 | `battle.gd` | 13 | ★★★ | 150 | battle_m1_smoke_test[1–5] | [x] |
-| 9 | `status_table.gd` | 4 | ★★ | 25 | data_test[5] | [x] |
-| 10 | `unit.gd`（M2 扩展） | 3 | ★ | 15 | board_test[1] | [x] |
-| 11 | `board.gd` | 6 | ★★★ | 80 | board_test[2][3] | [x] |
-| 12 | `hq`（在 board / battle 内） | 3 | ★★ | 30 | board_test[2] | [x] |
-| 13 | `battle.gd`（M2：Kredit / 部署 / 召唤失调） | 3 | ★★ | 60 | battle_m2_test[1–3] | [x] |
-| 14 | `board.gd` + `battle.gd`（M2：移动 / 攻击 / 行动花费） | 5 | ★★★ | 90 | combat_test[1–3] | [x] |
-| 15 | `unit.gd` + `battle.gd`（M2：owner / 前线独占） | 2 | ★★ | 40 | combat_test[2][5]、board_test[2] | [x] |
-| 16 | `board.gd` + `battle.gd`（M2：死亡移除） | 2 | ★ | 20 | combat_test[6] | [x] |
-| 17 | `battle.gd`（M2：胜负改 HQ）+ M1 测试退役 | 3 | ★★ | 40 | battle_m2_test[5] | [x] |
-| 18 | `battle.gd`（M2：敌方 AI + run_auto） | 4 | ★★★ | 150 | battle_m2_test[3][6][7] | [x] |
-| 19 | `battle.gd`（M2 收尾：状态效果 C8） | 4 | ★★★ | 120 | status_test[0–3] | [x] |
-| 20 | `battle.gd`（E14：指令卡打在棋盘单位上） | 3 | ★★ | 40 | order_test[1–5] | [x] |
-| 21 | `battle.gd`（E7：牌堆/弃牌/换牌） | 4 | ★★★ | 80 | deck_test[0–6] | [ ] |
-| 22 | `card.gd`+`unit.gd`+`battle.gd`（M3.1：关键词 + 闪击） | 3 | ★★ | 60 | keywords_test | [ ] |
-| 23 | `battle.gd`（M3.2：护卫 Guard，待拍板） | 3 | ★★★ | 50 | guard_test | [ ] |
-| 24 | `unit.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | keywords_test（17 项已写） | [ ] |
-| 25 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | guard_test（8 项已写） | [ ] |
-| 26 | `battle.gd`（M3.3：兵科基础 + 空军越线） | 2 | ★★★ | 120 | unit_class_test（11 项已写） | [ ] |
-| 27 | `data/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | data_test + validate_data | [ ] |
-| 28 | `battle.gd`+`data_loader.gd`（M3.5：卡组构筑 39+1） | 2 | ★★★ | 60 | deck_build_test | [ ] |
-| 29 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | aura_v3_test | [ ] |
-| 30 | `unit.gd`+`battle.gd`（M3.7：stat_mod 数值系统） | 1 | ★★ | 40 | status_test 增补 | [ ] |
-| 31 | 平衡（M3.8：balance_sim 调参） | 3 | ★★★ | 60 | docs/balance-report.md | [ ] |
+| # | 文件 | 任务数 | 难度 | 预计行数 | **预计用时** | 验收（测试分组） | 完成 |
+|---|---|---|---|---|---|---|---|
+| 1 | `element.gd` | 3 | ★ | 15 | 0.5–1 h | data_test[3] | [x] |
+| 2 | `damage.gd` | 5 | ★★ | 40 | 2–3 h | damage_test[D1–D6] | [x] |
+| 3 | `card.gd` | 2 | ★ | 20 | 0.5–1 h | data_test[1] | [x] |
+| 4 | `buff.gd` | 2 | ★ | 10 | 0.5 h | unit_test[5] | [x] |
+| 5 | `unit.gd` | 7 | ★★ | 45 | 2–3 h | unit_test[1–4] | [x] |
+| 6 | `reaction_table.gd` | 4 | ★★ | 25 | 1.5–2 h | data_test[4] | [x] |
+| 7 | `data_loader.gd` | 3 | ★★ | 40 | 2–3 h | data_test[1][2] | [x] |
+| 8 | `battle.gd` | 13 | ★★★ | 150 | 6–8 h | battle_m1_smoke_test[1–5] | [x] |
+| 9 | `status_table.gd` | 4 | ★★ | 25 | 1.5–2 h | data_test[5] | [x] |
+| 10 | `unit.gd`（M2 扩展） | 3 | ★ | 15 | 1 h | board_test[1] | [x] |
+| 11 | `board.gd` | 6 | ★★★ | 80 | 4–5 h | board_test[2][3] | [x] |
+| 12 | `hq`（在 board / battle 内） | 3 | ★★ | 30 | 1.5–2 h | board_test[2] | [x] |
+| 13 | `battle.gd`（M2：Kredit / 部署 / 召唤失调） | 3 | ★★ | 60 | 3–4 h | battle_m2_test[1–3] | [x] |
+| 14 | `board.gd` + `battle.gd`（M2：移动 / 攻击 / 行动花费） | 5 | ★★★ | 90 | 4–6 h | combat_test[1–3] | [x] |
+| 15 | `unit.gd` + `battle.gd`（M2：owner / 前线独占） | 2 | ★★ | 40 | 2–3 h | combat_test[2][5]、board_test[2] | [x] |
+| 16 | `board.gd` + `battle.gd`（M2：死亡移除） | 2 | ★ | 20 | 1 h | combat_test[6] | [x] |
+| 17 | `battle.gd`（M2：胜负改 HQ）+ M1 测试退役 | 3 | ★★ | 40 | 2–3 h | battle_m2_test[5] | [x] |
+| 18 | `battle.gd`（M2：敌方 AI + run_auto） | 4 | ★★★ | 150 | 6–8 h | battle_m2_test[3][6][7] | [x] |
+| 19 | `battle.gd`（M2 收尾：状态效果 C8） | 4 | ★★★ | 120 | 5–6 h | status_test[0–3] | [x] |
+| 20 | `battle.gd`（E14：指令卡打在棋盘单位上） | 3 | ★★ | 40 | 2–3 h | order_test[1–5] | [x] |
+| 21 | `battle.gd`（E7a+E7b：牌堆/弃牌/起手/换牌） | 4 | ★★★ | 80 | 5–7 h | deck_test + opening_test | [x] |
+| 22 | `unit.gd`+`card.gd`+`battle.gd`（M3.1：行动经济/关键词/Blitz） | 3 | ★★★ | 80 | **4–6 h** | keywords_test（17 项已写） | [~] |
+| 23 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | **2–3 h** | guard_test（8 项已写） | [ ] |
+| 24 | `battle.gd`（M3.3：兵科基础 + 空军越线） | 2 | ★★★ | 120 | **5–7 h** | unit_class_test（11 项已写） | [ ] |
+| 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **1.5–2 h** | air_intercept_test（3 项已写） | [ ] |
+| 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **2–3 h**（创意为主） | data_test + validate_data | [ ] |
+| 27 | `battle.gd`+`data_loader.gd`（M3.5：卡组构筑 39+1） | 2 | ★★★ | 60 | **2–3 h** | deck_build_test（10 项已写） | [ ] |
+| 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **12–16 h**（最大块） | aura_v3_test（24 项待写） | [ ] |
+| 29 | `unit.gd`+`battle.gd`（M3.7：stat_mod 数值系统） | 1 | ★★ | 40 | **2–3 h** | stat_mod_test（6 项已写） | [ ] |
+| 30 | `battle.gd`（M3.8a：AI 打指令卡） | 2 | ★★★ | 80 | **3–4 h** | battle_m2_test 增补（测试待写） | [ ] |
+| 31 | 平衡（M3.8：balance_sim 调参） | 3 | ★★★ | 60 | **3–5 h** | docs/balance-report.md | [ ] |
+| 32 | 文档与 tag（M3.9：tag v0.3） | 1 | ★ | 0 | **1 h** | README + HANDOFF | [ ] |
+
+**列的含义**
+- **预计行数** = 你要新写的代码行数量级（不含注释/测试）。实际多 50% 很正常。
+- **预计用时** = 一个已经读过任务卡的学员，**从动手到 `run_tests.bat` 全绿**的净编码时间。
+  不含：读文档、卡住求助、等教练 review、改数据、跑平衡模拟。
+  经验倍率：★ ×1、★★ ×2、★★★ ×4、★★★★ ×8（相对 ★ 的 0.5 h 基准）。
+  第一次做某类任务会偏慢（比如第一次用 typed array、第一次写洗牌），**做过的同类任务第二次起能省 30–40%**。
+- **完成列**：`[x]` 已完成并提交 / `[~]` 进行中 / `[ ]` 未开始。
+
+**M3 剩余总量估算**：约 **36–52 h** 净编码（其中 M3.6 元素 v3 独占 12–16 h）。按每天 4 h 有效编码算 ≈ 9–13 个工作日。
 
 **建议顺序**：1 → 3 → 7 → 6 → 2 → 5 → 4 → 8（先打通数据链路，再写伤害算法，最后拼战斗流程）
 
