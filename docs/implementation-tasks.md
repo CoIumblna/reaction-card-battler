@@ -33,7 +33,7 @@
 | 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 140 | **5–7 h**（实际约 3 h） | unit_class_test（21 项，已启用） | [x] |
 | 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **1.5–2 h**（参考实现实际 ~20 min） | air_intercept_test（3 项已写，验收包已验证） | [ ] 备课完成 → 待学员实现 |
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **2–3 h**（创意为主） | data_test + validate_data | [ ] |
-| 27 | `battle.gd`+`data_loader.gd`（M3.5：卡组构筑 39+1） | 2 | ★★★ | 60 | **2–3 h** | deck_build_test（10 项已写） | [ ] |
+| 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **2–3 h**（参考实现实际 ~25 min） | deck_build_test（11 项，验收包已验证） | [ ] 备课完成 → 待学员实现 |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **12–16 h**（最大块） | aura_v3_test（24 项待写） | [ ] |
 | 29 | `unit.gd`+`battle.gd`（M3.7：stat_mod 数值系统） | 1 | ★★ | 40 | **2–3 h** | stat_mod_test（6 项已写） | [ ] |
 | 30 | `battle.gd`（M3.8a：AI 打指令卡） | 2 | ★★★ | 80 | **3–4 h** | battle_m2_test 增补（测试待写） | [ ] |
@@ -1428,16 +1428,201 @@ func has_fighter(line:String, owner:String = "") -> bool:
 
 ## 34. M3.5 卡组构筑（39 张 + 1 HQ）
 
-- 数据：`data/decks/player_deck.json` / `enemy_deck.json`：`{ "name": ..., "cards": [{"id": ..., "count": N}] }`；总张数 **39**（HQ 不进牌库）；同名上限待定（建议 4）。
-- `DataLoader.load_deck(path) -> Array[Card]`：校验 id 存在、count>0、总数 39、同名 ≤ 上限；非法 → `push_error` + 返回空（不崩）。
-- `Battle.setup` 仍接收展开好的 `p_deck`，不改签名。
-- 验收测试 `tests/pending/deck_build_test.gd`（**10 项**：展开张数/非法 id/超上限/总数不对/双方独立）。`data/decks/` 示例 + `validate_data` 牌组校验已备。
+> **✅ 2026-11-25 验收包已验证可通行**：参考实现只改 `src/core/data_loader.gd` 一个文件（+65 行，`tests/`、`data/`、`tools/` **零改动**），
+> patch 在 `G:\constraction\_ref_m35_pkg\M35-impl.patch`（**不进 git**）。
+> 实测：`deck_build_test` **11/11 PASS**、主套 **446/446 全绿 0 SCRIPT ERROR**、`validate_data` PASS、
+> `balance_sim` 100 场 48.0% / 13.0 回合 / RUNNING 0%。参考 worktree：`G:\constraction\_ref_m35`（detached @ `a37412c` + 未提交改动）。
+
+**难度 ★★、预计 2–3 h。这是 M3 里「数据早已备好、只差一个加载函数」的块**，改动量只有 65 行。
+
+### 规则
+
+| 项 | 值 |
+|---|---|
+| 牌组总张数 | **39**（`DECK_SIZE`，HQ 不进牌库） |
+| 同名上限 | **4**（`MAX_SAME_CARD`）。**同一 id 写成多行要合并算**：`[{footman,2},{footman,3}]` 合计 5 张 → 非法 |
+| HQ | **不表示为 Card、不进牌库**。HQ 是 `Board.setup()` 建的 `Unit.from_dict({...,"is_hq":true})`，`load_deck` 只管 39 张 |
+| 数据形状 | `{ "name": "...", "cards": [{"id": "...", "count": N}, ...] }` |
+
+非法情形（统一 `push_error` + 返回**空数组**，不崩、不 `assert`、不 `return null`）：
+未知 id / `cards` 不是数组或缺失 / `count <= 0` / 同名合计 > 4 / 总数 ≠ 39。
+
+### 要改哪里
+
+| 位置 | 要做 |
+|---|---|
+| `data_loader.gd` | 加 `const DECK_SIZE := 39` + `const MAX_SAME_CARD := 4`（**与 `tools/validate_data.gd:236-237` 的同名常量对齐**，两处必须一致） |
+| `data_loader.gd` | 新增 `static func load_deck(path: String) -> Array[Card]` |
+| `data_loader.gd` | 建议再抽一个 `static func _card_catalog(path := DATA_DIR + "cards.json") -> Dictionary`（id → 模板字典），展开时复用 |
+| `data/decks/*.json` | **不用改**，现有 `player_deck.json` / `enemy_deck.json` 已经是 4+4+4+4+4+4+4+4+3+2+2 = 39 张、同名 ≤ 4、id 全在 `cards.json` 里 |
+| `tools/validate_data.gd` | **不用改**，牌组校验早就写好了 |
+| `Battle.setup` | **不改签名**，仍接收展开好的 `p_deck` |
+
+### 参考写法（已验证 11/11，可以照这个形状写）
+
+```gdscript
+static func _card_catalog(path: String = DATA_DIR + "cards.json") -> Dictionary:
+	var out := {}
+	var data := load_json(path)
+	for item in data.get("cards", []):
+		if typeof(item) == TYPE_DICTIONARY and str(item.get("id", "")) != "":
+			out[str(item["id"])] = item
+	return out
+
+
+static func load_deck(path: String) -> Array[Card]:
+	var out: Array[Card] = []
+	var data := load_json(path)
+	if data.is_empty():
+		return out                       # load_json 里已经 push_error
+	if not data.has("cards"):
+		push_error("牌组缺少 cards 数组：" + path)
+		return out
+	var entries = data["cards"]
+	if typeof(entries) != TYPE_ARRAY:
+		push_error("牌组的 cards 不是数组：" + path)
+		return out
+
+	var catalog := _card_catalog()
+	var total := 0
+	var seen := {}                       # id -> 已计入的张数（同一 id 写多行也要合并算）
+	for item in entries:
+		if typeof(item) != TYPE_DICTIONARY:
+			push_error("牌组里有一条不是对象：" + path)
+			return out
+		var id := str(item.get("id", ""))
+		var count := int(item.get("count", 0))
+		if not catalog.has(id):
+			push_error("牌组里有未知卡牌 id `%s`：%s" % [id, path])
+			return out
+		if count <= 0:
+			push_error("卡 `%s` 的 count 必须 > 0（实际 %d）：%s" % [id, count, path])
+			return out
+		seen[id] = int(seen.get(id, 0)) + count
+		if int(seen[id]) > MAX_SAME_CARD:
+			push_error("同名卡 `%s` 超过上限 %d（%d 张）：%s" % [id, MAX_SAME_CARD, int(seen[id]), path])
+			return out
+		total += count
+	if total != DECK_SIZE:
+		push_error("牌组张数必须 = %d（实际 %d）：%s" % [DECK_SIZE, total, path])
+		return out
+
+	# 校验全部通过后才展开。每份都从 cards.json 的模板重新 from_dict，
+	# 保证同一张卡的多份是互不共享状态的独立对象（Battle 会 erase/修改它们）。
+	for item in entries:
+		var template: Dictionary = catalog[str(item["id"])]
+		for i in range(int(item["count"])):
+			out.append(Card.from_dict(template))
+	return out
+```
+
+### 验收：`tests/pending/deck_build_test.gd` **11 项**
+
+| # | 内容 | 项数 |
+|---|---|---|
+| [1] | API 存在：`DataLoader` 有 `load_deck(path)` 方法 | 1 |
+| [2] | 加载玩家牌组：39 张 / `footman` 4 张 / `guard` 3 张 | 3 |
+| [3] | 敌方牌组也是 39 张 / 两次加载不是同一数组引用 / 展开的 Card 也不共享引用 | 3 |
+| [4] | 非法牌组四种：未知 id / 总数不对 / `count<=0` / 同名超上限 | 4 |
+
+全绿后 `git mv tests/pending/deck_build_test.gd tests/`，主套 14 → **15 文件、446 → 457 项**。
+
+> **[3][4] 的断言是 2026-11-25 修正的**（原来 10 项，两处假绿）：
+> ① 原来写 `_check(p != e or p.size() == e.size(), ...)` —— `or` 后半句在正常实现下**恒真**，整条断言永远通过；
+> 一个「返回同一个共享数组」的错误实现照样绿。改成 `_check(not is_same(p, e), ...)`，
+> 并补一条 `_check(not is_same(p[0], e[0]), ...)` 查展开后的 Card 也是独立对象。
+> ② 「总张数不对」用例原来写 `[{footman,10}]`，它**同时**违反同名上限（4），而已知实现里同名检查在前、
+> 总数检查在后 → `push_error` 打的是「同名超上限」，**总数分支从未被执行**。
+> 改成 37 张、每个 id 合法、同名都不超 4 的牌组，日志确认命中 `牌组张数必须 = 39（实际 37）`。
+> `EXPECTED_CHECKS` 同时 10 → 11。
+
+### 6 条坑
+
+1. **typed array 必须逐项 `append`**。`Array[Card]` 不接受 `out = out.filter(...)`、也不接受直接赋 `entries.map()` 的结果
+   （untyped → typed 赋值会运行时报错）。展开时用 `for i in range(count): out.append(Card.from_dict(tpl))`。
+2. **必须两遍循环：第一遍只校验，第二遍才展开**。边校验边 `append` 的话，非法牌组会返回「部分展开」的非空数组，
+   测试的 `.size() == 0` 立刻红——而错误信息却写着「牌组非法」，很容易怀疑到错误的地方。
+3. **同一 id 写多行要累计判定**。只判单行 `count > 4` 会让 `[{footman:2},{footman:3}]`（合计 5）漏过。
+   用 `seen[id] = int(seen.get(id, 0)) + count` 累加后再比 `MAX_SAME_CARD`。
+4. **每份 Card 必须是独立对象**。若复用同一个模板引用（或把 `cards.json` 里的字典直接塞给多个 Card），
+   Battle 的 `hand.erase(card)` / 修改 `cost` 会串状态。每份都调一次 `Card.from_dict(template)` ——
+   `from_dict` 内部自己 `new()`，所以天然独立（测试 [3] 的第三条断言在查这个）。
+5. **静态入口和实例 call 都要能走**。测试用 `DataLoader.new().call("load_deck", path)`（`has_method` + `call`），
+   是因为方法还没实现时直接静态调用会**编译报错**，整个测试文件跑不起来。你写成 `static func` 后，
+   静态调用和实例 `call` **两种方式都能通**，不用为测试特殊处理。
+6. **`push_error` 输出的是 `ERROR:`，不是 `SCRIPT ERROR:`**。脚本判定「假绿」看的是 `SCRIPT ERROR` 计数，
+   所以非法牌组用例正常走 `push_error` **不会**污染判定。别为了让日志干净把 `push_error` 去掉 ——
+   那等于吞掉错误。
 
 ---
 
 ## 35. M3.6 元素 v3（多槽附着）
 
 规格见 `docs/adr/005-element-auras-v3.md` + `docs/element-reactions-v3.md`（数据 schema/算法/迁移清单/测试用例清单）。实现前还需：数据迁移（elements/reactions v3）+ `tests/pending/aura_v3_test.gd`（按 v3 文档 §7 的 24 项）。这轮不动现有数据/测试（迁移与代码同批提交）。
+
+---
+
+## 36. M3.7 数值系统（stat_mod / defense_down）
+
+（2026-11-25 补：本节原缺失，只有进度表一行。规则以 `tests/pending/stat_mod_test.gd` 的文件头为准。）
+
+见 `data/tables/statuses.json` 里 `defense_down` 的定义：
+
+```json
+"defense_down": {
+  "name": "减防",
+  "effects": [ { "kind": "stat_mod", "stat": "defense", "value": -1.0, "timing": "passive" } ]
+}
+```
+
+### 规则
+
+| 项 | 值 |
+|---|---|
+| 效果 | 目标身上**每 1 层** `defense_down` → **受到的伤害 +1**（即 `abs(value) × stacks`） |
+| 生效范围 | **单位攻击**和**指令卡伤害都生效**（两者共用 `compute_damage`） |
+| 计算顺序 | **先加算再走护盾/免疫**。减防加在 `compute_damage` 里；护盾在 `take_damage` 里扣，天然在后 |
+| 失效 | 走 `Buff.tick_buffs()`，`duration` 到 0 就移除，效果随之消失 |
+| 叠加 | `Unit.add_buff()` 遇到同 `kind` 只 `stacks += 1` 并刷新 `duration`，**不新增 Buff 对象** |
+
+### 要改哪里
+
+| 位置 | 要做 |
+|---|---|
+| `src/core/unit.gd` | 建议加 `func stat_mod(stat: String) -> int`：遍历 `buffs` → 查 `status_table` 该状态的 `stat_mod` 效果 → 匹配 `stat` → 累加 `int(abs(value)) * stacks`。**注意 `Unit` 目前不持有 `status_table`**，需要由 `Battle` 传入或经参数传（见坑 3） |
+| `src/core/damage.gd` 或 `src/core/battle.gd` | 在伤害公式里把减防加算进去。**推荐改 `battle.gd:compute_damage()`**（它同时服务单位攻击和 `play_card`，一处改两处生效）；`Damage.compute()` 是纯函数、只读附着/免疫，不要在里面查 buff |
+| `src/core/battle.gd` | `compute_damage(base_power, element, target)` 里：`Damage.compute(...)` 得到基础伤害后 `damage += target.stat_mod("defense")`，再返回（注意 `immune` 时不要加） |
+
+### 验收：`tests/pending/stat_mod_test.gd` **6 项**
+
+| # | 内容 | 项数 |
+|---|---|---|
+| [1] | 没有 buff：3 点攻击 → 10 - 3 = 7 | 1 |
+| [2] | 1 层 `defense_down`（duration 2）：伤害 4 → 10 - 4 = 6 | 1 |
+| [3] | 叠 2 层：+2 伤害 → 10 - 5 = 5 | 1 |
+| [4] | **指令卡伤害**同样吃 `defense_down`：5 点 + 减防 1 → 6（10 - 6 = 4） | 1 |
+| [5] | duration 1 的减防在回合开始后移除（`buffs.size() == 0`）| 1 |
+| [6] | buff 失效后伤害恢复：10 - 3 = 7 | 1 |
+
+全绿后 `git mv tests/pending/stat_mod_test.gd tests/`。
+
+### 6 条坑
+
+1. **`add_buff` 是「叠加不加对象」**。`Unit.add_buff()` 遇到同 `kind` 只做 `b.stacks += 1` 和 `b.duration = max(...)`，
+   所以「叠 2 层」在数据上仍是 **1 个 Buff、`stacks == 2`**。算伤害要用 `stacks`，不能数 `buffs.size()`。
+2. **减防是「受到的伤害 +1」，不是「攻击力 +1」**。加在 `compute_damage` 的目标侧；若错加到攻击者的 `attack` 上，
+   [1]（无 buff）也会跟着变，红得莫名其妙。
+3. **`Unit` 不持有 `status_table`**。`Buff` 只有 `kind`/`stacks`/`duration`，没有 `stat`/`value`——
+   这些在 `data/tables/statuses.json` 里、由 `StatusTable` 提供。`Battle` 有 `status_table` 成员
+   （`_settle_status` 就在用），所以最省事的做法是让 `Battle` 算这个加值再传给伤害函数，
+   而不是给 `Unit` 加一个 `status_table` 引用（那会让单位脱离数据表就不能独立测试）。
+4. **`immune` 时不要加减防**。`Damage.compute()` 返回 `immune == true` 表示被元素免疫，
+   此时 `damage` 本来就是 0/无效，再加 `defense_down` 会算出一个"免疫还掉血"的怪结果。
+5. **`static func` 里不能访问实例成员**。`Damage.compute()` 是 `static`，如果想把减防塞进去，
+   需要把 `target` 已有的 buff 信息当参数传进去——但 `Buff` 的 `stat`/`value` 又不在 `Buff` 上，
+   所以**最优解是在 `battle.gd` 的 `compute_damage`（实例方法）里加**，那里能直接摸 `status_table`。
+6. **别改 `Damage.compute()` 的返回字典形状**。`combat_test` / `damage_test` / `status_test` 里有大量
+   `hit["damage"]` 断言；在 `battle.gd` 外层加算，`Damage.compute()` 保持纯函数语义最安全。
 
 ---
 ## 附：常用 GDScript 手段速查

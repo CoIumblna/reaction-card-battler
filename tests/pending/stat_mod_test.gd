@@ -17,7 +17,7 @@ var failures: int = 0
 var checks: int = 0
 var table: ReactionTable
 
-const EXPECTED_CHECKS := 6
+const EXPECTED_CHECKS := 7
 
 
 func _initialize() -> void:
@@ -127,10 +127,17 @@ func _test_order_damage() -> void:
 func _test_expiry() -> void:
 	print("[5] defense_down 到期后恢复")
 	var b := _new_battle()
-	var tgt := _target(b)
+	# 注意：b.end_turn() 会**真的跑一遍敌方 AI**，把 enemy_support 上的单位挪到 front。
+	# 所以靶子直接放 front（AI 不会再挪它），攻击者放 player_support（与 front 相邻，跨度 1）。
+	# 原来用 _target()（放 enemy_support）+ _atk()（放 front）：靶子被 AI 挪到 front 0 号格后
+	# 与攻击者同线，attack_unit 因跨度 0 直接返回 false，血量不变 → 这条断言测的不是「buff 失效」。
+	# 2026-11-25 修正，并补一条「攻击必须成立」的防空跑断言。
+	var tgt := Unit.from_dict({ "id": "tgt", "name": "靶", "hp": 10, "attack": 1, "owner": "enemy" })
+	assert(b.board.place(tgt, "front", 1), "靶子必须放置成功")
 	tgt.add_buff(Buff.make("defense_down", 1))
 	b.end_turn()   # 玩家新回合开始 → _settle_status 里 tick，duration 1 → 0 移除
 	_check_eq(tgt.buffs.size(), 0, "duration 1 的减防在回合开始后移除")
-	var atk := _atk(b)
-	b.attack_unit(atk, tgt)
+	var atk := Unit.from_dict({ "id": "atk", "name": "攻", "hp": 20, "attack": 3, "owner": "player" })
+	assert(b.board.place(atk, "player_support", 1), "攻击者必须放置成功")
+	_check(b.attack_unit(atk, tgt), "buff 失效后攻击成立（防空跑）")
 	_check_eq(tgt.hp, 7, "buff 失效后伤害恢复正常（10 - 3 = 7）")

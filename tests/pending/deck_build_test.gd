@@ -15,7 +15,7 @@ var failures: int = 0
 var checks: int = 0
 var table: ReactionTable
 
-const EXPECTED_CHECKS := 10
+const EXPECTED_CHECKS := 11
 
 
 func _initialize() -> void:
@@ -115,7 +115,10 @@ func _test_enemy_deck_independent() -> void:
 	var p: Array = _load_deck("res://data/decks/player_deck.json")
 	var e: Array = _load_deck("res://data/decks/enemy_deck.json")
 	_check_eq(e.size(), 39, "敌方牌组也是 39 张")
-	_check(p != e or p.size() == e.size(), "两次加载互不影响（不是同一个数组引用）")
+	# 用 is_same 判引用同一性。不能写 `p != e`：那是内容比较，双方都是 39 张时恒 true；
+	# 也不能写 `p != e or p.size() == e.size()`：后半句恒真，整条断言永远通过（2026-11-25 修）。
+	_check(not is_same(p, e), "两次加载不是同一个数组引用")
+	_check(not is_same(p[0], e[0]), "展开后的 Card 对象也不共享引用")
 
 
 func _test_invalid_decks() -> void:
@@ -127,7 +130,19 @@ func _test_invalid_decks() -> void:
 	var bad_id := _write_user_deck("bad_id", [{ "id": "no_such_card", "count": 39 }])
 	_check_eq(_load_deck(bad_id).size(), 0, "未知卡 id → 空数组")
 
-	var bad_total := _write_user_deck("bad_total", [{ "id": "footman", "count": 10 }])
+	# 这一条必须只违反「总数」这一条规则：每个 id 合法、同名都不超 4。
+	# 原来写 [{footman,10}] 会先命中「同名超上限」，总数分支根本没被执行（2026-11-25 修）。
+	var bad_total := _write_user_deck("bad_total", [
+		{ "id": "footman", "count": 4 },
+		{ "id": "archer", "count": 4 },
+		{ "id": "fire_mage", "count": 4 },
+		{ "id": "tank", "count": 4 },
+		{ "id": "fire_bolt", "count": 4 },
+		{ "id": "water_blade", "count": 4 },
+		{ "id": "thunder_strike", "count": 4 },
+		{ "id": "heavy_strike", "count": 4 },
+		{ "id": "guard", "count": 3 },
+		{ "id": "mend", "count": 2 }])          # 合计 37 张，只违反总数
 	_check_eq(_load_deck(bad_total).size(), 0, "总张数不是 39 → 空数组")
 
 	var bad_count := _write_user_deck("bad_count", [{ "id": "footman", "count": 0 }])
