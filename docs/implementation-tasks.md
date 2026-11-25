@@ -902,16 +902,106 @@ M3 的**详细排期、任务分解、测试计划、依赖与风险**见 **`doc
 
 见 `docs/adr/004-m3-keywords.md` 决定 1。
 
+> 2026-11-25：本任务卡细化完毕，验收包已用参考实现验证可通行
+> （`G:\constraction\_ref_m31\`，含 `M31-impl.patch` / `M31-tests.patch` / `M31-tools.patch`，**不进 git**）。
+
+**规则（KARDS）**
+
+| 项 | 规则 |
+|---|---|
+| 字段 | `Unit.has_acted` 拆成 `has_moved` / `has_attacked`（都 `bool`，默认 false） |
+| 回合开始 | 己方**非 HQ** 单位两个标志都清 false（支援线 **和** 前线都要清） |
+| 普通单位 | 移动**或**攻击二选一：先移动 → `has_moved=true`，不能再攻击；先攻击 → `has_attacked=true`，不能再移动 |
+| 坦克 `unit_class == "tank"` | 移动 + 攻击**都能做**（各一次；移动两次/攻击两次仍不行） |
+| 召唤失调 | 部署当回合两个标志都 **true** |
+| 闪击 `blitz` | 部署当回合两个标志都 **false**（只免疫召唤失调，**不免疫冻结**） |
+| 闪击 + 坦克 | 部署当回合可以「先移动再攻击」 |
+| 作战费 / 能量 | 不变（移动/攻击各自扣 `operation_cost`） |
+
+**API 约定**
+
 | 位置 | 要做 |
 |---|---|
-| `unit.gd` | `has_moved` / `has_attacked` 替代 `has_acted`；`keywords: Array[String]` + `Unit.from_dict` 解析 |
-| `card.gd` | 已有 `keywords` 字段，`Card.from_dict` 解析（逐项 append，别直接赋 untyped） |
-| `battle.gd` `_deploy_unit` | 拷 keywords/unit_class 到 Unit；召唤失调：普通单位两个标志 true，**闪击 Blitz 两个 false** |
-| `battle.gd` `move_unit` / `attack_unit` | 二选一规则：`has_moved`/`has_attacked` 互斥；**坦克（unit_class=="tank"）两者都能做** |
-| `_begin_turn` / `_enemy_turn` | 清己方非 HQ 的两个标志 |
-| 测试迁移 | 旧 `has_acted` 断言全部改（`battle_m2_test` / `status_test` 等）——**教练改**；`_settle_status` 的 disable 改为"两个标志都置 true" |
+| `unit.gd` | 删 `has_acted`；加 `has_moved` / `has_attacked` / `unit_class: String` / `keywords: Array[String]`；`Unit.from_dict` 解析 `unit_class` 与 `keywords`（**逐项 append**）；新辅助方法 `is_blitz()` / `is_tank()` / `has_keyword(kw)` / `reset_actions()` / `block_actions()` / `can_move()` / `can_attack()` |
+| `card.gd` | 字段早就有，但 `Card.from_dict` **从没赋值** → 解析 `keywords` 与 `abilities`（同样逐项 append） |
+| `battle.gd` `_deploy_unit` | 建 `Unit` 时把 `unit_class` / `keywords` 一起塞进 `from_dict` 的字典；**闪击 → `reset_actions()`，否则 → `block_actions()`** |
+| `battle.gd` `_begin_turn` / `_enemy_turn` | 清标志：原来那行 `u.has_acted = false` → `u.reset_actions()` |
+| `battle.gd` `move_unit` | 前置判断 `if unit.has_acted` → `if not unit.can_move()`；成功后 `unit.has_moved = true` |
+| `battle.gd` `attack_unit` | 前置判断 → `if not attacker.can_attack()`；成功后 `attacker.has_attacked = true` |
+| `battle.gd` `_ai` | 三处 `u.has_acted` 过滤 → `not u.can_move()` / `not u.can_attack()`；**删掉攻击后手动置标志的两行**（见坑 2） |
+| `battle.gd` `_settle_status` | `disable` 分支（冻结）→ `u.block_actions()`（两个标志都置 true） |
+
+- `can_move()` / `can_attack()` 放 `Unit` 上，不放 `Battle`：二选一是单位自身语义，坦克例外也只看 `unit_class`。
+  `can_attack()` 不能只判 `not has_attacked`，还要 `not has_moved or is_tank()`（见坑 3）。写法：
+
+```gdscript
+func can_move() -> bool:
+	if has_moved:
+		return false
+	if has_attacked and not is_tank():
+		return false
+	return true
+
+
+func can_attack() -> bool:
+	if has_attacked:
+		return false
+	if has_moved and not is_tank():
+		return false
+	return true
+```
+
+- 本块**不动数据**：`data/cards.json` 里 `blitz` / `tank` 可以继续没有，测试自己造卡；
+  `unit_class` 的真实数据由 M3.4 补。
+
+**改哪里**：`src/core/unit.gd`、`src/core/card.gd`、`src/core/battle.gd`。
+
+**连带改（教练做）**：4 个测试文件共 15 处 `has_acted` 断言——等学员实现落地时一起提交：
+
+| 文件 | 处数 | 改成 |
+|---|---|---|
+| `tests/board_test.gd` | 1 | `u.get("has_moved") == false and u.get("has_attacked") == false` |
+| `tests/combat_test.gd` | 7 | 移动成功断 `has_moved`；攻击成功断 `has_attacked`；失败/被拒断两个都 false |
+| `tests/battle_m2_test.gd` | 5 | 召唤失调断两个都 true；下回合/前线清断两个都 false；攻击后断 `has_attacked` |
+| `tests/status_test.gd` | 2 | 冻结断两个都 true；解冻断两个都 false |
+
+**项数不变**：58 / 63 / 38 / 59 / 23 / 46 / 20 / 25 / 35 / 12 / 21 全部照旧，`EXPECTED_CHECKS` 不用动。
+另 `tools/check.ps1` 有一条提示文案写着 `敌方 has_acted 每个敌方回合清零`，一并改词。
+**注意**：`tests/battle_m1_smoke_test.gd` 里**没有** `has_acted` 断言（早期任务卡写错了）。
 
 **验收**：`tests/pending/keywords_test.gd` **17 项**（解析/召唤失调/闪击/二选一/坦克/闪击+坦克/回合清标志）。
+全绿后移到 `tests/`。验收包已用参考实现验证可通行：`_ref_m31` 跑出 keywords_test **17/17** + 主套 **400/400**
++ `validate_data` PASS，且 `balance_sim` 100 场 **48/52、平均 16.0 回合**——与改动前完全一致（说明本块不动平衡）。
+
+**坑（都是本轮参考实现真的踩到的）**
+
+1. **typed array 不能整体赋值**
+   ```gdscript
+   c.keywords = d.get("keywords", [])     # ❌ untyped 赋给 Array[String]
+   for k in d.get("keywords", []):        # ✅ 逐项 append
+   	c.keywords.append(str(k))
+   ```
+   对 `abilities` 同理。
+
+2. **`_ai` 里「攻击后手动置标志」两行必须删**
+   旧代码是"先调 `attack_unit(...)`，再无条件 `u.has_acted = true`"。改成双标志后这个错误更明显：
+   攻击被拒（能量不够 / 不相邻 / 目标非法）时会被误标成"已攻击"，等于骗过后续过滤。
+   正确做法：**`attack_unit` 自己置标志，`_ai` 只管"能不能打"的前置过滤**。
+
+3. **「二选一」不是「两个都想一次」**
+   `has_moved = true` 之后 `has_attacked` 仍是 false，但**不能再攻击**。
+   只写 `if has_attacked: return false` 会红——`keywords_test [5] 非坦克：移动后不能再攻击` 就是专抓这个。
+
+4. **召唤失调 ≠ 冻结 ≠ 部署**
+   三个都要"两个标志 true"但语义不同；别在 `_deploy_unit` 里偷懒去调 `_settle_status`。
+   另注意**闪击只免疫召唤失调，不免疫冻结**：先部署闪击单位、再给它挂 `immobilized`，它还是不能动。
+
+5. **坦克的例外只解除「互斥」，不解除「各一次」**
+   坦克移动两次仍不行（`has_moved` 已 true）；攻击两次也不行。
+
+6. **旧 `has_acted` 别留残影**
+   改完 `grep -rn "has_acted" src/ tests/ tools/` 应只剩注释里的历史说明。留一个未改的
+   `.has_acted = true` 不会报错（GDScript 动态属性），但会静默失效——主套红的时候很难查。
 
 ---
 
