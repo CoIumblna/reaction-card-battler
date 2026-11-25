@@ -951,8 +951,23 @@ func can_attack() -> bool:
 	return true
 ```
 
-- 本块**不动数据**：`data/cards.json` 里 `blitz` / `tank` 可以继续没有，测试自己造卡；
-  `unit_class` 的真实数据由 M3.4 补。
+- ~~本块**不动数据**：`data/cards.json` 里 `blitz` / `tank` 可以继续没有，测试自己造卡；
+  `unit_class` 的真实数据由 M3.4 补。~~
+
+> **2026-11-25 更正（教练已改数据）**：`unit_class` 不只是测试字段——M3.3 的兵科规则要靠它才生效，
+> 所以真实卡池必须先有值。已由教练在**本块**顺手补上（元素/数值/张数一个没动）：
+>
+> - `data/tables/cards.json`：4 张单位卡补 `unit_class` —— 步兵 / 弓手 / 火法师 = `"infantry"`，坦克 = `"tank"`；牌库仍 44 张。
+> - `tools/validate_data.gd:18`：`KNOWN_UNIT_CLASSES` 由 `["", "infantry", "tank", "artillery", "air"]`
+>   改成 `["", "infantry", "tank", "artillery", "fighter", "bomber"]`。
+>   **原来的 `"air"` 是错的**：ADR-004 决定 3 与 `unit_class_test` / `air_intercept_test` 用的都是
+>   `fighter`（战斗机）/ `bomber`（轰炸机）两个独立兵科，不修的话以后写空军卡会被校验器误判非法。
+> - `blitz` 仍**没有**真实卡（`add_unit_card.gd` 还没有 `--keywords` 参数），`keywords_test` 自己造卡，
+>   真实卡池里的闪击卡留给 M3.4 卡池扩充。
+>
+> 补数据后复核：11 个主套文件 + `keywords_test` 全绿、`validate_data` PASS、
+> `balance_sim` 100 场 **48/52（胜率 48.0%）、平均 13.0 回合** —— 仍在 45–60% / 8–20 区间。
+> 平均回合 16.0 → 13.0 是**预期内**的：坦克成为真正的 `tank` 兵科后能「移动 + 攻击」，节奏变快；**本块不动平衡数值**，调参归 M3.8。
 
 **改哪里**：`src/core/unit.gd`、`src/core/card.gd`、`src/core/battle.gd`。
 
@@ -971,7 +986,14 @@ func can_attack() -> bool:
 
 **验收**：`tests/pending/keywords_test.gd` **17 项**（解析/召唤失调/闪击/二选一/坦克/闪击+坦克/回合清标志）。
 全绿后移到 `tests/`。验收包已用参考实现验证可通行：`_ref_m31` 跑出 keywords_test **17/17** + 主套 **400/400**
-+ `validate_data` PASS，且 `balance_sim` 100 场 **48/52、平均 16.0 回合**——与改动前完全一致（说明本块不动平衡）。
++ `validate_data` PASS，且 `balance_sim` 100 场 **48/52、平均 16.0 回合**（未补兵科数据时）。
+**补完 `cards.json` 兵科后复测：胜率 48.0%、平均 13.0 回合**，仍全部在区间内。
+
+验收命令只有一条：**`run_tests.bat`**（仓库根）。它是两段式 —— PART 1 跑主套判四重条件，
+PART 2 跑 `tools/preflight.ps1` 做详细自检（pending 基线 / 数据校验 / `has_acted` 残留 /
+`EXPECTED_CHECKS` / 兵科覆盖 / **平衡冒烟 100 场** / 脚本编码 / 工作区噪音）。
+**本块的验收要看到**：PART 1 `===== ALL GREEN =====`（400 项）+ PART 2 `keywords_test 17 项 0 红`
+（在 pending 表里显示"就绪→可移入 tests/"）+ PART 2 `[详细自检] PASS`。
 
 **坑（都是本轮参考实现真的踩到的）**
 
@@ -1002,6 +1024,8 @@ func can_attack() -> bool:
 6. **旧 `has_acted` 别留残影**
    改完 `grep -rn "has_acted" src/ tests/ tools/` 应只剩注释里的历史说明。留一个未改的
    `.has_acted = true` 不会报错（GDScript 动态属性），但会静默失效——主套红的时候很难查。
+   **`run_tests.bat` 的 PART 2 [3] 会自动数这个**：`tests/keywords_test.gd` 一旦启用，
+   `src/` 里还有 `has_acted` 就直接报 `[FAIL]`，不用自己 grep。
 
 ---
 
@@ -1027,7 +1051,7 @@ func can_attack() -> bool:
 |---|---|
 | `unit.gd` | `unit_class: String` 字段 + `Unit.from_dict` 解析；`_deploy_unit` 从 Card 拷贝 |
 | `battle.gd` `attack_unit` | 炮兵攻击不受反击；轰炸机攻击非战斗机不受反击、被攻击时也不反击；战斗机/轰炸机**可越线**（不受相邻线限制） |
-| 数据 | `cards.json` 给单位卡补 `unit_class`（M3.4 一并做） |
+| 数据 | ~~`cards.json` 给单位卡补 `unit_class`（M3.4 一并做）~~ → **M3.1 已补**（2026-11-25）：步兵/弓手/火法师 = infantry、坦克 = tank；`validate_data` 的 `KNOWN_UNIT_CLASSES` 已改正为 `fighter`/`bomber`（原 `air` 是错的）。M3.3 只需**新增**战斗机/轰炸机卡（归 M3.4） |
 
 **验收**：`tests/pending/unit_class_test.gd` **11 项**（炮兵/步兵反击、坦克移动+攻击、战斗机越线且步兵不能、轰炸机越线/无反击/被打不反击）。
 **M3.3b**：战斗机拦截轰炸机（"轰炸机攻击有战斗机的线只能打战斗机"）单独补 2–4 条。
@@ -1069,21 +1093,43 @@ func can_attack() -> bool:
 
 ## 写完一个文件的验收动作
 
-```bash
-# 懒人版：跑全套 7 个文件 + 检查 PASS / [FAIL] / SCRIPT ERROR（推荐，别只看退出码）
-run_tests.bat
+**只跑一条命令：`run_tests.bat`（在仓库根目录）。** 它现在是**两段式**，一次跑完教练手工验证的全部内容：
 
-# 只跑相关的那个文件，看失败数有没有变少
+```
+################ PART 1  main suite (tests\*_test.gd) ################
+  —— 自动发现 tests\*_test.gd；每文件判 退出码 + 有 PASS + 无 [FAIL] + 无 SCRIPT ERROR
+  —— 末行 ===== ALL GREEN ===== 才算过
+
+################ PART 2  detailed preflight (tools\preflight) ################
+  [1] tests/pending 基线      每个待启用文件 项数 / 红 / SCRIPT ERROR（报告用，红是正常）
+  [2] 数据校验               validate_data.gd 必须 PASS
+  [3] 旧字段残留             src/ 里 has_acted 命中数（M3.1 启用后必须 0）
+  [4] EXPECTED_CHECKS       每个测试文件都必须声明，否则少跑会假绿
+  [5] 兵科覆盖               cards.json 单位卡的 unit_class 覆盖率
+  [6] 平衡冒烟               balance_sim 100 场：胜率 45–60% / 8–20 回合 / RUNNING < 1%
+  [7] 脚本编码               *.bat 必须 CRLF + 纯 ASCII；*.ps1 有中文必须带 UTF-8 BOM
+  [8] 工作区噪音             data/tables/*.json 的行尾换行假 diff + 未提交改动清单
+  —— 末行 ===== ALL GREEN ===== 才算过（PART 2 退出码非 0 也会把总结果拉成失败）
+```
+
+两段都过才是 `===== ALL GREEN =====`，退出码 0。**别只看单个文件的退出码**：
+
+```bash
+# 只想跑某一个文件、看失败数有没有变少（调试用，不算验收）
 & $g --headless --path . --script res://tests/battle_m2_test.gd
-& $g --headless --path . --script res://tests/combat_test.gd
+
+# 只想跑 PART 2（比如刚补完数据、想确认真实卡池的 unit_class 齐不齐）
+tools\preflight.bat
 
 # 想手动看一局（battle.gd 写完后才用得上）
 & $g --headless --path . --script res://tests/run_battle.gd
 ```
 
-**全绿 = 失败 0 项 + 退出码 0 + 输出里没有 `SCRIPT ERROR`。** 三个都要满足：
-前者可能"少跑了几条也全绿"（所以每个测试文件末尾会校验应执行的项数），后者是"报错被吞"。
-当前基线：`battle_m1_smoke_test` 1 红、`battle_m2_test` 5 红；E15 做完 → 全绿 307/307。
+**全绿 = 失败 0 项 + 退出码 0 + 输出里没有 `SCRIPT ERROR` + PART 2 全通过。**
+前者可能"少跑了几条也全绿"（所以每个测试文件末尾会校验应执行的项数），第二个是"报错被吞"。
+
+改工具时注意：`preflight.ps1` 有中文，**必须存成 UTF-8 with BOM**（PowerShell 5.1 否则乱码）；
+`preflight.bat` / `run_tests.bat` 必须 **CRLF + 纯 ASCII**（`.gitattributes` 已固定 `.bat → eol=crlf`）。
 
 ---
 

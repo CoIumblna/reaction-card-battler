@@ -1,0 +1,4 @@
+# 统一换行符：仓库里存 LF，Windows 上检出 .bat 必须是 CRLF
+# （.bat 用 LF 时，cmd 的 goto/label 与多行 REM 偶发解析错乱）
+* text=auto eol=lf
+*.bat text eol=crlf

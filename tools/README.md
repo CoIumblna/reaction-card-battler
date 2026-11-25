@@ -73,6 +73,42 @@ ERROR: Failed to open log file for writing: user://logs/godot.log
 > 这从来**不是项目 bug**。`check.bat` / `run_tests.bat` / CI 走 `--headless --script`，
 > 判定不看这些 ERROR —— 不开 GUI 时本来就可以完全不管。
 
+## run_tests.bat / preflight.ps1 —— 两段式验收（**唯一的验收入口**）
+
+仓库根目录的 `run_tests.bat` 现在分两段跑，两段都过才打印 `===== ALL GREEN =====`、退出码 0：
+
+| 段 | 内容 | 谁定的 |
+|---|---|---|
+| **PART 1 主套** | 自动发现 `tests\*_test.gd`；每个文件判 `退出码 0` + `有 PASS` + `无 [FAIL]` + `无 SCRIPT ERROR` | `run_tests.bat` 本体 |
+| **PART 2 详细自检** | 8 项：pending 基线 / 数据校验 / `has_acted` 残留 / `EXPECTED_CHECKS` / 兵科覆盖 / 平衡冒烟 / 脚本编码 / 工作区噪音 | `tools/preflight.ps1` |
+
+PART 2 的 8 项明细：
+
+| # | 检查 | 判定 |
+|---|---|---|
+| 1 | `tests/pending` 基线 | 只报告（每个文件 项数 / 红 / SCRIPT ERROR）；全绿的文件标"就绪→可移入 tests/" |
+| 2 | `validate_data.gd` | 必须 PASS，否则 `[FAIL]` |
+| 3 | `has_acted` 残留 | `tests/keywords_test.gd` 启用后 `src/` 里仍有残留 → `[FAIL]`；未启用时只提示 |
+| 4 | `EXPECTED_CHECKS` | `tests/*_test.gd` 每个文件都必须声明，缺了 → `[FAIL]`（漏跑会假绿） |
+| 5 | 兵科覆盖 | `cards.json` 单位卡没标 `unit_class` → 提醒（M3.3/M3.4 前应清零） |
+| 6 | 平衡冒烟 | `balance_sim` 100 场：胜率 45–60%、平均 8–20 回合、RUNNING < 1%；出界只提醒（调参归 M3.8） |
+| 7 | 脚本编码 | `*.bat` 必须 CRLF + 纯 ASCII；`*.ps1` 含中文必须 UTF-8 BOM；违规只提醒 |
+| 8 | 工作区噪音 | `data/tables/*.json` 行尾换行假 diff 提醒还原 + 列出未提交改动 |
+
+```bat
+REM 平时验收（两段一起跑）
+run_tests.bat
+
+REM 只跑 PART 2（刚补完数据想确认兵科齐不齐、平衡有没有出界）
+tools\preflight.bat
+
+REM 只跑 PART 2 且少跑点平衡场次（默认 100）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -BalanceGames 30
+```
+
+编码：`preflight.ps1` 有中文 → **必须存成 UTF-8 with BOM**；`preflight.bat` → **CRLF + 纯 ASCII**。
+`.gitattributes` 已固定 `*.bat text eol=crlf`，`git ls-files --eol` 可复查。
+
 ## check.bat —— 验收 / 进度工具（每天用）
 
 双击，或命令行 `tools\check.bat`。它做四件事：
@@ -86,7 +122,7 @@ ERROR: Failed to open log file for writing: user://logs/godot.log
 `setup_git.ps1` 同理——**任何 .ps1 里只要有中文就必须带 BOM**，并且用编辑器/脚本改完要复查头 3 字节是不是 `EF BB BF`，
 否则 PowerShell 5.1 会把中文读成乱码）。Godot 路径变了就改 `check.ps1` 顶部的 `-Godot` 参数。
 
-当前目标：375/375（8 个测试文件）；`tests/pending/` 还剩 7 份红基线（80 项），逐个实现后移进 `tests\`。
+当前目标：**400/400**（11 个测试文件）；`tests/pending/` 还剩 6 份红基线（54 项），逐个实现后移进 `tests\`。
 
 ## 和 tests/ 的区别（重要）
 
