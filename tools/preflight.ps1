@@ -345,9 +345,15 @@ if (-not (Test-Path $libTest)) {
 # ---------------------------------------------------------------- 11. 图形工具端到端
 $sectionTitle = "[11] 图形工具端到端（单位卡制作工具的界面自检）"
 $makerScene = Join-Path $ProjectRoot "tools\unit_maker.tscn"
+$cardsFile = Join-Path $ProjectRoot "data\tables\cards.json"
 if (-not (Test-Path $makerScene)) {
     Say-Info "还没有 tools/unit_maker.tscn（M4 之前属正常），跳过"
 } else {
+    # 自检会读写真数据文件。判据是「跑完和跑之前字节一致」，
+    # 不能拿 git status 判 —— 学员可能正准备提交自己用工具改出来的卡，那不是残留。
+    $hashBefore = $null
+    if (Test-Path $cardsFile) { $hashBefore = (Get-FileHash $cardsFile -Algorithm SHA256).Hash }
+
     $mout = & $Godot --path $ProjectRoot --headless tools/unit_maker.tscn -- --selftest 2>&1 | Out-String
     if ($mout.Contains("PASS") -and (-not $mout.Contains("[FAIL]")) -and (-not $mout.Contains("SCRIPT ERROR"))) {
         $m = [regex]::Match($mout, "共 (\d+) 项检查")
@@ -359,13 +365,16 @@ if (-not (Test-Path $makerScene)) {
         Write-Host $mout
         Say-Info "手动跑：& `$g --path . --headless tools/unit_maker.tscn -- --selftest"
     }
-    # 自检会读写真数据文件，跑完必须干净
-    $dirty = @(& git -C $ProjectRoot status --porcelain -- data/ 2>$null)
-    if ($dirty.Count -eq 0) {
-        Say-Ok "自检跑完 data/ 干净（数据已还原）"
+
+    $hashAfter = $null
+    if (Test-Path $cardsFile) { $hashAfter = (Get-FileHash $cardsFile -Algorithm SHA256).Hash }
+    if ($hashBefore -eq $hashAfter) {
+        Say-Ok "自检跑完 cards.json 与跑之前逐字节一致（数据已还原）"
+    } elseif ($hashBefore -eq $null -or $hashAfter -eq $null) {
+        Say-Warn "cards.json 在自检前后有一侧不存在，无法比对"
     } else {
-        Say-Fail ("自检跑完 data/ 有残留改动，需手工核对：" + ($dirty -join "、"))
-        Say-Info "还原：git checkout -- data/"
+        Say-Fail "自检跑完 cards.json 与跑之前不一致 —— 工具没把数据还原干净"
+        Say-Info "手工核对：git diff data/tables/cards.json；确认是自检残留后 git checkout -- 它"
     }
 }
 

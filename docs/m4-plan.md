@@ -6,6 +6,9 @@
 >
 > 前置：**M3 全部任务卡 ✅ 之后才开 M4**（当前还剩 M3.4 / M3.5 / M3.6 / M3.8a / M3.8 / M3.9）。
 > 分工：`scenes/`、`src/ui/` 的脚本 = 学员写；规格 / 测试 / 数据 / 文档 / CI = 教练。
+>
+> **施工时看 `docs/implementation-tasks.md` §37 / §38** —— 那边是逐块任务卡（要改哪个文件、验收怎么打勾、坑），
+> 本文是**规划与理由**（为什么这么拆、风险、排除项、BACKLOG 对照）。两份配合看：规划定方向，任务卡定动作。
 
 ---
 
@@ -37,7 +40,7 @@ $env:NO_PAUSE=1; .\run_tests.bat    # 必须 ALL GREEN
 | 1 | 全仓**没有任何 `.tscn`**；`project.godot` 里**没有 `[application] run/main_scene`，也没有 `[autoload]`** | M4.0 的第一件事就是建第一个场景并注册主场景 |
 | 2 | **没有任何字体资源**（无 `.ttf` / `.otf`），也**没有 `assets/` 目录** | M4.0 建目录 + 字体方案 + `assets/fonts/README.md` |
 | 3 | Godot 默认字体（Open Sans SemiBold）**不含中日韩字形**，中文一律显示成方块 | 必须走 `SystemFont` + `font_names` 方案（已实测可用） |
-| 4 | `src/ui/ui_theme.gd`（`class_name UiTheme`）**已备好但未提交**：中文字体 + 配色 + 常用控件样式 + `font_health()` 自检 | M4.0 直接用它，不要再写一遍主题；但要先 `git add` 纳入版本控制 |
+| 4 | `src/ui/ui_theme.gd`（`class_name UiTheme`）**已交付并提交**（commit `1847bc3`）：中文字体 + 配色 + 常用控件样式 + `font_health()` 自检；`src/ui/card_view.gd`（单卡组件）同批交付 | M4.0 直接用它，不要再写一遍主题；`tools/unit_maker.bat` 是可运行样例 |
 | 5 | 依赖方向固定为 **`UI/scenes → src/core → data`**；`core` 不许有界面代码、不许硬编码内容，UI 不许直接改数据文件 | UI 只能读 `data/*.json`（经 `DataLoader`），只能经 `core` 方法改状态 |
 | 6 | 现有 core 公开 API 已经够拼界面：`Battle.setup/start_battle/begin_first_turn/end_turn/run_auto/play_card/move_unit/attack_unit/compute_damage/stat_of/is_over/outcome/get_log/mulligan`；`Board.LINES`/`HQ_SLOT := 0`/`SLOT_COUNT := 5`/`UNIT_SLOTS_PER_SUPPORT := 4`/`place/unit_at/units_in/capacity_of/position_of`；`Unit.buffs/keywords/unit_class/has_moved/has_attacked/is_hq`；`Element.display_name()` | UI 不需要自己实现任何规则；**只缺「查询合法动作」和「快照」两件事** |
 | 7 | `Battle.run_auto()` 是「AI 对战 AI 跑完整局」，**没有「AI 只走一步」的接口** | 单人操作必须新增 `ai_step()`，否则 UI 只能要么每帧跑完整局、要么自己去调私有 `_ai()` |
