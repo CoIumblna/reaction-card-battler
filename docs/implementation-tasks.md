@@ -1614,11 +1614,79 @@ static func load_deck(path: String) -> Array[Card]:
 
 ### 要改哪里
 
+**只有 `src/core/battle.gd` 一个文件必须改**；`src/core/unit.gd` 改不改都行（两种写法都能 7/7，见下）。
+
 | 位置 | 要做 |
 |---|---|
-| `src/core/unit.gd` | 建议加 `func stat_mod(stat: String) -> int`：遍历 `buffs` → 查 `status_table` 该状态的 `stat_mod` 效果 → 匹配 `stat` → 累加 `int(abs(value)) * stacks`。**注意 `Unit` 目前不持有 `status_table`**，需要由 `Battle` 传入或经参数传（见坑 3） |
-| `src/core/damage.gd` 或 `src/core/battle.gd` | 在伤害公式里把减防加算进去。**推荐改 `battle.gd:compute_damage()`**（它同时服务单位攻击和 `play_card`，一处改两处生效）；`Damage.compute()` 是纯函数、只读附着/免疫，不要在里面查 buff |
-| `src/core/battle.gd` | `compute_damage(base_power, element, target)` 里：`Damage.compute(...)` 得到基础伤害后 `damage += target.stat_mod("defense")`，再返回（注意 `immune` 时不要加） |
+| `src/core/battle.gd` | `compute_damage(base_power, element, target)` 里，`Damage.compute(...)` 之后加算减防（`immune` 时不要加） |
+| `src/core/battle.gd` | 新增一个私有方法算这个加值。**推荐就叫 `damage_taken_bonus(target) -> int`**（见下面的「方案 B」） |
+| `src/core/unit.gd` | **可选**。只有选「方案 A」才动：加 `func stat_mod(stat: String, table: StatusTable) -> int` |
+
+### 两种写法都验证过（都 7/7），选一个
+
+**方案 B（推荐，只动 `battle.gd` 一个文件）** —— 加值计算直接写在 `battle.gd` 里，
+`Unit` 一行都不用改。因为「减防 → 受伤 +1」本来就是**战斗规则**，不是单位自身的属性查询。
+
+```gdscript
+# src/core/battle.gd：compute_damage() 改成
+func compute_damage(base_power: int, element: String, target: Unit) -> Dictionary:
+	var d := Damage.compute(base_power,element,target,reaction_table)
+	if not d.get("immune", false):
+		var bonus := damage_taken_bonus(target)
+		if bonus != 0:
+			d["damage"] = max(0, int(d["damage"]) + bonus)
+	return d
+
+
+# 紧跟在 compute_damage 后面新增
+## defense_down 的数据是 { "stat": "defense", "value": -1.0, "timing": "passive" }
+## → 防御 -1 意味着「受到的伤害 +1」，所以最后取负号。
+func damage_taken_bonus(target: Unit) -> int:
+	if target == null:
+		return 0
+	var total: int = 0
+	for b in target.buffs:
+		var status: Dictionary = status_table.get_status(b.kind)
+		for e in status.get("effects", []):
+			if str(e.get("kind", "")) != "stat_mod":
+				continue
+			if str(e.get("stat", "")) != "defense":
+				continue
+			if str(e.get("timing", "")) != "passive":
+				continue
+			total += int(round(float(e.get("value", 0.0)))) * b.stacks
+	return -total
+```
+
+**方案 A（把属性查询下放到 `Unit`，需要传 `table`）** —— `unit.gd` 加
+
+```gdscript
+func stat_mod(stat: String, table: StatusTable) -> int:
+	if table == null:
+		return 0
+	var total: int = 0
+	for b in buffs:
+		var status: Dictionary = table.get_status(b.kind)
+		for e in status.get("effects", []):
+			if str(e.get("kind", "")) != "stat_mod":
+				continue
+			if str(e.get("stat", "")) != stat:
+				continue
+			if str(e.get("timing", "")) != "passive":
+				continue
+			total += int(round(float(e.get("value", 0.0)))) * b.stacks
+	return total
+```
+
+`battle.gd` 里就变成一句 `return -target.stat_mod("defense", status_table)`。
+
+> **为什么 `table` 必须当参数传**：`Unit` 不持有 `StatusTable`，而 `Buff` 上只有
+> `kind` / `stacks` / `duration`，**没有 `stat` / `value`** —— 那些在 `data/tables/statuses.json` 里、
+> 由 `StatusTable` 持有。`Battle` 有 `status_table` 成员（`battle.gd:26`，`_settle_status()` 在用），
+> 由它传进去最省事。**不要**给 `Unit` 加 `status_table` 成员 —— 那会让单位脱离数据表就不能单测。
+>
+> 这也是为什么方案 B 更省事：加值计算留在 `Battle` 里，`status_table` 直接就是它的成员，
+> 根本不需要「传参」这件事。
 
 ### 验收：`tests/pending/stat_mod_test.gd` **7 项**
 
