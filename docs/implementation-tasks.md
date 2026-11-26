@@ -2279,10 +2279,36 @@ M3.4 正在往卡池里加真实 guard 卡，所以必须先清掉 —— 否则
 | S3 | 被 Guard 保护的友军**永远不该被 AI 选成目标**（打了必被拒 = 白扔） |
 | S4 | Guard 本身**永远是合法目标**（§32 已定：Guard 之间互不保护） |
 | S5 | `_is_guarded()` 对不在场上的单位返回 `false`，**不能崩** |
+| S6 | 目标清单要扫**全部三条线**（`Board.LINES`），不能只扫 `front` |
 
 S5 不是顺手加的：`_is_guarded()` 里 `board.position_of(target)` 对不在场上的单位返回 `[]`，
 紧接着 `tmp[1]` 会抛 `SCRIPT ERROR: Invalid access of index '1' on a base object of type: 'Array'`。
 `run_tests.bat` 把任何 `SCRIPT ERROR` 判红，所以 S5 必须先修。
+
+S6 也不是凑数：现有 `_ai()` 能选的目标只有「对方 HQ」和「对方 `front` 线上的单位」两种，
+对方**支援线上的普通单位**从来没进过候选（实测 `attack_unit` 打得着、但 `_ai()` 完全不碰它）。
+扫三条线顺手把这块可见性补上，也是「以后加空军越线攻击不用再改 `_ai()`」的前提。
+
+### 39.1b 目标清单的实现路线：三个桶，**不要堆**
+
+学员问过「Godot 有没有类似 C++ `priority_queue` 的结构」。**没有**（实测 `ClassDB.class_exists()`
+对 `PriorityQueue` / `Heap` / `BinaryHeap` 全为 false，`ClassDB` 里名字含 heap/priority/queue 的类 0 个）。
+但更重要的是**规模根本不到**：
+
+| 操作 | 实测单次耗时 |
+|---|---|
+| 扫三条线收集敌方单位 | 12.63 µs |
+| 复制 + `sort_custom` 排 15 项 | 36.08 µs |
+| 三桶 `append`（不排序） | 9.73 µs |
+
+S2 的优先级只有 3 档 → 一次遍历按档位分进三个桶、最后按顺序 `append_array`，O(n) 且**天然稳定**。
+
+**`sort_custom` 不稳定，且不是只在理论上**：实测全同优先级输入，n=14/15/16 保持原序、
+**n=17 起开始乱序**。棋盘目标上限 14 个，理论上碰不到，但这是运气不是保证。
+所以要么三桶，要么显式写 tie-break 让比较函数成为全序。
+
+**这张清单不要缓存**：`_is_guarded()` 是每次现算的（Guard 死了邻居立刻失去保护），
+缓存一回合或挂到 `Battle` 成员上都会读到过期状态。每个攻击手开打前重建一次即可。
 
 ### 39.2 病灶（`src/core/battle.gd` 的 `_ai(owner)` 攻击段，原 157–168 行）
 
@@ -2304,6 +2330,9 @@ S5 不是顺手加的：`_is_guarded()` 里 `board.position_of(target)` 对不�
 **为什么用「排队 + 依次试」而不是「挑一个」**：`attack_unit` 会因为够不着 / 被保护 /
 能量不够 / 同主等一堆原因返回 false。在 AI 侧复刻这套规则 = 迟早和生产逻辑走偏。
 「试到成功」把判定权完全留在 `attack_unit`，以后加规则（M3.6 元素、M3.8a 指令卡 AI）这里不用改。
+
+**排序实现**：S2 只有 3 档 → 三个桶（`Array[Unit]`）一次遍历分档、最后 `append_array` 拼接。
+不要用堆（Godot 没有，且 n ≤ 14 没意义），也不要裸用 `sort_custom`（不稳定，实测 17 项起乱序）。
 
 ### 39.4 验收（`tests/pending/ai_guard_test.gd`，14 项）
 
@@ -2328,6 +2357,12 @@ S5 不是顺手加的：`_is_guarded()` 里 `board.position_of(target)` 对不�
 4. **候选目标要扫全部三条线**，不能只扫 frontline：空军能从支援线打支援线（`_line_span_to`）。
 5. **别拿 `units_in()` 的遍历顺序当优先级**（它按格子下标升序）。优先级只能靠 S2 显式排。
 6. **改完先 `--import` 再跑测试**，否则 `--script` 用旧缓存，症状是「改了没反应」。
+7. **同名单位不会互相冒充**（实测 `Unit ==` 比的是引用，`position_of` / `remove` / `attack_unit` 各认各的），
+   但 **`place()` 允许同一个对象占两个格**（`remove()` 只清第一个，留下查不到位置的残影）——
+   测试辅助必须 `assert(place(...))`，生产代码每次 `Unit.from_dict()` 新建对象即可。
+8. **双方牌库共享同一批 `Card` 对象**（`setup()` 里 `for i in p_deck` 双向 append），
+   现在不炸是因为 `Card` 是只读模板 + `erase` 按引用删。**别在本块给 `Card` 加可变字段**，
+   需要时单开一块做 `Card.from_dict()` 深拷贝。
 
 ### 39.6 红绿指纹（改错方向时一眼能认）
 

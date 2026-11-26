@@ -52,6 +52,37 @@ SCRIPT ERROR: Invalid access of index '1' on a base object of type: 'Array'.
 | S3 | 被 Guard 保护的友军**永远不该被 AI 选成目标**（打了必被拒 = 白扔） |
 | S4 | Guard 本身**永远是合法目标**（`guard_test` 第 4 项已定：Guard 之间互不保护） |
 | S5 | `_is_guarded()` 对不在场上的单位返回 `false`，**不能崩** |
+| S6 | 目标清单要扫**全部三条线**，不能只扫 `front` —— 这是「越线攻击」能成立的前提（见 §2.1） |
+
+### §2.1 顺手要说清的一件事：现有 AI 的**目标覆盖面**本身就有缺口
+
+你说「当前 AI 只会打相邻阵线单位」——实测比这个更窄。现有 `_ai()` 的两个分支加起来，
+能选的**全部**目标只有两种：
+
+1. 对方 **HQ**（在对方支援线 0 号格）；
+2. 对方 **`front` 线上的单位**（第二分支 `find_first_attackable("front", owner)`）。
+
+对方**支援线上的普通单位**（1–4 格）从来没进过候选 —— 哪怕 `attack_unit` 完全打得着。
+实测（`tools` 里临时探针，已删）：
+
+```
+局面：我方单位(atk 3) @ front/2，敌方普通单位(hp 10) @ enemy_support/2
+_line_span_to(front → enemy_support) = true        ← 能打
+attack_unit(我方, 敌方后排)          = true        ← 能打
+
+跑一次 _ai("player")：
+  敌方后排普通单位 hp：10 → 10     ← 完全没被碰
+  敌方 HQ hp：          5 → 2      ← 只打了 HQ
+```
+
+所以加「扫三条线」的目标清单**不只是重构**，它顺手把这块可见性补上了 ——
+这也正是你说的「方便处理越线攻击」的实际价值：空军（`is_air()`）能打支援线对穿，
+以后加空中单位时，同一个清单直接就能用，不用再改 `_ai()`。
+
+> ⚠️ **但注意 S2 的排序会掩盖它**：HQ 排最前且打成功就短路，后排单位照样轮不到。
+> 「HQ 永远是第一优先」是**游戏规则层面的取舍**，不是实现细节 ——
+> 本轮的 14 项验收测试只要求 S2 按现在这样排，所以**先别改排序规则**。
+> 等 M3.8（平衡）真的需要 AI 学会切后排时再单独提，那时改的只是一行档位号。
 
 ---
 
@@ -74,7 +105,7 @@ SCRIPT ERROR: Invalid access of index '1' on a base object of type: 'Array'.
 
 ## §4 两条可选路线（自己选，各自代价写清）
 
-### 路线 A：给攻击手排一张目标清单，依次试到成功
+### 路线 A：给攻击手排一张目标清单，依次试到成功　✅ 已选（2026-11-26）
 
 - 形状：一个私有函数返回「按 S2 排好序的敌方目标数组」，另一个私有函数拿着攻击手遍历这张表，
   第一个 `attack_unit` 返回 true 的就停。
@@ -82,7 +113,114 @@ SCRIPT ERROR: Invalid access of index '1' on a base object of type: 'Array'.
   M3.8a 的）这里不用改。
 - 代价：每个攻击手都会重建一次目标清单（`units_in` × 3 条线）。棋盘最多 15 格，**这个开销可以忽略**，
   不要为它做缓存。
-- 这是参考实现的路线。**推荐**。
+- 这是参考实现的路线。**已选定走这条**。
+
+#### §4.1 目标清单怎么排序：**别用堆，用三个桶**（实测数据）
+
+你问「Godot 有没有类似 C++ `priority_queue` 的结构」——**没有**。实测 `ClassDB.class_exists()`：
+
+```
+PriorityQueue = false   Heap = false   BinaryHeap = false
+MinHeap = false         MaxHeap = false
+ClassDB 里名字含 heap / priority / queue 的类：一个都没有
+```
+
+`Array` 上跟「有序」沾边的方法只有 `sort_custom` / `bsearch_custom`（另 `sort` / `bsearch` 用于原生可比值）。
+
+**但你不需要它，原因不是「实现麻烦」，是规模根本不到**。实测（`Time.get_ticks_usec`）：
+
+| 操作 | 单次耗时 |
+|---|---|
+| 扫三条线收集敌方单位（`units_in` × 3） | 12.63 µs |
+| 复制 + `sort_custom` 排 15 项 | 36.08 µs |
+| 三桶 `append`（不排序） | 9.73 µs |
+
+一局约 13 回合 × 2 方 = 26 次 AI 调用；200 局 = 5200 次 → **全盘扫一遍总开销 ≈ 66 ms**。
+堆的 O(log n) 优势要 n 到几千才看得出来，这里 n ≤ 14。
+
+而且 S2 的优先级只有 **3 档**（HQ / 没被保护的非 Guard / Guard），
+所以最优写法是**三个桶**：一次遍历，按档位分进三个 `Array[Unit]`，最后按档位顺序 `append_array` 拼起来。
+O(n)、**天然稳定**、没有比较函数可写错 —— 比 `sort_custom` 又快又不容易错。
+
+#### §4.2 一个必须知道的坑：`sort_custom` **不是稳定排序**
+
+如果你还是想用 `sort_custom`，注意它**不保证同优先级元素保持原顺序**，而且乱序的**触发边界不高**。
+实测（全同优先级输入，稳定性判据 = 输出是否等于输入顺序 `[0,1,2,…]`）：
+
+```
+n=14  保持原序=true     n=15  true     n=16  true
+n=17  保持原序=false ← 从 17 个开始就不稳定
+n=18  false             n=20  false
+```
+
+第 17 个元素就开始乱。棋盘上限 14 个目标，**理论上碰不到**——但这是运气，不是保证
+（以后加召唤/衍生物/双 HQ 模式就会撞上）。所以：
+
+- 要排序就**显式写 tie-break**（优先级相同再比格子/序号），让比较函数成为全序；
+- 或者干脆用 §4.1 的三桶，绕过这个问题。
+
+#### §4.3 这张清单**不要缓存到下一回合**
+
+单位会死、会移动、Guard 被打死会让相邻单位**立刻失去保护**（`_is_guarded()` 是每次现算的，
+不是存下来的标记）。所以：
+
+- ✅ 每个攻击手开打前重建一次；
+- ❌ 不要在 `_ai()` 开头建一次全队复用；
+- ❌ 更不要挂到 `Battle` 的成员变量上跨回合留着 —— 那是典型的「缓存比计算还贵」加上「状态不同步」。
+
+#### §4.4 场上两个「完全一样」的单位会不会互相冒充？—— 实测：不会
+
+`Board.position_of()` 用 `slots[l].find(unit)`，`Array.find` / `erase` / `has` 都不是比内容。
+我实测了 `Unit`（`RefCounted` 派生）的 `==` 语义：
+
+```
+两个独立对象（id / hp / attack 完全相同）：a == b      = false
+同一个引用：                            a == c      = true
+                                            is_same(a,b) = false   is_same(a,c) = true
+```
+
+`Object` 的 `==` 比的是**引用**，不是内容 → 同名同属性的两个单位在
+`position_of` / `remove` / `attack_unit` / `hand.erase` 里都各自独立。实测三个场景全对：
+
+| 场景 | 结果 |
+|---|---|
+| 两个 `dup` 放 `front/1` 和 `front/3` | `position_of` 各返回各的位置 ✓ |
+| `remove(u1)` | `front/1` 变 null，`front/3` 仍是 `u2` ✓ |
+| `attack_unit(atk, t1)` | `t1.hp` 10→7，`t2.hp` 仍 10 ✓ |
+| 两张内容相同的 `Card`，`hand.erase(c1)` | 只删 `c1`，剩 `c2` ✓ |
+
+**但有一个真实的坑（在你写的代码里，不在 `board.gd` 里）**：`place()` **不检查**
+「这个单位是不是已经在场上」，而且**同一个对象可以放进两个格子**。实测：
+
+```
+place(u, front/1) = true   place(u, front/3) = true    ← 同一个对象占了两个格
+position_of(u)    = ["front", 1]                       ← 只返回第一个
+remove(u)         → front/1 变 null，front/3 还留着 u  ← 幽灵：留下一个查不到位置的残影
+```
+
+所以验收测试里的 `_place()` 辅助**必须 `assert(place(...))`**（已经这么写了），
+生产代码里 `_deploy_unit()` 每次 `Unit.from_dict(...)` 新建对象，不会撞上。
+
+#### §4.5 另一个地雷：双方牌库共享同一批 `Card` 对象
+
+`Battle.setup()` 里 `enemy_deck` 是从**同一份** `p_deck` 逐项 `append` 的：
+
+```gdscript
+deck.clear()
+for i in p_deck:
+    deck.append(i)
+enemy_deck.clear()
+for i in p_deck:
+    enemy_deck.append(i)      # ← 同一个 Card 对象引用
+```
+
+实测 `player deck 49 张 / enemy deck 49 张 / 共享同一对象的 49 张`。
+目前**不炸**，因为 `hand.erase()` 按引用删、两边删的是各自的数组。但这是隐藏地雷：
+**以后只要给 `Card` 加任何可变状态**（升级、临时减费、附魔、标记「本回合已用」），
+一方改动就会同时改到另一方。现在 `Card` 是只读的模板，所以安全 —— **别在这个块里给它加字段**。
+
+> 这条**不是本块的活**，只登记，别顺手改 `setup()`（会动到 400+ 项测试）。
+> 真正需要时单开一块：「`setup()` 里对每张卡 `Card.from_dict(原始模板)` 深拷贝」。
 
 ### 路线 B：每个分支各写一遍兜底
 
