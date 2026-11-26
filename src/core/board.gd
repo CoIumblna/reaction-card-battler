@@ -127,6 +127,7 @@ func has_unit_of(line:String) -> String:
 
 func has_fighter(line:String) -> bool:
 	for u in units_in(line):
+		if u.is_hq: continue
 		if u.unit_class == "fighter":
 			return true
 	return false

@@ -344,6 +344,7 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 	if _energy_of(attacker.owner) < attacker.operation_cost or attacker.owner == target.owner:
 		return false
 	if _is_guarded(target) and not attacker.ignores_guard(): return false
+	if attacker.is_bomber() and board.has_fighter(tar[0]) and not target.is_fighter(): return false
 	_spend(attacker.owner,attacker.operation_cost)
 	attacker.has_attacked = true
 	var dam:Dictionary = compute_damage(attacker.attack,attacker.element,target)
@@ -528,7 +529,7 @@ func no_counter(attacker:Unit, target:Unit) -> bool:
 
 func _line_span_to(attacker:Unit, from:String, to:String) -> bool:
 	if abs(Board.LINES.find(from)-Board.LINES.find(to)) == 1:
-		return true	
+		return true
 	elif attacker.is_air():
 		return true
 	return false

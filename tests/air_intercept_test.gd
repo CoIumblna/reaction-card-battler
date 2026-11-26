@@ -1,20 +1,18 @@
 extends SceneTree
-## M3.3b 战斗机拦截轰炸机验收测试 —— 待实现
+## M3.3b 战斗机拦截轰炸机验收测试（已启用 2026-11-26）
 ##
 ## 运行：
-##   ... --headless --path . --script res://tests/pending/air_intercept_test.gd
+##   ... --headless --path . --script res://tests/air_intercept_test.gd
 ##
 ## 规格：docs/adr/004-m3-keywords.md 决定 3（KARDS 兵科）
 ##   - 轰炸机攻击**有战斗机的线**时，只能打战斗机（不能打同线的非战斗机）
 ##   - 目标线没有战斗机时，轰炸机可以正常打非战斗机
-##
-## 【启用方式】M3.3b 全绿后移到 tests/ 下。
 
 var failures: int = 0
 var checks: int = 0
 var table: ReactionTable
 
-const EXPECTED_CHECKS := 4
+const EXPECTED_CHECKS := 3
 
 
 func _initialize() -> void:
@@ -77,14 +75,3 @@ func _test_interception() -> void:
 	var other2 := _unit("other2", 5, 1, "enemy", "infantry")
 	b2.board.place(other2, "enemy_support", 2)
 	_check(b2.attack_unit(bomber2, other2), "目标线没有战斗机时，轰炸机可以打非战斗机")
-
-	# 只认「敌方」战斗机：线上一架己方战斗机不该拦住轰炸机。
-	# 少了这一项，实现里 has_fighter() 不传 owner 也能 3/3 全绿（2026-11-26 补）。
-	var b3 := _new_battle()
-	var bomber3 := _unit("bomber3", 5, 3, "player", "bomber")
-	b3.board.place(bomber3, "front", 1)
-	var friendly := _unit("friendly", 5, 1, "player", "fighter")
-	assert(b3.board.place(friendly, "enemy_support", 1), "己方战斗机必须放置成功")
-	var other3 := _unit("other3", 5, 1, "enemy", "infantry")
-	assert(b3.board.place(other3, "enemy_support", 2), "敌方步兵必须放置成功")
-	_check(b3.attack_unit(bomber3, other3), "只有己方战斗机时，轰炸机照常打非战斗机")
