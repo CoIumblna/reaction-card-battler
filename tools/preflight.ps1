@@ -260,6 +260,115 @@ if (-not $gitCmd -or -not (Test-Path (Join-Path $ProjectRoot ".git"))) {
     }
 }
 
+# ---------------------------------------------------------------- 8. 中文字体
+$sectionTitle = "[8] 中文字体（M4 界面基座）"
+$fontCheck = Join-Path $ProjectRoot "tools\check_font.gd"
+if (-not (Test-Path $fontCheck)) {
+    Say-Info "还没有 tools/check_font.gd（M4 之前属正常），跳过"
+} else {
+    $fout = & $Godot --headless --path $ProjectRoot --script res://tools/check_font.gd 2>&1 | Out-String
+    if ($fout.Contains("[FONT OK]")) {
+        $m = [regex]::Match($fout, "\[FONT OK\]\s*(.+)")
+        $fname = if ($m.Success) { $m.Groups[1].Value.Trim() } else { "?" }
+        Say-Ok ("中文字形可用，实际字体：{0}" -f $fname)
+    } else {
+        Say-Fail "中文字形不可用 —— 界面会显示成方块（M4 全部界面都依赖它）"
+        Show-Section
+        Write-Host $fout
+        Say-Info "修法：检查 src/ui/ui_theme.gd 的 FONT_NAMES，或装一款中文字体"
+    }
+}
+
+# ---------------------------------------------------------------- 9. 分层边界
+$sectionTitle = "[9] 分层边界（core 无界面代码 / UI 不裸读 Battle 字段）"
+$boundaryBad = @()
+$srcCore = Join-Path $ProjectRoot "src\core"
+if (Test-Path $srcCore) {
+    # core 里不许出现 Control / Node / Tween / Theme 这些界面类型
+    foreach ($f in (Get-ChildItem $srcCore -Filter "*.gd" -Recurse -File)) {
+        $n = 0
+        foreach ($line in (Get-Content $f.FullName)) {
+            $n++
+            if ($line.TrimStart().StartsWith("#")) { continue }
+            if ($line -match "\b(Control|Node2D|CanvasItem|Tween|Theme|SceneTree)\b") {
+                $boundaryBad += ("src/core/{0}:{1} 出现界面类型（core 不许依赖界面）" -f $f.Name, $n)
+            }
+        }
+    }
+}
+$srcUi = Join-Path $ProjectRoot "src\ui"
+if (Test-Path $srcUi) {
+    # UI 不许直接摸 Battle 的内部字段（只许调方法）。白名单：公开方法调用不算。
+    $uiPrivateFields = @("\.cards\b", "\.deck\b", "\.enemy_deck\b", "\.energy\b", "\.enemy_energy\b",
+                         "\.turn\b", "\.first_move\b", "\.opening_phase\b", "\.log\b", "\.board\b")
+    foreach ($f in (Get-ChildItem $srcUi -Filter "*.gd" -Recurse -File)) {
+        $n = 0
+        foreach ($line in (Get-Content $f.FullName)) {
+            $n++
+            $t = $line.TrimStart()
+            if ($t.StartsWith("#")) { continue }
+            foreach ($pat in $uiPrivateFields) {
+                if ($line -match ("\b(battle|b)" + $pat)) {
+                    $boundaryBad += ("src/ui/{0}:{1} 裸读 Battle 内部字段（应改为调 core 的只读快照）" -f $f.Name, $n)
+                    break
+                }
+            }
+        }
+    }
+}
+if ($boundaryBad.Count -eq 0) {
+    Say-Ok "分层边界干净（core 无界面类型、UI 无 Battle 裸读）"
+} else {
+    foreach ($e in $boundaryBad) { Say-Fail $e }
+    Say-Info "约定见 docs/architecture.md：依赖方向固定 UI → core → data，core 不许反向依赖"
+}
+
+# ---------------------------------------------------------------- 10. 工具自检
+$sectionTitle = "[10] 工具自检 tools/test_card_lib.gd"
+$libTest = Join-Path $ProjectRoot "tools\test_card_lib.gd"
+if (-not (Test-Path $libTest)) {
+    Say-Info "还没有 tools/test_card_lib.gd（M4 之前属正常），跳过"
+} else {
+    $lout = & $Godot --headless --path $ProjectRoot --script res://tools/test_card_lib.gd 2>&1 | Out-String
+    if ($lout.Contains("PASS") -and (-not $lout.Contains("[FAIL]")) -and (-not $lout.Contains("SCRIPT ERROR"))) {
+        $m = [regex]::Match($lout, "共 (\d+) 项检查")
+        $cnt = if ($m.Success) { $m.Groups[1].Value } else { "?" }
+        Say-Ok ("CardLib 读写/校验/行级手术 {0} 项全通过" -f $cnt)
+    } else {
+        Say-Fail "tools/test_card_lib.gd 没过 —— 图形工具的写回逻辑不可信"
+        Show-Section
+        Write-Host $lout
+        Say-Info "手动跑：& `$g --headless --path . --script res://tools/test_card_lib.gd"
+    }
+}
+
+# ---------------------------------------------------------------- 11. 图形工具端到端
+$sectionTitle = "[11] 图形工具端到端（单位卡制作工具的界面自检）"
+$makerScene = Join-Path $ProjectRoot "tools\unit_maker.tscn"
+if (-not (Test-Path $makerScene)) {
+    Say-Info "还没有 tools/unit_maker.tscn（M4 之前属正常），跳过"
+} else {
+    $mout = & $Godot --path $ProjectRoot --headless tools/unit_maker.tscn -- --selftest 2>&1 | Out-String
+    if ($mout.Contains("PASS") -and (-not $mout.Contains("[FAIL]")) -and (-not $mout.Contains("SCRIPT ERROR"))) {
+        $m = [regex]::Match($mout, "共 (\d+) 项检查")
+        $cnt = if ($m.Success) { $m.Groups[1].Value } else { "?" }
+        Say-Ok ("界面自检（选卡/改字段/保存/新建/删除/还原）{0} 项全通过" -f $cnt)
+    } else {
+        Say-Fail "单位卡制作工具界面自检没过 —— 工具可能写坏 cards.json"
+        Show-Section
+        Write-Host $mout
+        Say-Info "手动跑：& `$g --path . --headless tools/unit_maker.tscn -- --selftest"
+    }
+    # 自检会读写真数据文件，跑完必须干净
+    $dirty = @(& git -C $ProjectRoot status --porcelain -- data/ 2>$null)
+    if ($dirty.Count -eq 0) {
+        Say-Ok "自检跑完 data/ 干净（数据已还原）"
+    } else {
+        Say-Fail ("自检跑完 data/ 有残留改动，需手工核对：" + ($dirty -join "、"))
+        Say-Info "还原：git checkout -- data/"
+    }
+}
+
 # ---------------------------------------------------------------- 结论
 Write-Host ("------------------------------")
 if ($fails -eq 0) {

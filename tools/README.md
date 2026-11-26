@@ -12,6 +12,17 @@
 | `balance_sim.gd` | M3 | 批量跑战斗（1 万场），统计胜率/回合数/卡牌使用率 | 数据表 → CSV 报告 |
 | `export_report.gd` | M3 | 把模拟结果生成 Markdown 表格 | CSV → `docs/balance-report.md` |
 
+### M4 期新增（图形化 / 界面基座）
+
+| 文件 | 作用 | 备注 |
+|---|---|---|
+| `unit_maker.bat` + `unit_maker.tscn` + `unit_maker.gd` | **单位卡图形制作工具**（双击 `unit_maker.bat`）：左栏选卡 → 中栏预览卡面 → 右栏改数值 → `Ctrl+S` 写回 `cards.json` | 预览用的是 `src/ui/card_view.gd`，**和 M4 手牌区是同一个组件** |
+| `card_lib.gd` | 卡牌数据的唯一格式入口：读 / 校验 / 序列化 / **行级手术**写回 | `add_unit_card.gd` 与图形工具共用它，格式只维护一份 |
+| `test_card_lib.gd` | `card_lib.gd` 的自检（43 项）：读、插入、覆盖、删除、组合手术、校验、数值格式 | `run_tests.bat` 的 preflight 第 10 项会自动跑 |
+| `check_font.gd` | 中文字体体检：确认界面能把中文画成字而不是方块 | preflight 第 8 项；M4 所有界面都依赖它 |
+| `src/ui/ui_theme.gd` | 全局主题（中文字体 / 配色 / 控件样式） | M4 每个场景 `theme = UiTheme.make_theme()` |
+| `src/ui/card_view.gd` | 一张卡的外观组件（可复用） | 单位制作工具与 M4 手牌区共用 |
+
 ## add_unit_card.gd 用法
 
 ```bash
@@ -32,12 +43,60 @@ Godot_v4.x-stable_win64_console.exe --headless --path . --script res://tools/add
 | `--defense` | ✅ | ≥ 1（防御 ≤ 0 的单位一上场就死） |
 | `--element` | | 默认 `none`；可选基础 6 元素 + 2 复合元素 |
 | `--count` | | 牌组里放几份，默认 4 |
+| `--unit-class` | | 兵科，默认 `infantry`；可选 `infantry` / `tank` / `artillery` / `fighter` / `bomber` |
+| `--opcost` | | 行动费 `operation_cost`，默认 1 |
+| `--keywords` | | 关键词，逗号分隔，如 `blitz,guard`；默认空 |
 
 工具会自己 `type: "unit"` 写进去。**指令卡必须是 `type: "order"`** —— 漏写时 `Card.from_dict()`
 默认成 `"unit"`，M2 的部署逻辑会把火球当成能上场的单位。`data_test[1]` 有一条断言盯着这个。
 
 写回格式跟手写的一致（2 空格缩进、每张卡一行、UTF-8 无 BOM），写完会重新解析一遍自检；
 万一手滑写坏了，`git checkout -- data/tables/cards.json` 一条命令回滚。
+
+**校验逻辑现在只有一份**：`tools/card_lib.gd`。这个 CLI 工具和图形工具都调它，
+所以两边加出来的卡字节格式必然一致，不会出现「命令行加的卡和界面加的卡长得不一样」。
+
+## unit_maker.bat —— 单位卡图形制作工具（M4 界面基座）
+
+双击 `tools\unit_maker.bat` 就开窗口，不需要命令行。
+
+```
+┌──────────┬──────────────┬─────────────┐
+│ 单位卡列表 │  卡面预览     │  字段表单    │
+│ 步兵      │  ┌────────┐  │  id / 名字   │
+│ 弓手      │  │ 1  步兵 │  │  费用 / 攻击 │
+│ 火法师    │  │ 元素：无 │  │  防御 / 行动费│
+│ 坦克      │  │ 攻1 御2 │  │  兵科 / 关键词│
+│ 新建/复制/删除│ └────────┘  │             │
+└──────────┴──────────────┴─────────────┘
+            [保存到 cards.json]   Ctrl+S
+```
+
+**为什么这个工具算 M4 的一部分，而不是"顺手写的脚本"**：
+
+- 中栏预览用的就是 `src/ui/card_view.gd` —— **M4 手牌区将来显示的是同一个组件**。
+  在这里调好的卡面，M4 不用重做；M4 改了卡面，这里自动跟着变。
+- 配色和字体来自 `src/ui/ui_theme.gd`，全局只有一份。
+- 所以它同时是「卡牌编辑器」和「M4 界面基座的可运行样例」。
+
+**验证手段（两条，都不靠肉眼）**：
+
+```powershell
+# 1. 卡牌读写/校验逻辑（43 项）
+& $g --headless --path . --script res://tools/test_card_lib.gd
+
+# 2. 真界面端到端：用代码驱动这个窗口走「选卡→改字段→保存→新建→删除→还原」（30 项）
+& $g --path . --headless tools/unit_maker.tscn -- --selftest
+
+# 3. 只要截图（验证中文渲染与排版）
+& $g --path . tools/unit_maker.tscn --resolution 1240x800 -- --shot=G:\tmp\maker.png
+```
+
+第 2 条是关键：**截图只能证明"画出来了"，证明不了"点得动"**。
+`--selftest` 走的是真实控件的信号连接与真实写盘，跑完会把 `cards.json` 还原，
+preflight 第 11 项会额外检查「自检跑完 data/ 干净」。
+
+**这个工具不做什么**：不参战、不校验平衡、不碰 `data/decks/*.json`。
 
 ## launch_editor.bat —— 带 user-data 重定向启动编辑器（**历史 workaround，现已不需要**）
 
@@ -179,8 +238,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 > 为什么用 `$script:` 前缀：这些函数在脚本作用域执行，直接写 `$fails++` 会新建**函数局部**变量，
 > 调用方的计数器不动 → 退出码永远是 0（假绿）。`$script:` 才是改脚本级那一个。
 
-七段检查用注释分隔（`# ---- N. 标题`），每段内部都是「取数据 → 判 → Say-Xxx」，无独立函数。
-**加第八项检查的模板**：复制一段，改标题行、判定、`Say-Ok`/`Say-Fail` 分工即可。
+十一项检查用注释分隔（`# ---- N. 标题`），每段内部都是「取数据 → 判 → Say-Xxx」，无独立函数。
+**加第十二项检查的模板**：复制一段，改标题行、判定、`Say-Ok`/`Say-Fail` 分工即可。
+
+当前 11 项：`[1]` 数据校验 / `[2]` has_acted 残留 / `[3]` EXPECTED_CHECKS / `[4]` 兵科覆盖 /
+`[5]` 平衡冒烟 / `[6]` 脚本编码 / `[7]` 工作区噪音 / `[8]` 中文字体 / `[9]` 分层边界 /
+`[10]` `test_card_lib.gd` / `[11]` 图形工具端到端自检。
 
 ### C. `tools/validate_data.gd` 的方法
 
@@ -201,19 +264,63 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 | 常量 `KNOWN_KEYWORDS` | `["blitz","guard"]` | 合法关键词白名单。**加新关键词必须同步这里** |
 | 常量 `KNOWN_UNIT_CLASSES` | `["","infantry","tank","artillery","fighter","bomber"]` | 合法兵科白名单。`""` 表示未标注（M3.4 前允许） |
 
-### D. `tools/add_unit_card.gd` 的方法
+### D. `tools/add_unit_card.gd` 的方法（M4 起：格式逻辑已下沉到 `card_lib.gd`）
 
 | 名字 | 签名 | 功能 |
 |---|---|---|
-| `_initialize` | `() -> void` | 入口：`_parse_args` → 校验必填 → `_add_unit` → 写回 `cards.json` → 打印改动摘要 |
-| `_add_unit` | `(args: Dictionary) -> String` | 核心。按参数造卡字典，追加进 cards 数组，`_dump` 回磁盘。返回给用户看的摘要行；参数非法时返回错误说明（不写盘） |
-| `_dump` | `(data: Dictionary) -> String` | 把整个 cards.json 字典**重排**成稳定格式的文本：`cards` 数组每张卡一行（便于 git diff 逐行看），其他顶层字段按 `KEY_ORDER` 顺序。末尾补一个换行 |
-| `_card_line` | `(card: Dictionary) -> String` | 单张卡压成一行 JSON：先按 `KEY_ORDER` 输出已知字段（保证字段顺序稳定），再补未知字段 |
-| `_value` | `(v) -> String` | 递归把 GDScript 值转成 JSON 字面量。特殊处理：浮点若是整数值就写成 `3` 而不是 `3.0`（否则每跑一次都产生假 diff） |
-| `_deck_total` | `(cards: Array) -> int` | 累加所有卡的 `count`（缺省按 1），用于打印"牌库共 N 张" |
+| `_initialize` | `() -> void` | 入口：`_parse_args` → `_add_unit` → 成功 `quit(0)` / 失败 `quit(1)` |
+| `_add_unit` | `(args: Dictionary) -> String` | 核心。先 `CardLib.read()` 取现有卡用于查重 → `CardLib.blank_unit()` 起底 → 填参 → **`CardLib.validate_unit()` 统一校验** → `CardLib.save_card(..., "insert")` 写回。返回 `""` = 成功，否则是人话错误 |
 | `_parse_args` | `(raw: Array) -> Dictionary` | 解析 `--key value` / `--key`（无值 → `"true"`）。值不能以 `--` 开头，否则当成下一个 key |
-| `_to_int` | `(v) -> int` | 安全转整数：`is_valid_int()` 不过就返回 `-1`（调用方用 `-1` 判非法） |
-| `_usage` | `() -> void` | 打印用法帮助。必填 `--id --name --cost --attack --defense`；选填 `--element`（默认 none）、`--count`（默认 4） |
+| `_to_int` | `(v) -> int` | 安全转整数：`is_valid_int()` 不过就返回 **`-999`**（故意给一个必被 `validate_unit` 判死的值，让错误信息统一由 CardLib 产出，不在这里重复写一套判断） |
+| `_usage` | `() -> void` | 打印用法。必填 `--id --name --cost --attack --defense`；选填 `--element` `--count` `--unit-class` `--opcost` `--keywords` |
+
+### D2. `tools/card_lib.gd` 的方法（**卡牌格式的唯一入口**）
+
+`add_unit_card.gd`（命令行）和 `unit_maker.gd`（图形）都调它，所以两边写出来的字节格式必然一致。
+
+| 名字 | 签名 | 功能 |
+|---|---|---|
+| `read` | `static (path := CARDS_PATH) -> Dictionary` | 读 cards.json。返回 `{ok, error, text, data, cards}`。**`text` 是原文**，行级手术要用它；任何一步失败都填 `error` 而非抛异常 |
+| `find_card` | `static (cards: Array, id: String) -> Dictionary` | 按 id 找卡，找不到返回**空字典**（不是 null，方便 `is_empty()` 判断） |
+| `collect_ids` | `static (cards: Array) -> Array[String]` | 取所有 id，供查重用 |
+| `validate_unit` | `static (card: Dictionary, taken_ids: Array = []) -> Array[String]` | 校验一张单位卡，返回问题列表（空 = 合法）。查 id 格式/唯一/名字/type/cost 1–12/attack≥0/defense≥1/opcost≥0/元素白名单/兵科白名单/count 1–4/关键词白名单 |
+| `blank_unit` | `static (id := "new_unit") -> Dictionary` | 造一张字段齐全的空白单位卡，供图形界面直接绑控件 |
+| `dump` | `static (data: Dictionary) -> String` | 把**整份** cards.json 字典序列化成文本（每卡一行）。注意：**写回时不用它**，用它会把没动过的卡重排、造 diff |
+| `card_line` | `static (card: Dictionary) -> String` | 单张卡 → 一行 JSON。先按 `KEY_ORDER` 输出，再补未知字段（保证不丢字段） |
+| `value_of` | `static (v) -> String` | 值 → JSON 文本。整数值的 float 写成 `3` 而不是 `3.0`（否则每次保存都假 diff） |
+| `deck_total` | `static (cards: Array) -> int` | 累加 count，打印"牌库共 N 张" |
+| `save_card` | `static (path, card, mode) -> String` | **行级手术**写回。`mode` = `"insert"` / `"replace"` / `"delete"`。返回 `""` = 成功 |
+| `delete_card` | `static (path, id) -> String` | 删一行；若删的是最后一张，会去掉前一张的行尾逗号（否则 JSON 坏） |
+| `write_text` | `static (path, text) -> String` | 落盘。返回 `""` = 成功 |
+| `self_check` | `static (path, must_have, expect_count, must_be_gone) -> String` | 写完重新解析自检：条数对、该有的在、该没的没了。失败时提示 `git checkout --` 回滚 |
+| `surgical_insert` / `surgical_replace` / `surgical_delete` | `static (text: String, ...) -> String` | 在**文本行**上做手术，其它行字节不变。拼不出来时返回 `""`（表示格式不是「一张卡一行」） |
+| `_cards_close_index` / `_last_card_index` / `_card_index_of` / `_id_of_line` | 私有 | 定位 `]` 行 / 最后一张卡行 / 某 id 的行 / 从行文本里取 id |
+
+**为什么必须行级手术**：现有 `cards.json` 里指令卡的键顺序并不统一（`guard` 是 `power` 在前，`fire_bolt` 是 `target` 在前）。整份重新序列化会把没动过的 10 张卡全部重排，git diff 里冒出几十行无关改动。
+
+### D3. `tools/test_card_lib.gd` 与 `tools/unit_maker.gd` 的验证方法
+
+`test_card_lib.gd`（43 项，`--script` 跑）：`_reset_tmp`/`_tmp_text`/`_line_count`/`_card_ids` 把 `cards.json` 复制到 `user://` 上反复手术，断言「其余行字节不变」「删最后一张后 JSON 仍合法」等。`EXPECTED_CHECKS := 43`。
+
+`unit_maker.gd`（图形工具，`Control`）：
+
+| 名字 | 签名 | 功能 |
+|---|---|---|
+| `_ready` | `() -> void` | 装主题 → 建界面 → `_reload` → 分流到 `--selftest` 或 `--shot` 模式 |
+| `_build_ui` / `_build_header` / `_build_left` / `_build_center` / `_build_right` / `_build_footer` | | 分区构建。**所有控件都在代码里建**（`.tscn` 只有根节点 + script），保证 diff 干净 |
+| `_reload` | `() -> void` | 重新读 cards.json → 刷新列表 → 首张单位卡自动选中 |
+| `_refresh_list` | `() -> void` | 只挑 `type == "unit"` 的卡进列表，支持按 id/名字筛选 |
+| `_form_to_card` / `_card_to_form` | | 表单 ⇄ 卡字典双向转换。`_card_to_form` 里用 `_saving` 标志挡住信号回调 |
+| `_refresh_preview` | `() -> void` | 把当前表单喂给 `CardView.set_card()`，卡面立刻跟着变 |
+| `_current_errors` | `() -> Array[String]` | 调 `CardLib.validate_unit`，**查重时把自己排除掉**（否则改自己也会报重名） |
+| `_on_field_changed` / `_refresh_validation` | | 任一字段变动 → 重画预览 + 重跑校验 + 更新标题的 `*` 脏标记 |
+| `_on_list_selected` / `_on_new_pressed` / `_on_duplicate_pressed` / `_on_delete_pressed` / `_on_reload_pressed` | | 列表与按钮回调。改名保存 = 先删旧卡再插新卡 |
+| `_on_save_pressed` / `_save` | | 按 `_is_new` / 改过 id / 覆盖 三种情况选 `insert` / `replace`；`Ctrl+S` 走 `_input` |
+| `_handle_shot_mode` / `_do_shot` | | `--shot=PATH --shot-frames=N`：等 N 帧后 `get_viewport().get_texture().get_image().save_png()`，退出码 0/1 |
+| `_handle_selftest` / `_run_selftest` / `_st` | | `--selftest`：用代码驱动**真实界面**走「选卡→改字段→保存→新建→删除→还原」，30 项断言，跑完把 cards.json 还原 |
+| `SELFTEST_CHECKS` | 常量 `30` | 自检项数。**加断言必须同步改它**，否则会报「覆盖不完整」 |
+
+> `--shot` 证明「画出来了」，`--selftest` 证明「点得动」。两者都跑才算这个工具验完。
 
 ### E. `tools/balance_sim.gd` 的方法
 
