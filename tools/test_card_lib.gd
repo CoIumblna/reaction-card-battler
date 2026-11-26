@@ -59,6 +59,12 @@ func _line_count(t: String) -> int:
 	return t.split("\n").size()
 
 
+## 真数据文件里现在有多少种卡。**不在断言里写死数字** —— M3.4 卡池在扩
+## （目标 20+ 种），写死 11 会让每加一张卡就把工具自检弄红，而那不是工具坏了。
+func _src_count() -> int:
+	return _card_ids(FileAccess.get_file_as_string(SRC)).size()
+
+
 func _card_ids(t: String) -> Array[String]:
 	var out: Array[String] = []
 	var d = JSON.parse_string(t)
@@ -86,7 +92,7 @@ func _test_read() -> void:
 	_check(bool(r["ok"]), "读取 cards.json 成功")
 	_check(str(r["error"]) == "", "没有报错")
 	var cards: Array = r["cards"]
-	_check(cards.size() == 11, "卡牌种类 = 11（实际 %d）" % cards.size())
+	_check(cards.size() == _src_count(), "卡牌种类等于真数据条目数（实际 %d）" % cards.size())
 	_check(not CardLib.find_card(cards, "tank").is_empty(), "能找到 tank")
 	_check(CardLib.find_card(cards, "no_such_card").is_empty(), "找不到的 id 返回空字典")
 
@@ -159,7 +165,7 @@ func _test_replace() -> void:
 	_check(err == "", "覆盖 tank 成功（err=%s）" % err)
 
 	var after := _card_ids(_tmp_text())
-	_check(after.size() == 11, "条数不变（11）")
+	_check(after.size() == _src_count(), "条数不变（%d）" % _src_count())
 
 	var r2 := CardLib.read(TMP)
 	var tank2 := CardLib.find_card(r2["cards"], "tank")
@@ -204,7 +210,7 @@ func _test_roundtrip_all() -> void:
 	_check(CardLib.save_card(TMP, b, "insert") == "", "插入 zz_two")
 	_check(CardLib.delete_card(TMP, "zz_one") == "", "删除 zz_one")
 	var r := CardLib.read(TMP)
-	_check(bool(r["ok"]) && r["cards"].size() == 12, "最终 12 种卡且 JSON 合法")
+	_check(bool(r["ok"]) && r["cards"].size() == _src_count() + 1, "最终 %d 种卡且 JSON 合法" % (_src_count() + 1))
 	_check(not CardLib.collect_ids(r["cards"]).has("zz_one"), "zz_one 已消失")
 	_check(CardLib.collect_ids(r["cards"]).has("zz_two"), "zz_two 仍在")
 

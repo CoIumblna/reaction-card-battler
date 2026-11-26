@@ -619,6 +619,9 @@ func _run_selftest() -> void:
 	print("========== 单位卡工具 自检 ==========")
 	var backup := FileAccess.get_file_as_string(CardLib.CARDS_PATH)
 	_st(backup.length() > 0, "起步：能读到 cards.json 原文（%d 字节）" % backup.length())
+	# 真数据里现有多少种卡。**不写死数字** —— M3.4 卡池在扩（目标 20+ 种），
+	# 写死 11 会让「学员用工具正常加了一张卡」也被判成工具坏了。
+	var base_count := CardLib.collect_ids(CardLib.read()["cards"]).size()
 
 	# ---- 1. 选卡 → 表单被填充
 	_st(_unit_ids.size() >= 4, "列表里有 %d 张单位卡" % _unit_ids.size())
@@ -642,7 +645,7 @@ func _run_selftest() -> void:
 	_st(int(c1.get("attack", 0)) == 7, "保存后文件里 footman.attack = 7（实际 %d）" % int(c1.get("attack", 0)))
 	_st(int(c1.get("defense", 0)) == 2, "没动的字段没丢：defense 仍 2")
 	_st(bool(r1["ok"]), "保存后 JSON 仍合法")
-	_st(r1["cards"].size() == 11, "条数没变（11）")
+	_st(r1["cards"].size() == base_count, "条数没变（%d）" % base_count)
 
 	# ---- 4. 非法值 → 保存被拦
 	# 注意：defense/cost/count 这些走 SpinBox，min_value 已经把下界卡死了，
@@ -690,7 +693,7 @@ func _run_selftest() -> void:
 	_st(not _save_btn.disabled, "新卡字段合法 → 可保存")
 	_on_save_pressed()
 	var r2 := CardLib.read()
-	_st(r2["cards"].size() == 12, "保存新卡 → 条数 12（实际 %d）" % r2["cards"].size())
+	_st(r2["cards"].size() == base_count + 1, "保存新卡 → 条数 %d（实际 %d）" % [base_count + 1, r2["cards"].size()])
 	var c2 := CardLib.find_card(r2["cards"], "zz_selftest")
 	_st(str(c2.get("name", "")) == "自检单位", "新卡名字写对")
 	_st(int(c2.get("count", 0)) == 2, "新卡 count 写对")
@@ -698,7 +701,7 @@ func _run_selftest() -> void:
 
 	_on_delete_pressed()
 	var r3 := CardLib.read()
-	_st(r3["cards"].size() == 11, "删除后条数回到 11（实际 %d）" % r3["cards"].size())
+	_st(r3["cards"].size() == base_count, "删除后条数回到 %d（实际 %d）" % [base_count, r3["cards"].size()])
 	_st(CardLib.find_card(r3["cards"], "zz_selftest").is_empty(), "zz_selftest 已消失")
 
 	# ---- 收尾：把文件还原成自检前的样子

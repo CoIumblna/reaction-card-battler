@@ -50,15 +50,34 @@ func _check_eq(actual, expected, message: String) -> void:
 ## [1]
 func _test_cards() -> void:
 	print("[1] 卡牌加载")
+	# 卡池会随 M3.4 继续扩（目标 20+ 种），期望值不写死，而是直接读 cards.json 独立
+	# 按 count 累加算一遍。这样加卡不会弄红测试；但 load_cards() 的「按 count 展开」
+	# 一旦写错（少展开 / 多展开 / 单位卡漏展开），这三条会立刻红。
+	var raw := DataLoader.load_json("res://data/tables/cards.json")
+	var raw_items: Array = raw.get("cards", [])
+	var expect_total := 0
+	var expect_units := 0
+	var expect_kinds := 0
+	for item in raw_items:
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		if str(item.get("id", "")) != "":
+			expect_kinds += 1
+		var n := int(item.get("count", 1))
+		if n < 1:
+			n = 1                      # 与 load_cards() 的钳位保持一致
+		expect_total += n
+		if str(item.get("type", "")) == "unit":
+			expect_units += n
 	var cards := DataLoader.load_cards()
-	_check_eq(cards.size(), 44, "牌库张数（11 种 × 每份 4）")
+	_check_eq(cards.size(), expect_total, "牌库张数（按 cards.json 的 count 展开）")
 	if cards.is_empty():
 		_check(false, "卡牌数组为空，后续检查无法进行")
 		return
 	var distinct := {}
 	for c in cards:
 		distinct[c.id] = true
-	_check_eq(distinct.size(), 11, "不同卡牌种类")
+	_check_eq(distinct.size(), expect_kinds, "不同卡牌种类（等于 cards.json 条目数）")
 	# M1 的 7 张都是指令卡；漏写 type 时 Card.from_dict 默认成 "unit"，M2 部署会把它们当单位
 	_check_eq(cards[0].type, "order", "指令卡 type = order")
 	var bad_type := 0
@@ -70,7 +89,7 @@ func _test_cards() -> void:
 	for c in cards:
 		if c.type == "unit":
 			unit_cards += 1
-	_check_eq(unit_cards, 16, "单位卡 16 张（4 种 × 4 份）")
+	_check_eq(unit_cards, expect_units, "单位卡张数（按 cards.json 里 type=unit 的 count 展开）")
 	var strong: Card = null
 	for c in cards:
 		if c.aura_amount >= 2.0:
