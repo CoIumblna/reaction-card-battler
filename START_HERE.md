@@ -1,8 +1,10 @@
-﻿# 从哪开始看（索引）
+# 从哪开始看（索引）
 
 | 你想…… | 打开 |
 |---|---|
+| **接手 / 换人 / 想知道现在做到哪了** | [docs/HANDOFF-2026-11-23.md](docs/HANDOFF-2026-11-23.md) |
 | **动手写代码**（每个脚本要实现什么、怎么验收） | [docs/implementation-tasks.md](docs/implementation-tasks.md) |
+| **看当前这块的作业单 / 评审结论** | [docs/brief-m34-ai-guard-2026-11-26.md](docs/brief-m34-ai-guard-2026-11-26.md) · [docs/review-m34-ai-guard-2026-11-27.md](docs/review-m34-ai-guard-2026-11-27.md) |
 | **排优先级 / 定顺序**（85 项功能总清单） | [BACKLOG.md](BACKLOG.md) |
 | 搞懂**玩什么** | [docs/game-design.md](docs/game-design.md) |
 | 搞懂**元素反应规则**（附着量、免疫、复合元素） | [docs/element-reactions.md](docs/element-reactions.md) |
