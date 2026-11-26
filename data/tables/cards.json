@@ -11,6 +11,8 @@
     { "id": "footman", "name": "步兵", "type": "unit", "cost": 1, "element": "none", "attack": 1, "defense": 2, "operation_cost": 1, "unit_class": "infantry", "count": 4 },
     { "id": "archer", "name": "弓手", "type": "unit", "cost": 2, "element": "none", "attack": 2, "defense": 1, "operation_cost": 1, "unit_class": "infantry", "count": 4 },
     { "id": "fire_mage", "name": "火法师", "type": "unit", "cost": 3, "element": "fire", "attack": 2, "defense": 3, "operation_cost": 1, "unit_class": "infantry", "count": 4 },
-    { "id": "tank", "name": "坦克", "type": "unit", "cost": 4, "element": "none", "attack": 4, "defense": 5, "operation_cost": 1, "unit_class": "tank", "count": 4 }
+    { "id": "tank", "name": "坦克", "type": "unit", "cost": 4, "element": "none", "attack": 4, "defense": 5, "operation_cost": 1, "unit_class": "tank", "count": 4 },
+    { "id": "bomber", "name": "轰炸机", "type": "unit", "cost": 7, "element": "ice", "attack": 6, "defense": 4, "operation_cost": 2, "unit_class": "bomber", "count": 2 },
+    { "id": "fighter", "name": "战斗机", "type": "unit", "cost": 3, "element": "lightning", "attack": 2, "defense": 3, "operation_cost": 1, "unit_class": "fighter", "keywords": ["blitz"], "count": 3 }
   ]
 }
