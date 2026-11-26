@@ -378,6 +378,24 @@ if (-not (Test-Path $makerScene)) {
     }
 }
 
+# ---------------------------------------------------------------- 12. CardView 回归
+$sectionTitle = "[12] CardView 回归 tools/test_card_view.gd（多卡串色 / 卡图路径）"
+$cvTest = Join-Path $ProjectRoot "tools\test_card_view.gd"
+if (-not (Test-Path $cvTest)) {
+    Say-Info "还没有 tools/test_card_view.gd，跳过"
+} else {
+    $cvout = & $Godot --headless --path $ProjectRoot --script res://tools/test_card_view.gd 2>&1 | Out-String
+    if ($cvout.Contains("PASS") -and (-not $cvout.Contains("[FAIL]")) -and (-not $cvout.Contains("SCRIPT ERROR"))) {
+        $m = [regex]::Match($cvout, "共 (\d+) 项检查")
+        $cnt = if ($m.Success) { $m.Groups[1].Value } else { "?" }
+        Say-Ok ("卡面组件回归（主题共享 stylebox / 多卡串色 / 卡图路径）{0} 项全通过" -f $cnt)
+    } else {
+        Say-Fail "tools/test_card_view.gd 没过 —— 同屏多张卡可能会互相串色"
+        Show-Section
+        Write-Host $cvout
+        Say-Info "手动跑：& `$g --headless --path . --script res://tools/test_card_view.gd"
+    }
+}
 # ---------------------------------------------------------------- 结论
 Write-Host ("------------------------------")
 if ($fails -eq 0) {

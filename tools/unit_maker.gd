@@ -550,19 +550,28 @@ func _set_status(text: String, color: Color) -> void:
 # ================================================================ 截图模式（验证用）
 
 ## --shot=路径 --shot-frames=N ：开窗口、等 N 帧、把界面存成 PNG、退出。
+##   --card=<id>  可选：截图前先选中某张卡（默认选第一张）
 ## 这是「界面到底画出来没有」的机器验证手段：
-##   godot --path . tools/unit_maker.tscn -- --shot=G:/tmp/x.png
+##   godot --path . tools/unit_maker.tscn -- --shot=G:/tmp/x.png --card=fighter
 func _handle_shot_mode() -> void:
 	var path := ""
 	var frames := 8
+	var want_card := ""
 	for raw in OS.get_cmdline_user_args():
 		var a := str(raw)
 		if a.begins_with("--shot="):
 			path = a.substr(7)
 		elif a.begins_with("--shot-frames="):
 			frames = int(a.substr(14))
+		elif a.begins_with("--card="):
+			want_card = a.substr(7)
 	if path == "":
 		return
+	if want_card != "":
+		var idx := _unit_ids.find(want_card)
+		if idx >= 0:
+			_list.select(idx)
+			_on_list_selected(idx)
 	_do_shot(path, frames)
 
 
@@ -635,7 +644,7 @@ func _run_selftest() -> void:
 	# ---- 2. 改字段 → 预览跟着变 → 校验通过
 	_f_attack.value = 7
 	_on_field_changed()
-	_st(_preview._stats.text.contains("攻 7"), "改 attack 7 → 卡面预览同步（%s）" % _preview._stats.text)
+	_st(_preview.stats_text().contains("攻 7"), "改 attack 7 → 卡面预览同步（%s）" % _preview.stats_text())
 	_st(not _save_btn.disabled, "合法值 → 保存按钮可用")
 
 	# ---- 3. 保存 → 文件真的变了

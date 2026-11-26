@@ -18,7 +18,8 @@
 |---|---|---|
 | `unit_maker.bat` + `unit_maker.tscn` + `unit_maker.gd` | **单位卡图形制作工具**（双击 `unit_maker.bat`）：左栏选卡 → 中栏预览卡面 → 右栏改数值 → `Ctrl+S` 写回 `cards.json` | 预览用的是 `src/ui/card_view.gd`，**和 M4 手牌区是同一个组件** |
 | `card_lib.gd` | 卡牌数据的唯一格式入口：读 / 校验 / 序列化 / **行级手术**写回 | `add_unit_card.gd` 与图形工具共用它，格式只维护一份 |
-| `test_card_lib.gd` | `card_lib.gd` 的自检（43 项）：读、插入、覆盖、删除、组合手术、校验、数值格式 | `run_tests.bat` 的 preflight 第 10 项会自动跑 |
+| `test_card_lib.gd` | `card_lib.gd` 的自检（55 项）：读、插入、覆盖、删除、组合手术、校验、数值格式、**元素可选清单** | `run_tests.bat` 的 preflight 第 10 项会自动跑 |
+| `test_card_view.gd` | `card_view.gd` 的回归（7 项）：主题共享 stylebox、**同屏多卡串色**、卡图路径约定 | preflight 第 12 项；防的是「单卡预览看不出来、一显示 5 张手牌全变一个色」 |
 | `check_font.gd` | 中文字体体检：确认界面能把中文画成字而不是方块 | preflight 第 8 项；M4 所有界面都依赖它 |
 | `src/ui/ui_theme.gd` | 全局主题（中文字体 / 配色 / 控件样式） | M4 每个场景 `theme = UiTheme.make_theme()` |
 | `src/ui/card_view.gd` | 一张卡的外观组件（可复用） | 单位制作工具与 M4 手牌区共用 |
@@ -61,16 +62,31 @@ Godot_v4.x-stable_win64_console.exe --headless --path . --script res://tools/add
 双击 `tools\unit_maker.bat` 就开窗口，不需要命令行。
 
 ```
-┌──────────┬──────────────┬─────────────┐
-│ 单位卡列表 │  卡面预览     │  字段表单    │
-│ 步兵      │  ┌────────┐  │  id / 名字   │
-│ 弓手      │  │ 1  步兵 │  │  费用 / 攻击 │
-│ 火法师    │  │ 元素：无 │  │  防御 / 行动费│
-│ 坦克      │  │ 攻1 御2 │  │  兵科 / 关键词│
-│ 新建/复制/删除│ └────────┘  │             │
-└──────────┴──────────────┴─────────────┘
+┌──────────┬────────────────┬─────────────┐
+│ 单位卡列表 │   卡面预览      │  字段表单    │
+│ 步兵      │ ┌────────────┐ │  id / 名字   │
+│ 弓手      │ │  名字条     │ │  费用 / 攻击 │
+│ 火法师    │ │  ① 卡图区   │ │  防御 / 行动费│
+│ 坦克      │ │ 元素·兵科   │ │  兵科 / 关键词│
+│ 新建/复制/删除│ │ 攻2  御3  │ │             │
+└──────────┴────────────────┴─────────────┘
             [保存到 cards.json]   Ctrl+S
 ```
+
+**卡面版式（照 KARDS 的结构，2026-11-26 改版）**：顶部名字条 → **中间卡图区**（占最大面积）
+→ 元素·兵科 → 关键词带 → 细分隔线 → 底部「左攻 / 右御」大数字 → 页脚 `id ×count`。
+费用徽标压在卡图左上角，颜色随元素。
+
+**卡图怎么来**：把图片按 `assets/cards/<卡id>.png` 命名丢进目录即可（如 `assets/cards/footman.png`），
+卡里有 `"image"` 字段时优先用它。没有图就显示占位框，框里写文件名。
+细节与版权提醒见 `assets/cards/README.md`。
+
+> ⚠️ **新加的图片必须先跑一次 `--import`**，否则 `ResourceLoader.exists()` 看不到它，卡面还是占位框：
+> `& $g --headless --path . --import`
+
+**为什么不直接抠 KARDS 的图**：那是商业游戏的素材，直接搬进仓库有版权风险（尤其将来要发布）。
+版式结构（名字在上、卡图中部、数值在下）属于设计思路，不构成侵权；所以**只借版式，不搬素材**。
+
 
 **为什么这个工具算 M4 的一部分，而不是"顺手写的脚本"**：
 
@@ -82,14 +98,14 @@ Godot_v4.x-stable_win64_console.exe --headless --path . --script res://tools/add
 **验证手段（两条，都不靠肉眼）**：
 
 ```powershell
-# 1. 卡牌读写/校验逻辑（43 项）
+# 1. 卡牌读写/校验逻辑（55 项）
 & $g --headless --path . --script res://tools/test_card_lib.gd
 
 # 2. 真界面端到端：用代码驱动这个窗口走「选卡→改字段→保存→新建→删除→还原」（30 项）
 & $g --path . --headless tools/unit_maker.tscn -- --selftest
 
-# 3. 只要截图（验证中文渲染与排版）
-& $g --path . tools/unit_maker.tscn --resolution 1240x800 -- --shot=G:\tmp\maker.png
+# 3. 只要截图（验证中文渲染与排版）；--card=<id> 指定先选中哪张卡
+& $g --path . tools/unit_maker.tscn --resolution 1240x800 -- --shot=G:\tmp\maker.png --card=fighter
 ```
 
 第 2 条是关键：**截图只能证明"画出来了"，证明不了"点得动"**。
@@ -244,12 +260,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 > 为什么用 `$script:` 前缀：这些函数在脚本作用域执行，直接写 `$fails++` 会新建**函数局部**变量，
 > 调用方的计数器不动 → 退出码永远是 0（假绿）。`$script:` 才是改脚本级那一个。
 
-十一项检查用注释分隔（`# ---- N. 标题`），每段内部都是「取数据 → 判 → Say-Xxx」，无独立函数。
-**加第十二项检查的模板**：复制一段，改标题行、判定、`Say-Ok`/`Say-Fail` 分工即可。
+十二项检查用注释分隔（`# ---- N. 标题`），每段内部都是「取数据 → 判 → Say-Xxx」，无独立函数。
+**加第十三项检查的模板**：复制一段，改标题行、判定、`Say-Ok`/`Say-Fail` 分工即可。
 
-当前 11 项：`[1]` 数据校验 / `[2]` has_acted 残留 / `[3]` EXPECTED_CHECKS / `[4]` 兵科覆盖 /
+当前 12 项：`[1]` 数据校验 / `[2]` has_acted 残留 / `[3]` EXPECTED_CHECKS / `[4]` 兵科覆盖 /
 `[5]` 平衡冒烟 / `[6]` 脚本编码 / `[7]` 工作区噪音 / `[8]` 中文字体 / `[9]` 分层边界 /
-`[10]` `test_card_lib.gd` / `[11]` 图形工具端到端自检。
+`[10]` `test_card_lib.gd` / `[11]` 图形工具端到端自检 / `[12]` `test_card_view.gd`（多卡串色）。
 
 ### C. `tools/validate_data.gd` 的方法
 
@@ -289,7 +305,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 | `read` | `static (path := CARDS_PATH) -> Dictionary` | 读 cards.json。返回 `{ok, error, text, data, cards}`。**`text` 是原文**，行级手术要用它；任何一步失败都填 `error` 而非抛异常 |
 | `find_card` | `static (cards: Array, id: String) -> Dictionary` | 按 id 找卡，找不到返回**空字典**（不是 null，方便 `is_empty()` 判断） |
 | `collect_ids` | `static (cards: Array) -> Array[String]` | 取所有 id，供查重用 |
-| `validate_unit` | `static (card: Dictionary, taken_ids: Array = []) -> Array[String]` | 校验一张单位卡，返回问题列表（空 = 合法）。查 id 格式/唯一/名字/type/cost 1–12/attack≥0/defense≥1/opcost≥0/元素白名单/兵科白名单/count 1–4/关键词白名单 |
+| `validate_unit` | `static (card: Dictionary, taken_ids: Array = []) -> Array[String]` | 校验一张单位卡，返回问题列表（空 = 合法）。查 id 格式/唯一/名字/type/cost 1–12/attack≥0/defense≥1/opcost≥0/**元素只能取 `ELEMENTS` 的 7 项**/兵科白名单/count 1–4/关键词白名单 |
 | `blank_unit` | `static (id := "new_unit") -> Dictionary` | 造一张字段齐全的空白单位卡，供图形界面直接绑控件 |
 | `dump` | `static (data: Dictionary) -> String` | 把**整份** cards.json 字典序列化成文本（每卡一行）。注意：**写回时不用它**，用它会把没动过的卡重排、造 diff |
 | `card_line` | `static (card: Dictionary) -> String` | 单张卡 → 一行 JSON。先按 `KEY_ORDER` 输出，再补未知字段（保证不丢字段） |
@@ -306,7 +322,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 
 ### D3. `tools/test_card_lib.gd` 与 `tools/unit_maker.gd` 的验证方法
 
-`test_card_lib.gd`（43 项，`--script` 跑）：`_reset_tmp`/`_tmp_text`/`_line_count`/`_card_ids` 把 `cards.json` 复制到 `user://` 上反复手术，断言「其余行字节不变」「删最后一张后 JSON 仍合法」等。`EXPECTED_CHECKS := 43`。
+`test_card_lib.gd`（55 项，`--script` 跑）：`_reset_tmp`/`_tmp_text`/`_line_count`/`_card_ids` 把 `cards.json` 复制到 `user://` 上反复手术，断言「其余行字节不变」「删最后一张后 JSON 仍合法」等。`EXPECTED_CHECKS := 55`（第 [9] 组 `_test_element_choices` 专门守「卡牌只能选 6 基础元素，复合元素禁止」）。
 
 `unit_maker.gd`（图形工具，`Control`）：
 
@@ -327,6 +343,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 | `SELFTEST_CHECKS` | 常量 `30` | 自检项数。**加断言必须同步改它**，否则会报「覆盖不完整」 |
 
 > `--shot` 证明「画出来了」，`--selftest` 证明「点得动」。两者都跑才算这个工具验完。
+>
+> 截图模式还有一个 `--card=<id>` 参数（2026-11-26 加）：截图前先把指定 id 的卡选中，
+> 用来单独看某一张卡的卡面（比如验证「雷是不是紫色」）。例：`-- --shot=G:\tmp\x.png --card=fighter`
+
+### D4. `tools/test_card_view.gd` 的回归方法（2026-11-26 新增）
+
+`extends SceneTree`，`const EXPECTED_CHECKS := 7`。三组：
+
+| 组 | 函数 | 守什么 |
+|---|---|---|
+| [1] | `_test_shared_stylebox_hazard` | 先证明**隐患前提成立**：`Theme` 分给两个 `PanelContainer` 的 `panel` stylebox 是 `is_same` 的同一对象。哪天 Godot 改了行为，这条会红，提示我们那套私有 `StyleBoxFlat` 可以简化 |
+| [2] | `_test_multi_card_independence` | 同屏 5 张不同元素的 `CardView`，底色必须**各自不同**、**不是同一对象**、**改最后一张不影响第一张** |
+| [3] | `_test_art_path_lookup` | `CardView.art_path_of()`：有 `image` 字段用它，否则按 `assets/cards/<id>.png` 推导 |
+
+**为什么值得单独建一个测试文件**（而不是跑完删掉的临时探针）：
+旧实现 `get_theme_stylebox("panel")` 后原地改 `bg_color`，**单张卡预览完全看不出问题**，
+只有「一次显示多张」才暴露成「所有卡都变成最后一张的颜色」。M4 手牌区必然是 5 张同屏，
+所以这是一个会真实复发的高危回归点，必须固化成断言而不是靠人眼。
+反向验证过：把实现改回旧写法 → [2] 组 3 项全红；改回新写法 → 7/7 绿。
 
 ### E. `tools/balance_sim.gd` 的方法
 

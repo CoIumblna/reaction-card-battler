@@ -17,6 +17,10 @@ const KNOWN_CARD_KINDS := ["damage", "shield", "heal"]
 const KNOWN_KEYWORDS := ["blitz", "guard"]   # M3 首批；以后加关键词同步这里
 # 与 docs/adr/004-m3-keywords.md 决定 3 保持一致（5 类兵科；"" = 未标注，M3.4 补）
 const KNOWN_UNIT_CLASSES := ["", "infantry", "tank", "artillery", "fighter", "bomber"]
+# 卡牌可以填的元素：只有 6 个基础元素（+ none 占位）。
+# 复合元素（electro_charged / frozen）是反应产物，只出现在 reactions.json 的 aura 效果里，
+# 不是作者能选的卡牌属性 —— 卡上写了就报错，别让人手填出一个「一抽到就带感电」的怪卡。
+const CARD_CHOICE_ELEMENTS := ["none", "fire", "water", "lightning", "ice", "wind", "geo"]
 
 
 func _initialize() -> void:
@@ -199,6 +203,9 @@ func _check_cards(cards: Array, statuses: Dictionary, element_ids: Array[String]
 		var el := str(c.get("element", ""))
 		if el != "" and el != "none" and not element_ids.is_empty() and not element_ids.has(el):   # none 是内置占位元素，不在 elements.json
 			_error(where, "未知元素 `%s`" % el)
+		elif el != "" and not CARD_CHOICE_ELEMENTS.has(el):
+			_error(where, "卡牌不能使用元素 `%s`：复合元素是反应产物，不是可选卡牌属性（允许：%s）"
+				% [el, "、".join(CARD_CHOICE_ELEMENTS)])
 		if ctype == "unit":
 			for f in ["attack", "defense"]:
 				if not c.has(f) or int(c.get(f, -1)) < 0:

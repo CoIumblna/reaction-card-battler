@@ -17,8 +17,12 @@ extends RefCounted
 
 const CARDS_PATH := "res://data/tables/cards.json"
 
+## 卡牌可选元素：**只有 6 个基础元素**。
+## 复合元素（electro_charged / frozen）是反应产物，不是卡牌属性 ——
+## 它们只出现在 data/tables/reactions.json 的 aura 效果里，作者不该手填。
+## 所以这里刻意不含复合元素：造卡程序的下拉框、CLI 的 --element 校验都用这份清单。
 const ELEMENTS: Array[String] = [
-	"none", "fire", "water", "lightning", "ice", "wind", "geo", "electro_charged", "frozen",
+	"none", "fire", "water", "lightning", "ice", "wind", "geo",
 ]
 
 ## 与 tools/validate_data.gd 的 KNOWN_UNIT_CLASSES 保持一致；"" = 未标注

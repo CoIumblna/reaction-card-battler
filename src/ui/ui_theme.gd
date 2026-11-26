@@ -29,17 +29,23 @@ const OK := Color(0.451, 0.851, 0.549)          # 通过 / 成功
 const WARN := Color(1.0, 0.722, 0.251)          # 警告
 const ERR := Color(1.0, 0.420, 0.400)           # 错误
 
-## 元素配色：键是 Element 里的元素 id（不在这里硬编码元素清单）
-const ELEMENT_COLORS := {
-	"none": Color(0.482, 0.518, 0.588),
-	"fire": Color(0.925, 0.361, 0.278),
-	"water": Color(0.286, 0.596, 0.925),
-	"lightning": Color(0.949, 0.788, 0.235),
-	"ice": Color(0.451, 0.831, 0.898),
-	"wind": Color(0.435, 0.831, 0.573),
-	"geo": Color(0.788, 0.627, 0.400),
+## 复合元素的颜色：**只用于显示**（反应产物会附着在单位身上，M4 战场要画这个），
+## 不进 CardLib.ELEMENTS，所以造卡程序里选不到
+## （electro_charged / frozen 是反应产物，不是可选的卡牌元素）。
+const COMPOSITE_COLORS := {
 	"electro_charged": Color(0.659, 0.451, 0.949),
 	"frozen": Color(0.573, 0.741, 0.902),
+}
+
+## 卡牌元素配色：只有 6 个基础元素可选
+const ELEMENT_COLORS := {
+	"none": Color(0.482, 0.518, 0.588),      # 灰
+	"fire": Color(0.925, 0.361, 0.278),      # 红
+	"water": Color(0.286, 0.596, 0.925),     # 蓝
+	"lightning": Color(0.639, 0.400, 0.925), # 紫（2026-11-26 由黄改紫，与火的橙红拉开）
+	"ice": Color(0.451, 0.831, 0.898),       # 青
+	"wind": Color(0.435, 0.831, 0.573),      # 绿
+	"geo": Color(0.788, 0.627, 0.400),       # 土黄
 }
 
 # ---------------------------------------------------------------- 字号
@@ -84,7 +90,9 @@ static func font_health() -> String:
 
 
 static func element_color(element: String) -> Color:
-	return ELEMENT_COLORS.get(element, ELEMENT_COLORS["none"])
+	if ELEMENT_COLORS.has(element):
+		return ELEMENT_COLORS[element]
+	return COMPOSITE_COLORS.get(element, ELEMENT_COLORS["none"])
 
 
 # ---------------------------------------------------------------- 主题
