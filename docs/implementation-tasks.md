@@ -33,7 +33,7 @@
 | 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 140 | **5–7 h**（实际编码约 1–1.5 h） | unit_class_test（21 项，已启用） | [x] |
 | 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **0.5–1 h**（实际编码约 20 min） | air_intercept_test（3 项，2026-11-26 已启用） | [x] |
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [ ] |
-| 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（参考实现实际 ~25 min） | deck_build_test（11 项，验收包已验证） | [ ] 备课完成 → 待学员实现 |
+| 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（参考实现实际 ~25 min） | deck_build_test（11 项，验收包已复验 2026-11-26；测试假绿已修） | [ ] 备课完成 → 待学员实现 |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（最大块；备课前粗估，风险最高） | aura_v3_test（24 项待写） | [ ] |
 | 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（实际约 1 h，含一轮两行修复） | stat_mod_test（7）+ stat_system_test（18），**已启用** | [x] |
 | 30 | `battle.gd`（M3.8a：AI 打指令卡） | 2 | ★★★ | 80 | **1.5–2.5 h** | battle_m2_test 增补（测试待写） | [ ] |
@@ -1469,10 +1469,11 @@ func has_fighter(line:String, owner:String = "") -> bool:
 
 ## 34. M3.5 卡组构筑（39 张 + 1 HQ）
 
-> **✅ 2026-11-25 验收包已验证可通行**：参考实现只改 `src/core/data_loader.gd` 一个文件（+65 行，`tests/`、`data/`、`tools/` **零改动**），
+> **✅ 2026-11-26 复验通过（验收包可通行）**：参考实现只改 `src/core/data_loader.gd` 一个文件（+65 行，`tests/`、`data/`、`tools/` **零改动**），
 > patch 在 `G:\constraction\_ref_m35_pkg\M35-impl.patch`（**不进 git**）。
-> 实测：`deck_build_test` **11/11 PASS**、主套 **446/446 全绿 0 SCRIPT ERROR**、`validate_data` PASS、
-> `balance_sim` 100 场 48.0% / 13.0 回合 / RUNNING 0%。参考 worktree：`G:\constraction\_ref_m35`（detached @ `a37412c` + 未提交改动）。
+> 实测（worktree `_wt_m35` detached @ `56b0b85` + 测试假绿修复后）：`deck_build_test` **11/11 PASS**、
+> `data_test` **46/46**、`validate_data` PASS、`balance_sim` 100 场 48.0% / 13.0 回合 / RUNNING 0%。
+> 五条反假绿探针 ①②③④⑤ 全部按预期变红（详见验收后的补记）。
 
 **难度 ★★、预计 0.5–1 h（原估 2–3 h，参考实现实际 ~25 min）。这是 M3 里「数据早已备好、只差一个加载函数」的块**，改动量只有 65 行。
 
@@ -1566,7 +1567,7 @@ static func load_deck(path: String) -> Array[Card]:
 | [3] | 敌方牌组也是 39 张 / 两次加载不是同一数组引用 / 展开的 Card 也不共享引用 | 3 |
 | [4] | 非法牌组四种：未知 id / 总数不对 / `count<=0` / 同名超上限 | 4 |
 
-全绿后 `git mv tests/pending/deck_build_test.gd tests/`，主套 14 → **15 文件、446 → 457 项**。
+全绿后 `git mv tests/pending/deck_build_test.gd tests/`，主套 17 → **18 文件、474 → 485 项**。
 
 > **[3][4] 的断言是 2026-11-25 修正的**（原来 10 项，两处假绿）：
 > ① 原来写 `_check(p != e or p.size() == e.size(), ...)` —— `or` 后半句在正常实现下**恒真**，整条断言永远通过；
@@ -1576,6 +1577,18 @@ static func load_deck(path: String) -> Array[Card]:
 > 总数检查在后 → `push_error` 打的是「同名超上限」，**总数分支从未被执行**。
 > 改成 37 张、每个 id 合法、同名都不超 4 的牌组，日志确认命中 `牌组张数必须 = 39（实际 37）`。
 > `EXPECTED_CHECKS` 同时 10 → 11。
+>
+> **[4] 里另外两条用例是 2026-11-26 再修的**（同一类缺陷，反假绿探针 ② 暴露）：
+> - `bad_dup` 原来写 `[{footman,5},{archer,34}]` —— footman 超上限、archer **34 也超上限**，两条同时违规。
+>   把 `MAX_SAME_CARD` 从 4 放宽到 5 后，archer 仍然触发拦截，断言照样通过 → **测不到「同名上限」这条规则**。
+>   改成 `footman 5 + 其余 8 种各 4 + guard 4 + mend 2 = 39 张`，只违反同名上限。
+> - `bad_count` 原来写 `[{footman,0}]` —— count 0 让总数变成 0，**同时**违反「总数必须 39」。
+>   改成 `footman 0 + 其余 9 种各 4 + fire_burst 3 = 39 张`，只违反 `count > 0`。
+> - 项数不变，仍 11。修后复验：探针 ② 红「同名超过 4 张 → 空数组（期望 0，实际 39）」、
+>   `count < -100` 探针红「count <= 0 → 空数组（期望 0，实际 39）」。
+>
+> **通用教训：每个非法用例必须「只违反一条规则」**，否则断言会因为别的原因通过，
+> 你把那条检查删掉测试都不会红。验证手段只有一个 —— **故意把实现改坏，看测试会不会红**。
 
 ### 6 条坑
 
