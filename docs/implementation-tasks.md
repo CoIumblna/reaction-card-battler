@@ -1365,11 +1365,11 @@ PROBE place(slot2) returned = true    → same=true, kw=["guard"]
 
 见 `docs/adr/004-m3-keywords.md` 决定 3：`fighter` 战斗机「敌方轰炸机攻击有战斗机的线时只能打战斗机」。
 
-> **✅ 2026-11-25 验收包已验证可通行**：参考实现只动 `src/core/{battle,board}.gd` 两个文件（**+24/−4，测试一个字没改**），
+> **✅ 2026-11-26 验收包已验证可通行**：参考实现只动 `src/core/{battle,board}.gd` 两个文件（**+24/−4，测试一个字没改**），
 > patch 在 `G:\constraction\_ref_m33b_pkg\M33b-impl.patch`（**不进 git**）。
 > 实测：`air_intercept_test` **4/4 PASS**、主套 **450/450 全绿 0 SCRIPT ERROR**（15 文件）、
 > `validate_data` PASS、`balance_sim` 100 场 **48.0% / 13.0 回合 / RUNNING 0%**（真实卡池还没有空军卡，行为不变）。
-> 所以下面这 4 项是**可以跑通的红基线**，不是画饼。patch 在 `G:\constraction\_ref_m33b_pkg\M33b-impl.patch`。
+> 所以下面这 4 项是**可以跑通的红基线**，不是画饼。`[4]` 是 2026-11-26 教练补的（原来 3 项测不出「不判敌方战斗机」的错实现，见坑 2）。
 
 **难度 ★★、预计 0.5–1 h（原估 1.5–2 h，参考实现实际 ~20 min）。这是 M3 里最小的一块**，只加一条「目标合法性」规则，不动已有任何判定。
 
