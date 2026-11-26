@@ -32,7 +32,8 @@
 | 23 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | **2–3 h**（实际编码约 0.5–1 h） | guard_test（8 项，已启用） | [x] |
 | 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 140 | **5–7 h**（实际编码约 1–1.5 h） | unit_class_test（21 项，已启用） | [x] |
 | 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **0.5–1 h**（实际编码约 20 min） | air_intercept_test（3 项，2026-11-26 已启用） | [x] |
-| 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [ ] |
+| 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [~] 进行中（学员已加 2 张，13 种 / 49 张） |
+| 26b | `battle.gd`（**M3.4 前置**：AI 选目标，清 M3.2 遗留） | 1 | ★★★ | 70 | **0.5–1 h** | `tests/pending/ai_guard_test.gd`（14 项） | [ ] 备课完成（§39），基线 14/6 红 |
 | 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（实际约 1 h） | `tests/deck_build_test.gd`（11 项） | [x] ✅ 完成（2026-11-26，commit `014ad88`，主套 485/485） |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（最大块；备课前粗估，风险最高） | aura_v3_test（24 项待写） | [ ] |
 | 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（实际约 1 h，含一轮两行修复） | stat_mod_test（7）+ stat_system_test（18），**已启用** | [x] |
@@ -2248,6 +2249,95 @@ M3 的实测已经证明，日历进度的瓶颈是 round-trip 次数，不是�
 | 一次把 11 个界面全搭出来再统一调 | 「先把架子搭完」 | 字体 / 主题 / 刷新策略任何一个定晚了，5 个界面一起返工；而且没有一块是可验收的 |
 
 **一条反向判据**：如果某一块做完，你**没法用一条命令或一个截图证明它成了**，说明这块切大了 —— 回去拆。
+
+---
+
+## 39. M3.4 前置：AI 选目标（清 M3.2 遗留）· 2026-11-26 备课
+
+> **✅ 验收包已验证可通行**（2026-11-26）：参考实现补丁
+> `G:\constraction\_ref_ai_guard_pkg\AiGuard-impl.patch`（2611 字节，**不进 git**）
+> 在干净 worktree 上 `git apply` OK → `ai_guard_test` **14/14 PASS**、
+> 主套 **19 文件 499/499**、`validate_data` PASS、`balance_sim --games 200 --seed 1`
+> **45.0% / 13.0 回合 / RUNNING 0%**（与改动前逐位相同 → 不影响平衡）。
+>
+> 开工单：`docs/brief-m34-ai-guard-2026-11-26.md`（只给思路不给函数体）。
+> 参考实现：`battle.gd` +33/−22，**只改一个文件**。
+
+### 39.0 为什么现在做
+
+`docs/implementation-tasks.md` §32 末尾登记着：M3.2 的 AI 选目标标准是
+「**不是 guard**」而不是「**没被保护**」。真实卡池出现 guard 卡后 AI 会白扔一回合。
+M3.4 正在往卡池里加真实 guard 卡，所以必须先清掉 —— 否则 M3.4 加完 guard 卡，
+平衡模拟会跑出一堆「敌方整回合不动」的局，读数全是废的。
+
+### 39.1 规则
+
+| 编号 | 规则 |
+|---|---|
+| S1 | AI 的单位只要还有合法目标，就必须真的打出去，**不允许空过一整个回合** |
+| S2 | 选目标优先级：**敌方 HQ（可达且没被保护）> 没被保护的非 Guard 单位 > Guard 本身** |
+| S3 | 被 Guard 保护的友军**永远不该被 AI 选成目标**（打了必被拒 = 白扔） |
+| S4 | Guard 本身**永远是合法目标**（§32 已定：Guard 之间互不保护） |
+| S5 | `_is_guarded()` 对不在场上的单位返回 `false`，**不能崩** |
+
+S5 不是顺手加的：`_is_guarded()` 里 `board.position_of(target)` 对不在场上的单位返回 `[]`，
+紧接着 `tmp[1]` 会抛 `SCRIPT ERROR: Invalid access of index '1' on a base object of type: 'Array'`。
+`run_tests.bat` 把任何 `SCRIPT ERROR` 判红，所以 S5 必须先修。
+
+### 39.2 病灶（`src/core/battle.gd` 的 `_ai(owner)` 攻击段，原 157–168 行）
+
+| 分支条件 | 现在的做法 | 病灶 |
+|---|---|---|
+| `board.has_unit_of("front") == owner` | 循环前线单位，**一律** `attack_unit(u, _opposite_hq(owner))` | HQ 被 Guard 保护 → `attack_unit` 返回 false，**返回值没人接** → 这个单位白过，不换目标、不报错、连日志都没有 |
+| `board.has_unit_of("front") == _opposite(owner)` | `find_first_attackable("front", owner)`，为 null 就 `break` | `find_first_attackable()` 筛的是「**不是 Guard**」；对方前线只有 Guard 时返回 null → 全队 `break` |
+
+**`attack_unit` 拒绝被保护目标是正确行为**（`guard_test` 第 8 项已锁死），
+错的只是 AI 侧的选目标策略。
+
+### 39.3 要改哪里
+
+| 文件 | 改什么 |
+|---|---|
+| `src/core/battle.gd` | ① `_is_guarded()` 开头补 `target == null` 守卫、`position_of` 之后补 `tmp.is_empty()` 守卫（取下标**之前**）；② `_ai()` 的攻击段换成「按优先级排队目标 + 依次试到 `attack_unit` 返回 true」；③ 建议新增两个私有辅助 `_ai_attack_targets(owner) -> Array[Unit]` 与 `_ai_attack(u, owner) -> bool`（签名可自定） |
+| `src/core/board.gd` | **不动**。`find_first_attackable()` 保留原样（`guard_test` 没断言它，删了也没好处） |
+
+**为什么用「排队 + 依次试」而不是「挑一个」**：`attack_unit` 会因为够不着 / 被保护 /
+能量不够 / 同主等一堆原因返回 false。在 AI 侧复刻这套规则 = 迟早和生产逻辑走偏。
+「试到成功」把判定权完全留在 `attack_unit`，以后加规则（M3.6 元素、M3.8a 指令卡 AI）这里不用改。
+
+### 39.4 验收（`tests/pending/ai_guard_test.gd`，14 项）
+
+| # | 断言 | 项数 |
+|---|---|---|
+| [1] | 玩家 HQ 被 Guard 保护 → AI 前线单位改打 **Guard 本身**（6 → 3），且 `has_attacked == true` | 4 |
+| [2] | 玩家前线只有 Guard → 敌方支援线单位打这个 Guard（6 → 4），HQ 不掉血 | 3 |
+| [3] | 被保护的 victim 一点血不掉，Guard 掉血（AI 没拿 victim 当目标） | 3 |
+| [4] | 同线「Guard(slot1) + 普通单位(slot3)」→ 优先打普通单位（5 → 2），Guard 不挨打 | 3 |
+| [5] | 不在场上的单位 `_is_guarded()` 返回 false，无 `SCRIPT ERROR` | 1 |
+
+- 全绿：`ai_guard_test` **14/14 PASS**；主套 **19 文件 499/499**（485 + 14 启用后）
+- `validate_data` PASS（0 错 0 警）
+- `balance_sim --games 200 --seed 1` → **45.0% / 13.0 回合 / RUNNING 0%**（真实卡池无 guard 卡，此改动不该影响平衡）
+- 启用：全绿后 `git mv tests/pending/ai_guard_test.gd tests/`，header 改「已启用」
+
+### 39.5 六条坑
+
+1. **`attack_unit` 的返回值必须接**。GDScript 不报「你没用返回值」，只有测试能抓 —— 整个缺陷的根。
+2. **`board.has_unit_of(line)` 返回 owner 字符串**（空线 `"empty"`），不是 bool、不是数组。
+3. **`position_of()` 对不在场上的单位返回 `[]`**，`tmp[1]` 直接抛错。`tmp.is_empty()` 必须在取下标之前；`_is_guarded(null)` 也要能活。
+4. **候选目标要扫全部三条线**，不能只扫 frontline：空军能从支援线打支援线（`_line_span_to`）。
+5. **别拿 `units_in()` 的遍历顺序当优先级**（它按格子下标升序）。优先级只能靠 S2 显式排。
+6. **改完先 `--import` 再跑测试**，否则 `--script` 用旧缓存，症状是「改了没反应」。
+
+### 39.6 红绿指纹（改错方向时一眼能认）
+
+| 写错的样子 | 哪些项红 |
+|---|---|
+| 只接返回值、不换目标 | [1][2][3]（还是不打架，只是不崩了） |
+| 换目标但 Guard 排最前 | [3][4]（打了 Guard，但被保护的 victim 优先被打） |
+| 只在一条线上找目标 | [2] 或 [4] 单独红 |
+| 忘了 `tmp.is_empty()` 守卫 | [5] 红 + 1 条 `SCRIPT ERROR` |
+| 主套其他文件变红 | 你把 `attack_unit` 的规则也改了 —— 那不是这块的活 |
 
 ---
 
