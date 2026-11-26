@@ -2289,6 +2289,35 @@ S6 也不是凑数：现有 `_ai()` 能选的目标只有「对方 HQ」和「�
 对方**支援线上的普通单位**从来没进过候选（实测 `attack_unit` 打得着、但 `_ai()` 完全不碰它）。
 扫三条线顺手把这块可见性补上，也是「以后加空军越线攻击不用再改 `_ai()`」的前提。
 
+### 39.1a S2 的三档定义（**施工用的精确表，判定顺序不能乱**）
+
+| 档 | 装什么 | 判定式子（按此顺序写） | 理由 |
+|---|---|---|---|
+| **0** | 敌方 **HQ** | `var hq := _opposite_hq(owner)`；`if hq != null: out.append(hq)` | 打掉 HQ 直接赢。**HQ 被 Guard 保护也照样进档 0**，让 `attack_unit` 去拒，拒了自动落到档 1/2 —— 这就是 S1 的实现方式 |
+| **1** | **不受保护的非 Guard** | `if u.is_guard(): guards.append(u)  elif not _is_guarded(u): out.append(u)` | 打它必成功，当前最大收益 |
+| **2** | 敌方 **Guard** | 同上 `guards` 数组，最后 `out.append_array(guards)` | Guard 之间互不保护（§32），打 Guard 一定合法；放最后是因为通常高防 |
+
+**排除项（一档都不进）**：
+
+| 情况 | 判据 |
+|---|---|
+| 己方单位 | `u.owner == owner` |
+| 空槽 | `u == null`（`units_in()` 已滤，仍要防御性判） |
+| HQ 节点重复入线 | `u.is_hq`（HQ 已由档 0 单独加） |
+| **被保护的非 Guard 单位** | `_is_guarded(u) == true` 且 `not u.is_guard()` → S3 的落地方式 |
+
+**⚠️ 必须先判 `is_guard()` 再判 `_is_guarded()`**
+
+`_is_guarded()` 第一行就是 `if target.is_guard(): return false` —— **Guard 自己永远不算被保护**。
+所以写成 `if not _is_guarded(u): out.append(u)` 再 `elif u.is_guard(): ...` 的话，
+Guard 会被错分进档 1，档 2 永远为空，S2 的「Guard 最后打」直接失效。
+`ai_guard_test` [4]（优先打普通单位）会红。
+
+**档内不排序**：同一档按 `units_in()` 的返回顺序（格子下标升序）拼，稳定可复现、无比较函数可写错。
+要改优先级只改档位归属，别加档内排序。
+
+**拼装**：`档0 → 档1 → 档2`，用 `append_array` 依次拼，得到的就是 `_ai_attack_targets()` 的返回值。
+
 ### 39.1b 目标清单的实现路线：三个桶，**不要堆**
 
 学员问过「Godot 有没有类似 C++ `priority_queue` 的结构」。**没有**（实测 `ClassDB.class_exists()`
@@ -2375,7 +2404,7 @@ S2 的优先级只有 3 档 → 一次遍历按档位分进三个桶、最后按
 - `balance_sim --games 200 --seed 1` → **45.0% / 13.0 回合 / RUNNING 0%**（真实卡池无 guard 卡，此改动不该影响平衡）
 - 启用：全绿后 `git mv tests/pending/ai_guard_test.gd tests/`，header 改「已启用」
 
-### 39.5 六条坑
+### 39.5 十条坑
 
 1. **`attack_unit` 的返回值必须接**。GDScript 不报「你没用返回值」，只有测试能抓 —— 整个缺陷的根。
 2. **`board.has_unit_of(line)` 返回 owner 字符串**（空线 `"empty"`），不是 bool、不是数组。
@@ -2389,6 +2418,11 @@ S2 的优先级只有 3 档 → 一次遍历按档位分进三个桶、最后按
 8. **双方牌库共享同一批 `Card` 对象**（`setup()` 里 `for i in p_deck` 双向 append），
    现在不炸是因为 `Card` 是只读模板 + `erase` 按引用删。**别在本块给 `Card` 加可变字段**，
    需要时单开一块做 `Card.from_dict()` 深拷贝。
+9. **三档判定顺序不能反**（§39.1a）：`_is_guarded()` 对 Guard 恒返回 `false`，
+   必须先 `if u.is_guard(): guards.append(u)` 再 `elif not _is_guarded(u): out.append(u)`。
+   写反 → Guard 混进档 1、档 2 永远空 → [4] 红 2 项（实测指纹见 §39.6）。
+10. **别写 `while not attack_unit(u, 同一目标)`**。参数没变返回值就不会变，那是死循环 ——
+    实测把 `ai_guard_test` 挂死 30 秒不退出。要换的是**目标**，不是重试次数。
 
 ### 39.6 红绿指纹（改错方向时一眼能认）
 
@@ -2396,6 +2430,7 @@ S2 的优先级只有 3 档 → 一次遍历按档位分进三个桶、最后按
 |---|---|
 | 只接返回值、不换目标 | [1][2][3]（还是不打架，只是不崩了） |
 | 换目标但 Guard 排最前 | [3][4]（打了 Guard，但被保护的 victim 优先被打） |
+| **判定顺序写反**（先 `not _is_guarded(u)` 再 `elif u.is_guard()`） | **[4] 红 2 项**（`优先打普通单位（5 → 2）（期望 2，实际 5）` + `Guard 这一回合没被打（期望 6，实际 3）`）—— 实测确认。Guard 被错分进档 1，AI 先打了 Guard |
 | 只在一条线上找目标 | [2] 或 [4] 单独红 |
 | 忘了 `tmp.is_empty()` 守卫 | [5] 红 + 1 条 `SCRIPT ERROR` |
 | 主套其他文件变红 | 你把 `attack_unit` 的规则也改了 —— 那不是这块的活 |
