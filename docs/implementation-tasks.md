@@ -1620,7 +1620,7 @@ static func load_deck(path: String) -> Array[Card]:
 | `src/core/damage.gd` 或 `src/core/battle.gd` | 在伤害公式里把减防加算进去。**推荐改 `battle.gd:compute_damage()`**（它同时服务单位攻击和 `play_card`，一处改两处生效）；`Damage.compute()` 是纯函数、只读附着/免疫，不要在里面查 buff |
 | `src/core/battle.gd` | `compute_damage(base_power, element, target)` 里：`Damage.compute(...)` 得到基础伤害后 `damage += target.stat_mod("defense")`，再返回（注意 `immune` 时不要加） |
 
-### 验收：`tests/pending/stat_mod_test.gd` **6 项**
+### 验收：`tests/pending/stat_mod_test.gd` **7 项**
 
 | # | 内容 | 项数 |
 |---|---|---|
@@ -1629,9 +1629,15 @@ static func load_deck(path: String) -> Array[Card]:
 | [3] | 叠 2 层：+2 伤害 → 10 - 5 = 5 | 1 |
 | [4] | **指令卡伤害**同样吃 `defense_down`：5 点 + 减防 1 → 6（10 - 6 = 4） | 1 |
 | [5] | duration 1 的减防在回合开始后移除（`buffs.size() == 0`）| 1 |
-| [6] | buff 失效后伤害恢复：10 - 3 = 7 | 1 |
+| [6] | buff 失效后攻击成立（防空跑；2026-11-25 补） | 1 |
+| [7] | buff 失效后伤害恢复：10 - 3 = 7 | 1 |
 
-全绿后 `git mv tests/pending/stat_mod_test.gd tests/`。
+全绿后 `git mv tests/pending/stat_mod_test.gd tests/`，主套 15 → **16 文件、449 → 456 项**。
+
+> **✅ 2026-11-26 在 `6efcbb6` 上复验通过**：`M37-impl.patch` 干净 apply，`stat_mod_test` **7/7 PASS**、
+> 主套 **449/449** 全绿 0 SCRIPT ERROR、`validate_data` PASS。
+> 反假绿探针：把 `if not d.get("immune", false):` 改成 `if false:` → **[2][3][4] 三项立刻红**（7 项中 3 红），
+> 证明这三条断言真的在测加算逻辑。
 
 ### 6 条坑
 

@@ -37,7 +37,7 @@
 | M3.4 | **卡池 20+** | 内容设计（学员 🎨）+ `cards.json` + 兵科/关键词字段 | 6h | `data_test` 更新 + `validate_data` | 待做 |
 | M3.5 | **卡组构筑 39+1** | `data/decks/*.json`、同名上限、`DataLoader.load_deck`、39 张校验 | 4h | `deck_build_test` 10 项 | ✅ 数据/校验/测试已备 |
 | M3.6 | **元素系统 v3** | 多槽 `auras` + duration + 删复合 id + reactions/elements 数据 v3 + 全测试迁移 | 6–10h（原估 12–16h） | `aura_v3_test` 20–26 | 规格 ✅（ADR-005 + element-reactions-v3.md）；数据/测试待写 |
-| M3.7 | **数值 stat_mod** | `defense_down` 等 passive 效果生效 | 3h | `stat_mod_test` 6 项 | ✅ 测试已写 |
+| M3.7 | **数值 stat_mod** | `defense_down` 等 passive 效果生效 | 0.5–1h | `stat_mod_test` 7 项 | ✅ 测试已写、验收包已验证 |
 | M3.8a | **AI 出牌** | 玩家/敌方 AI 会打指令卡（含目标选择），否则构筑牌组里的指令卡会卡手牌 | 3h | `run_auto` 可用构筑牌组跑完 | 待做（平衡前置） |
 | M3.8 | **平衡调参** | 先手补偿/敌方 AI 加强 → `balance_sim` 1 万场 → 报告 → 调数值 | 6h | `docs/balance-report.md` 胜率 45–60% | 工具 ✅ / 待调 |
 | M3.9 | **收尾** | 全套绿、CI 时间、README/devlog、tag `v0.3` | 0.5h | — | 待做 |
@@ -55,7 +55,7 @@
 | `tests/pending/unit_class_test.gd` | 炮兵无反击、坦克移动+攻击、战斗机/轰炸机越线/无反击 | 11 | ✅ 已写（M3.3b 拦截规则再补） |
 | `tests/pending/deck_build_test.gd` | 39+1 展开、同名上限、非法 id、双方独立 | 10 | ✅ 已写 |
 | `tests/pending/aura_v3_test.gd` | 多槽/叠加/反应/槽满/持续时间/感电冻结/dot/免疫 | 20–26 | M3.6 时写 |
-| `tests/pending/stat_mod_test.gd` | `defense_down` 生效/叠层/指令伤害/到期 | 6 | ✅ 已写 |
+| `tests/pending/stat_mod_test.gd` | `defense_down` 生效/叠层/指令伤害/到期 | 7 | ✅ 已写 |
 | `tests/air_intercept_test.gd` | 战斗机拦截轰炸机 | 3 | ✅ **已启用（2026-11-26）** |
 | `tests/pending/opening_test.gd` | E7b 随机先手、起手 4/5、首回合抽牌、mulligan | 25 | ✅ 已写（2026-11-23 改随机先手） |
 
