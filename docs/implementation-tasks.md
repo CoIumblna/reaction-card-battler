@@ -33,7 +33,7 @@
 | 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 140 | **5–7 h**（实际编码约 1–1.5 h） | unit_class_test（21 项，已启用） | [x] |
 | 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **0.5–1 h**（实际编码约 20 min） | air_intercept_test（3 项，2026-11-26 已启用） | [x] |
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [ ] |
-| 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（参考实现实际 ~25 min） | deck_build_test（11 项，验收包已复验 2026-11-26；测试假绿已修） | [ ] 备课完成 → 待学员实现 |
+| 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（实际约 1 h） | `tests/deck_build_test.gd`（11 项） | [x] ✅ 完成（2026-11-26，commit `014ad88`，主套 485/485） |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（最大块；备课前粗估，风险最高） | aura_v3_test（24 项待写） | [ ] |
 | 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（实际约 1 h，含一轮两行修复） | stat_mod_test（7）+ stat_system_test（18），**已启用** | [x] |
 | 30 | `battle.gd`（M3.8a：AI 打指令卡） | 2 | ★★★ | 80 | **1.5–2.5 h** | battle_m2_test 增补（测试待写） | [ ] |
@@ -1469,7 +1469,7 @@ func has_fighter(line:String, owner:String = "") -> bool:
 
 ## 34. M3.5 卡组构筑（39 张 + 1 HQ）
 
-> **✅ 2026-11-26 复验通过（验收包可通行）**：参考实现只改 `src/core/data_loader.gd` 一个文件（+65 行，`tests/`、`data/`、`tools/` **零改动**），
+> **✅ 2026-11-26 已完成并启用（commit `014ad88`，主套 18 文件 485/485）**。以下为备课时的复验数据：：参考实现只改 `src/core/data_loader.gd` 一个文件（+65 行，`tests/`、`data/`、`tools/` **零改动**），
 > patch 在 `G:\constraction\_ref_m35_pkg\M35-impl.patch`（**不进 git**）。
 > 实测（worktree `_wt_m35` detached @ `56b0b85` + 测试假绿修复后）：`deck_build_test` **11/11 PASS**、
 > `data_test` **46/46**、`validate_data` PASS、`balance_sim` 100 场 48.0% / 13.0 回合 / RUNNING 0%。
@@ -1558,7 +1558,7 @@ static func load_deck(path: String) -> Array[Card]:
 	return out
 ```
 
-### 验收：`tests/pending/deck_build_test.gd` **11 项**
+### 验收：`tests/deck_build_test.gd` **11 项**（✅ 2026-11-26 已启用，commit `014ad88`）
 
 | # | 内容 | 项数 |
 |---|---|---|

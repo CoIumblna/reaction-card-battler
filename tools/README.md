@@ -156,16 +156,22 @@ ERROR: Failed to open log file for writing: user://logs/godot.log
 | **PART 1.5 待启用基线** | 自动发现 `tests\pending\*_test.gd`，每个文件打一行 `[READY]` 或 `[PENDING]`（项数/红/SCRIPT ERROR）。**只报告，永不判失败** | `run_tests.bat` 本体 |
 | **PART 2 详细自检** | 7 项：数据校验 / `has_acted` 残留 / `EXPECTED_CHECKS` / 兵科覆盖 / 平衡冒烟 / 脚本编码 / 工作区噪音 | `tools/preflight.ps1` |
 
-PART 1.5 的两行输出（跟主套结果在同一个终端里，不用去别的报告里找）：
+PART 1.5 的输出（跟主套结果在同一个终端里，不用去别的报告里找）：
 
 ```
 ############ PART 1.5  pending baseline (tests\pending\*_test.gd) ############
-  [PENDING] guard_test  8 checks / 4 failed / 0 script errors
-  [READY  ] deck_build_test  10 checks  --> git mv tests/pending/deck_build_test.gd tests/
+  [READY  ] deck_build_test  11 checks  --> git mv tests/pending/deck_build_test.gd tests/
+  [PENDING] some_test  8 checks / 4 failed / 0 script errors
+    ---- failed checks: 4 ----
+  [FAIL] 第一条红掉的断言
+  [FAIL] 第二条红掉的断言（期望 2，实际 1）
+    ---- full log: C:\Users\...\Temp\whk_tests\pending_some_test.log
 ```
 
 - `[PENDING]` = 还红着，继续实现就行，不影响 `ALL GREEN`；
-- `[READY  ]` = 0 失败 0 SCRIPT ERROR，**这时教练才把它 `git mv` 进 `tests/` 变成常驻回归**。
+- **红的时候下面会逐条列出 `[FAIL]` 断言**（有 `SCRIPT ERROR` 也会逐条列出），不用自己去翻日志；
+- `[READY  ]` = 0 失败 0 SCRIPT ERROR，**这时教练才把它 `git mv` 进 `tests/` 变成常驻回归**；
+- 全绿但仍有 pending 红时，结尾 SUMMARY 会补一行 note 提示。
 
 PART 2 的 7 项明细：
 
@@ -408,7 +414,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 `setup_git.ps1` 同理——**任何 .ps1 里只要有中文就必须带 BOM**，并且用编辑器/脚本改完要复查头 3 字节是不是 `EF BB BF`，
 否则 PowerShell 5.1 会把中文读成乱码）。Godot 路径变了就改 `check.ps1` 顶部的 `-Godot` 参数。
 
-当前目标：**474/474**（17 个测试文件）；`tests/pending/` 还剩 1 份红基线（`deck_build_test` 11 项），实现后移进 `tests\`。
+当前目标：**485/485**（18 个测试文件）；`tests/pending/` 已清空（8 份红基线全部实现并启用）。
 
 ## 和 tests/ 的区别（重要）
 
