@@ -132,8 +132,12 @@ func _test_invalid_decks() -> void:
 	var bad_id := _write_user_deck("bad_id", [{ "id": "no_such_card", "count": 39 }])
 	_check_eq(_load_deck(bad_id).size(), 0, "未知卡 id → 空数组")
 
-	# 这一条必须只违反「总数」这一条规则：每个 id 合法、同名都不超 4。
-	# 原来写 [{footman,10}] 会先命中「同名超上限」，总数分支根本没被执行（2026-11-25 修）。
+	# 下面三条都必须「只违反一条规则」，否则断言会因为别的原因通过（假绿）。
+	# 2026-11-26 修：原 bad_dup 写 [{footman,5},{archer,34}]，两条都超同名上限，
+	# 把上限放宽到 5 后 archer 34 仍然触发拦截 → 断言照旧绿，等于没测「同名上限」。
+	# 原 bad_count 写 [{footman,0}]，count 0 让总数变成 0 → 连「总数必须 39」也一起违反。
+
+	# 只违反「总数」：每个 id 合法、同名都不超 4，合计 37。
 	var bad_total := _write_user_deck("bad_total", [
 		{ "id": "footman", "count": 4 },
 		{ "id": "archer", "count": 4 },
@@ -144,11 +148,34 @@ func _test_invalid_decks() -> void:
 		{ "id": "thunder_strike", "count": 4 },
 		{ "id": "heavy_strike", "count": 4 },
 		{ "id": "guard", "count": 3 },
-		{ "id": "mend", "count": 2 }])          # 合计 37 张，只违反总数
+		{ "id": "mend", "count": 2 }])          # 合计 37 张
 	_check_eq(_load_deck(bad_total).size(), 0, "总张数不是 39 → 空数组")
 
-	var bad_count := _write_user_deck("bad_count", [{ "id": "footman", "count": 0 }])
+	# 只违反「count 必须 > 0」：其余 10 种卡凑满 39 张，每个 id 合法、同名都不超 4。
+	var bad_count := _write_user_deck("bad_count", [
+		{ "id": "footman", "count": 0 },
+		{ "id": "archer", "count": 4 },
+		{ "id": "fire_mage", "count": 4 },
+		{ "id": "tank", "count": 4 },
+		{ "id": "fire_bolt", "count": 4 },
+		{ "id": "water_blade", "count": 4 },
+		{ "id": "thunder_strike", "count": 4 },
+		{ "id": "heavy_strike", "count": 4 },
+		{ "id": "guard", "count": 4 },
+		{ "id": "mend", "count": 4 },
+		{ "id": "fire_burst", "count": 3 }])    # 0 + 4×9 + 3 = 39 张，只违反 count<=0
 	_check_eq(_load_deck(bad_count).size(), 0, "count <= 0 → 空数组")
 
-	var bad_dup := _write_user_deck("bad_dup", [{ "id": "footman", "count": 5 }, { "id": "archer", "count": 34 }])
+	# 只违反「同名上限 4」：footman 5 张，其余凑满 34，每个 id 合法、总数正好 39。
+	var bad_dup := _write_user_deck("bad_dup", [
+		{ "id": "footman", "count": 5 },
+		{ "id": "archer", "count": 4 },
+		{ "id": "fire_mage", "count": 4 },
+		{ "id": "tank", "count": 4 },
+		{ "id": "fire_bolt", "count": 4 },
+		{ "id": "water_blade", "count": 4 },
+		{ "id": "thunder_strike", "count": 4 },
+		{ "id": "heavy_strike", "count": 4 },
+		{ "id": "guard", "count": 4 },
+		{ "id": "mend", "count": 2 }])          # 5 + 4×8 + 2 = 39 张
 	_check_eq(_load_deck(bad_dup).size(), 0, "同名超过 4 张 → 空数组")
