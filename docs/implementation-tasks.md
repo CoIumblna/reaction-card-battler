@@ -35,7 +35,7 @@
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [ ] |
 | 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（参考实现实际 ~25 min） | deck_build_test（11 项，验收包已验证） | [ ] 备课完成 → 待学员实现 |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（最大块；备课前粗估，风险最高） | aura_v3_test（24 项待写） | [ ] |
-| 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（参考实现实际 ~35 min） | stat_mod_test（7）+ stat_system_test（18），验收包已验证 | [ ] 备课完成 → 待学员实现 |
+| 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（实际约 1 h，含一轮两行修复） | stat_mod_test（7）+ stat_system_test（18），**已启用** | [x] |
 | 30 | `battle.gd`（M3.8a：AI 打指令卡） | 2 | ★★★ | 80 | **1.5–2.5 h** | battle_m2_test 增补（测试待写） | [ ] |
 | 31 | 平衡（M3.8：balance_sim 调参） | 3 | ★★★ | 60 | **2–3.5 h**（含反复跑模拟的时间） | docs/balance-report.md | [ ] |
 | 32 | 文档与 tag（M3.9：tag v0.3） | 1 | ★ | 0 | **0.5 h** | README + HANDOFF | [ ] |
@@ -1751,10 +1751,15 @@ func stat_of(unit: Unit, stat: String) -> int:
 主套 15 → **17 文件、449 → 474 项**（449 + 7 + 18）。
 （`deck_build_test` 是 M3.5 的活，不在这里。）
 
-> **✅ 2026-11-26 在 `0f67677` 上复验通过**：参考实现（路线 1，`Stat-impl.patch`，26 插入 2 删除）
-> 干净 apply 后 `stat_mod_test` **7/7 PASS**、`stat_system_test` **18/18 PASS**、
-> 主套 **15 文件 449/449** 全绿 0 SCRIPT ERROR、`validate_data` PASS、
-> `balance_sim` 100 场 48.0% / 13.0 回合 / RUNNING 0%（真实卡池无减防卡，行为不变）。
+> **✅ 2026-11-26 完成（commit `8343343`）**：学员按路线 1 实现，`src/core/battle.gd` **+22/−2**，
+> `unit.gd` 未动。`stat_mod_test` **7/7**、`stat_system_test` **18/18**，
+> 主套 **17 文件 474/474** 全绿 0 SCRIPT ERROR、`validate_data` PASS、
+> `balance_sim` 100 场 48.0% / 13.0 回合 / RUNNING 0%。
+> 独立 worktree 检出 `8343343` 逐文件复验，17 个测试全部 fail=0 serr=0。
+> 学员本轮两处错：①`if d.get("immune",false):` 语义反了（应 `not`）；
+> ②`str(e.get("stat","")) != "stat"` 拿字符串字面量当形参比较，效果全被 continue 跳过。
+> 用学员实现实测四条探针：只认 `defense_down` → 规则测试仍 7/7 绿但通用性测试红 9 项；
+> 攻击侧改回 `attacker.attack` → 红 2 项；去掉 `max(0,...)` → 红 1 项；`timing` 严格 `== "passive"` → 红 1 项。
 
 ### 四条坑
 
