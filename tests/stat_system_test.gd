@@ -1,8 +1,8 @@
 extends SceneTree
-## M3.7 通用属性系统（stat_mod 通用层）验收测试 —— 待实现
+## M3.7 通用属性系统（stat_mod 通用层）验收测试 —— 已启用（2026-11-26）
 ##
 ## 运行：
-##   ... --headless --path . --script res://tests/pending/stat_system_test.gd
+##   ... --headless --path . --script res://tests/stat_system_test.gd
 ##
 ## 与 `stat_mod_test.gd` 的分工：
 ##   - `stat_mod_test.gd` 测**规则**：defense_down 每层让受到的伤害 +1，单位攻击和指令卡都吃。

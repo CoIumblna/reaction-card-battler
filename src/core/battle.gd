@@ -271,7 +271,27 @@ func play_card(card: Card, target: Unit) -> bool:
 ## 如果把算法写死在 battle.gd 里，M2 就得复制一遍。
 func compute_damage(base_power: int, element: String, target: Unit) -> Dictionary:
 	var d := Damage.compute(base_power,element,target,reaction_table)
+	if not d.get("immune",false):
+		d["damage"] = max(0,int(d["damage"]-stat_of(target,"defense")))
 	return d
+
+
+func stat_of(unit:Unit, stat:String) -> int:
+	var res:int = 0
+	if stat == "attack":
+		res = unit.attack
+	elif stat == "defense":
+		res = 0 
+	for b in unit.buffs:
+		var status:Dictionary = status_table.get_status(b.kind)
+		for e in status.get("effects",[]):
+			if str(e.get("kind","")) != "stat_mod" || str(e.get("stat","")) != stat:
+				continue
+			var timing := str(e.get("timing",""))
+			if timing != "" and timing !="passive":
+				continue
+			res += int(round(float(e.get("value",0.0)))) * b.stacks
+	return res
 
 
 ## 设计问题：反应发生后，附着该被消耗还是保留？见 docs/element-reactions.md
@@ -347,7 +367,7 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 	if attacker.is_bomber() and board.has_fighter(tar[0]) and not target.is_fighter(): return false
 	_spend(attacker.owner,attacker.operation_cost)
 	attacker.has_attacked = true
-	var dam:Dictionary = compute_damage(attacker.attack,attacker.element,target)
+	var dam:Dictionary = compute_damage(stat_of(attacker,"attack"),attacker.element,target)
 	var disc:int = target.take_damage(dam["damage"])
 	if not dam["immune"]:
 		_apply_aura(target,attacker.element,1.0)
@@ -356,7 +376,7 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 	if target.is_hq:
 		return true
 	if not no_counter(attacker,target):
-		var hurt:Dictionary = compute_damage(target.attack,target.element,attacker)
+		var hurt:Dictionary = compute_damage(stat_of(target,"attack"),target.element,attacker)
 		var rdisc:int = attacker.take_damage(hurt["damage"])
 		if not hurt["immune"]:
 			_apply_aura(attacker,target.element,1.0)

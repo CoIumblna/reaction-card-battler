@@ -1,8 +1,8 @@
 extends SceneTree
-## M3.7 数值系统（stat_mod / passive，defense_down）验收测试 —— 待实现
+## M3.7 数值系统（stat_mod / passive，defense_down）验收测试 —— 已启用（2026-11-26）
 ##
 ## 运行：
-##   ... --headless --path . --script res://tests/pending/stat_mod_test.gd
+##   ... --headless --path . --script res://tests/stat_mod_test.gd
 ##
 ## 规格：docs/implementation-tasks.md §M3.7 + data/tables/statuses.json
 ## 规则（本测试采用的定义，实现按这个）：
