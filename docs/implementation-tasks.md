@@ -1589,7 +1589,7 @@ static func load_deck(path: String) -> Array[Card]:
 
 ## 36. M3.7 数值系统（stat_mod / defense_down）
 
-**难度 ★★、预计 0.5–1 h（参考实现实际 ~20 min），改动量约 40 行，只动 `unit.gd` + `battle.gd`。**
+**难度 ★★、预计 0.5–1 h（参考实现实际 ~20 min）。改动约 20–40 行，推荐只动 `src/core/battle.gd` 一个文件（见下面的两条路线）。**
 
 （2026-11-25 补：本节原缺失，只有进度表一行。规则以 `tests/pending/stat_mod_test.gd` 的文件头为准。）
 
@@ -1612,81 +1612,47 @@ static func load_deck(path: String) -> Array[Card]:
 | 失效 | 走 `Buff.tick_buffs()`，`duration` 到 0 就移除，效果随之消失 |
 | 叠加 | `Unit.add_buff()` 遇到同 `kind` 只 `stacks += 1` 并刷新 `duration`，**不新增 Buff 对象** |
 
-### 要改哪里
+### 两条路线（都实测 7/7），选一个
 
-**只有 `src/core/battle.gd` 一个文件必须改**；`src/core/unit.gd` 改不改都行（两种写法都能 7/7，见下）。
+先看清三个对象各自能拿到什么 —— 这是本块唯一的设计决定点：
 
-| 位置 | 要做 |
-|---|---|
-| `src/core/battle.gd` | `compute_damage(base_power, element, target)` 里，`Damage.compute(...)` 之后加算减防（`immune` 时不要加） |
-| `src/core/battle.gd` | 新增一个私有方法算这个加值。**推荐就叫 `damage_taken_bonus(target) -> int`**（见下面的「方案 B」） |
-| `src/core/unit.gd` | **可选**。只有选「方案 A」才动：加 `func stat_mod(stat: String, table: StatusTable) -> int` |
+| 对象 | 有 | 没有 |
+|---|---|---|
+| `Buff`（`src/core/buff.gd`） | `kind` / `stacks` / `duration` | `stat`、`value`（在 `statuses.json`） |
+| `Unit` | `buffs` 数组 | `StatusTable`（不持有） |
+| `Battle` | `status_table` 成员（`battle.gd:26`） | — |
 
-### 两种写法都验证过（都 7/7），选一个
+→ 「`value` 是多少」只有 `Battle` 能顺手问到。由此两条路：
 
-**方案 B（推荐，只动 `battle.gd` 一个文件）** —— 加值计算直接写在 `battle.gd` 里，
-`Unit` 一行都不用改。因为「减防 → 受伤 +1」本来就是**战斗规则**，不是单位自身的属性查询。
+- **路线 1（推荐）**：加值计算整个留在 `Battle`（`compute_damage` 的宿主，`status_table` 是它的成员）。
+  `unit.gd` 不用动，新增一个私有方法返回「目标这次该多吃多少伤害」。
+- **路线 2**：下放到 `Unit`，则 `Unit` 必须多收一个 `StatusTable` 参数
+  （`stat_mod(stat: String, table: StatusTable) -> int`，**两个参数**），`Battle` 调它时把
+  `status_table` 递进去。代价是每个调用点都要传。
 
-```gdscript
-# src/core/battle.gd：compute_damage() 改成
-func compute_damage(base_power: int, element: String, target: Unit) -> Dictionary:
-	var d := Damage.compute(base_power,element,target,reaction_table)
-	if not d.get("immune", false):
-		var bonus := damage_taken_bonus(target)
-		if bonus != 0:
-			d["damage"] = max(0, int(d["damage"]) + bonus)
-	return d
+### 判断「哪条 buff 该算」：认 `kind`，但别硬编码数值
 
+**不要**同时筛 `kind=="stat_mod"` + `stat=="defense"` + `timing=="passive"` 三个条件 ——
+那是假装通用又把 `"defense"` / `"passive"` 写死的别扭混合体（本节初版就是这么写的，已订正）。
 
-# 紧跟在 compute_damage 后面新增
-## defense_down 的数据是 { "stat": "defense", "value": -1.0, "timing": "passive" }
-## → 防御 -1 意味着「受到的伤害 +1」，所以最后取负号。
-func damage_taken_bonus(target: Unit) -> int:
-	if target == null:
-		return 0
-	var total: int = 0
-	for b in target.buffs:
-		var status: Dictionary = status_table.get_status(b.kind)
-		for e in status.get("effects", []):
-			if str(e.get("kind", "")) != "stat_mod":
-				continue
-			if str(e.get("stat", "")) != "defense":
-				continue
-			if str(e.get("timing", "")) != "passive":
-				continue
-			total += int(round(float(e.get("value", 0.0)))) * b.stacks
-	return -total
-```
+两选一，看当前阶段要什么：
 
-**方案 A（把属性查询下放到 `Unit`，需要传 `table`）** —— `unit.gd` 加
+- **只处理 `defense_down` 一个状态**（当前推荐）：直接认 `b.kind`，意图一眼可见；
+  **数值仍从 `status_table` 读**，不要写死 `1`。
+- **做通用属性系统**：那就不该在 `compute_damage` 里挑 `defense`，而应做成 `stat_mod(stat)` 通用查询。
+  但**现在没有第二个 stat 存在**（实测 `statuses.json` 四个状态里只有 `defense_down` 带 `stat_mod`），
+  提前抽象是空的。等 M3.6 / M3.4 出现第二个 stat_mod 状态再抽。
 
-```gdscript
-func stat_mod(stat: String, table: StatusTable) -> int:
-	if table == null:
-		return 0
-	var total: int = 0
-	for b in buffs:
-		var status: Dictionary = table.get_status(b.kind)
-		for e in status.get("effects", []):
-			if str(e.get("kind", "")) != "stat_mod":
-				continue
-			if str(e.get("stat", "")) != stat:
-				continue
-			if str(e.get("timing", "")) != "passive":
-				continue
-			total += int(round(float(e.get("value", 0.0)))) * b.stacks
-	return total
-```
+**自查判据**：改 JSON 里 `value: -1.0` → 代码行为必须跟着变。不变就是把数值写死了。
 
-`battle.gd` 里就变成一句 `return -target.stat_mod("defense", status_table)`。
+### 加在哪、两个约束
 
-> **为什么 `table` 必须当参数传**：`Unit` 不持有 `StatusTable`，而 `Buff` 上只有
-> `kind` / `stacks` / `duration`，**没有 `stat` / `value`** —— 那些在 `data/tables/statuses.json` 里、
-> 由 `StatusTable` 持有。`Battle` 有 `status_table` 成员（`battle.gd:26`，`_settle_status()` 在用），
-> 由它传进去最省事。**不要**给 `Unit` 加 `status_table` 成员 —— 那会让单位脱离数据表就不能单测。
->
-> 这也是为什么方案 B 更省事：加值计算留在 `Battle` 里，`status_table` 直接就是它的成员，
-> 根本不需要「传参」这件事。
+`Battle.compute_damage()` 是**单位攻击**（`attack_unit`）和**指令卡伤害**（`play_card`）共用的出口，
+改这一处两处生效。
+
+1. **`immune` 时不要加** —— `Damage.compute()` 返回的字典带 `immune` 标记，此时伤害本就无效。
+2. **别改 `damage.gd`** —— `Damage.compute()` 是 `static`（摸不到 `status_table`），且
+   `combat_test`/`damage_test`/`status_test` 有大量 `hit["damage"]` 断言。
 
 ### 验收：`tests/pending/stat_mod_test.gd` **7 项**
 
@@ -1713,10 +1679,9 @@ func stat_mod(stat: String, table: StatusTable) -> int:
    所以「叠 2 层」在数据上仍是 **1 个 Buff、`stacks == 2`**。算伤害要用 `stacks`，不能数 `buffs.size()`。
 2. **减防是「受到的伤害 +1」，不是「攻击力 +1」**。加在 `compute_damage` 的目标侧；若错加到攻击者的 `attack` 上，
    [1]（无 buff）也会跟着变，红得莫名其妙。
-3. **`Unit` 不持有 `status_table`**。`Buff` 只有 `kind`/`stacks`/`duration`，没有 `stat`/`value`——
-   这些在 `data/tables/statuses.json` 里、由 `StatusTable` 提供。`Battle` 有 `status_table` 成员
-   （`_settle_status` 就在用），所以最省事的做法是让 `Battle` 算这个加值再传给伤害函数，
-   而不是给 `Unit` 加一个 `status_table` 引用（那会让单位脱离数据表就不能独立测试）。
+3. **`Unit` 不持有 `status_table`**，`Buff` 也没有 `stat`/`value`（只有 `kind`/`stacks`/`duration`）。
+   要么按路线 1 在 `Battle` 里算，要么按路线 2 把 `StatusTable` 当参数传。
+   **不要**给 `Unit` 加 `status_table` 成员——那会让单位脱离数据表就不能独立测试。
 4. **`immune` 时不要加减防**。`Damage.compute()` 返回 `immune == true` 表示被元素免疫，
    此时 `damage` 本来就是 0/无效，再加 `defense_down` 会算出一个"免疫还掉血"的怪结果。
 5. **`static func` 里不能访问实例成员**。`Damage.compute()` 是 `static`，如果想把减防塞进去，
