@@ -35,7 +35,7 @@
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [ ] |
 | 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（参考实现实际 ~25 min） | deck_build_test（11 项，验收包已验证） | [ ] 备课完成 → 待学员实现 |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（最大块；备课前粗估，风险最高） | aura_v3_test（24 项待写） | [ ] |
-| 29 | `unit.gd`+`battle.gd`（M3.7：stat_mod 数值系统） | 1 | ★★ | 40 | **0.5–1 h**（参考实现实际 ~20 min） | stat_mod_test（7 项已写，验收包已验证） | [ ] 备课完成 → 待学员实现 |
+| 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（参考实现实际 ~35 min） | stat_mod_test（7）+ stat_system_test（18），验收包已验证 | [ ] 备课完成 → 待学员实现 |
 | 30 | `battle.gd`（M3.8a：AI 打指令卡） | 2 | ★★★ | 80 | **1.5–2.5 h** | battle_m2_test 增补（测试待写） | [ ] |
 | 31 | 平衡（M3.8：balance_sim 调参） | 3 | ★★★ | 60 | **2–3.5 h**（含反复跑模拟的时间） | docs/balance-report.md | [ ] |
 | 32 | 文档与 tag（M3.9：tag v0.3） | 1 | ★ | 0 | **0.5 h** | README + HANDOFF | [ ] |
@@ -1587,13 +1587,28 @@ static func load_deck(path: String) -> Array[Card]:
 
 ---
 
-## 36. M3.7 数值系统（stat_mod / defense_down）
+## 36. M3.7 通用 stat 系统（stat_of / stat_mod）
 
-**难度 ★★、预计 0.5–1 h（参考实现实际 ~20 min）。改动约 20–40 行，推荐只动 `src/core/battle.gd` 一个文件（见下面的两条路线）。**
+**难度 ★★★、预计 1–1.5 h（参考实现实际 ~35 min）。改动约 90 行，只动 `src/core/battle.gd` 一个文件（推荐）。**
 
-（2026-11-25 补：本节原缺失，只有进度表一行。规则以 `tests/pending/stat_mod_test.gd` 的文件头为准。）
+（2026-11-25 建节；2026-11-26 学员拍板「做通用 stat 系统」后整节重写。
+上一版「推荐只处理 `defense_down`」的方案已作废 —— 那是通用层没拍板时的建议，现在约束反过来了。）
 
-见 `data/tables/statuses.json` 里 `defense_down` 的定义：
+**施工思路见 `docs/brief-stat-system-2026-11-26.md`（只给思路不给代码）。本节是规格与验收，冲突以 brief 为准。**
+
+### 规则
+
+| 项 | 值 |
+|---|---|
+| 属性生效值 | 基础值 + 身上所有 `stat_mod` 效果按 `stacks` 的加总 |
+| 基础值来源 | `attack` → `Unit.attack`；`defense` → **0**（单位没有基础防御字段） |
+| 生效范围 | **单位攻击**和**指令卡伤害都生效**（两者共用 `compute_damage`，属性加算放这一层） |
+| 计算顺序 | 生效值在攻击发起前算好喂给 `compute_damage`；最终伤害 `max(0, ...)` 钳位 |
+| `immune` 时 | **不加减防**（伤害本就无效，别算出「免疫还掉血」） |
+| 失效 | 走 `Buff.tick_buffs()`，`duration` 到 0 移除，效果随之消失 |
+| 叠层 | `Unit.add_buff()` 同 `kind` 只 `stacks += 1`，**不新增 Buff 对象** |
+
+对照 `data/tables/statuses.json` 里目前唯一的 `stat_mod` 状态：
 
 ```json
 "defense_down": {
@@ -1602,17 +1617,24 @@ static func load_deck(path: String) -> Array[Card]:
 }
 ```
 
-### 规则
+### 通用层的定义（本块的验收核心）
 
-| 项 | 值 |
+> **系统里出现任何一条新的 `stat_mod` 效果，不改代码就该生效。**
+
+这条约束直接排除「认 `b.kind == "defense_down"`」的写法。
+判定一条效果是否计入，**只看状态定义里的字段，不看状态 id、不列属性名白名单**：
+
+| 字段 | 你的系统该怎么用 |
 |---|---|
-| 效果 | 目标身上**每 1 层** `defense_down` → **受到的伤害 +1**（即 `abs(value) × stacks`） |
-| 生效范围 | **单位攻击**和**指令卡伤害都生效**（两者共用 `compute_damage`） |
-| 计算顺序 | **先加算再走护盾/免疫**。减防加在 `compute_damage` 里；护盾在 `take_damage` 里扣，天然在后 |
-| 失效 | 走 `Buff.tick_buffs()`，`duration` 到 0 就移除，效果随之消失 |
-| 叠加 | `Unit.add_buff()` 遇到同 `kind` 只 `stacks += 1` 并刷新 `duration`，**不新增 Buff 对象** |
+| `kind` | 只处理 `"stat_mod"`（`dot` / `disable` / `aura` 各有归属） |
+| `stat` | **与查询的 `stat` 相等就计入** —— 不列白名单 |
+| `value` | 乘 `stacks`，四舍五入取整 |
+| `timing` | **缺省按 `passive` 处理**；写了别的值（如 `turn_start`）就不计入属性 |
 
-### 两条路线（都实测 7/7），选一个
+`timing` 缺省这条容易漏：`tools/validate_data.gd:166-168` 对 `stat_mod` **只强制 `stat` / `value`**，
+`timing` 可缺省。写成「必须 `== "passive"` 才算」会让缺省的效果被静默丢掉 —— `stat_system_test` [6] 专抓这条。
+
+### 两条路线（都实测全绿），学员自选
 
 先看清三个对象各自能拿到什么 —— 这是本块唯一的设计决定点：
 
@@ -1624,37 +1646,62 @@ static func load_deck(path: String) -> Array[Card]:
 
 → 「`value` 是多少」只有 `Battle` 能顺手问到。由此两条路：
 
-- **路线 1（推荐）**：加值计算整个留在 `Battle`（`compute_damage` 的宿主，`status_table` 是它的成员）。
-  `unit.gd` 不用动，新增一个私有方法返回「目标这次该多吃多少伤害」。
+- **路线 1（推荐）**：属性查询整个留在 `Battle`，新增公开方法
+  `func stat_of(unit: Unit, stat: String) -> int`；`unit.gd` 一行不动。
+  `compute_damage()` 里写成 `compute_damage(stat_of(target, "attack"), ...)` 的形式。
 - **路线 2**：下放到 `Unit`，则 `Unit` 必须多收一个 `StatusTable` 参数
-  （`stat_mod(stat: String, table: StatusTable) -> int`，**两个参数**），`Battle` 调它时把
-  `status_table` 递进去。代价是每个调用点都要传。
+  （`stat_mod(stat: String, table: StatusTable) -> int`，**两个参数**），`Battle` 调它时递进去。
+  代价：每个调用点都要传 table。
 
-### 判断「哪条 buff 该算」：认 `kind`，但别硬编码数值
+参考实现走路线 1（verbatim，仅供我复验对照，**不发给学员**）：
 
-**不要**同时筛 `kind=="stat_mod"` + `stat=="defense"` + `timing=="passive"` 三个条件 ——
-那是假装通用又把 `"defense"` / `"passive"` 写死的别扭混合体（本节初版就是这么写的，已订正）。
+```gdscript
+func compute_damage(base_power: int, element: String, target: Unit) -> Dictionary:
+	var d := Damage.compute(base_power,element,target,reaction_table)
+	if not d.get("immune", false):
+		d["damage"] = max(0, int(d["damage"]) - stat_of(target, "defense"))
+	return d
 
-两选一，看当前阶段要什么：
+func stat_of(unit: Unit, stat: String) -> int:
+	var total: int = 0
+	match stat:
+		"attack":
+			total = unit.attack
+		"defense":
+			total = 0
+	for b in unit.buffs:
+		var status: Dictionary = status_table.get_status(b.kind)
+		for e in status.get("effects",[]):
+			if str(e.get("kind","")) != "stat_mod":
+				continue
+			if str(e.get("stat","")) != stat:
+				continue
+			var timing := str(e.get("timing",""))
+			if timing != "" and timing != "passive":
+				continue
+			total += int(round(float(e.get("value",0.0)))) * b.stacks
+	return total
+```
 
-- **只处理 `defense_down` 一个状态**（当前推荐）：直接认 `b.kind`，意图一眼可见；
-  **数值仍从 `status_table` 读**，不要写死 `1`。
-- **做通用属性系统**：那就不该在 `compute_damage` 里挑 `defense`，而应做成 `stat_mod(stat)` 通用查询。
-  但**现在没有第二个 stat 存在**（实测 `statuses.json` 四个状态里只有 `defense_down` 带 `stat_mod`），
-  提前抽象是空的。等 M3.6 / M3.4 出现第二个 stat_mod 状态再抽。
+另有两处调用点同样要换成生效值：`attack_unit` 里攻击方
+`compute_damage(stat_of(attacker,"attack"),attacker.element,target)`，
+以及反击侧 `compute_damage(stat_of(target,"attack"),target.element,attacker)`。
 
-**自查判据**：改 JSON 里 `value: -1.0` → 代码行为必须跟着变。不变就是把数值写死了。
-
-### 加在哪、两个约束
+### 加在哪、四条约束
 
 `Battle.compute_damage()` 是**单位攻击**（`attack_unit`）和**指令卡伤害**（`play_card`）共用的出口，
-改这一处两处生效。
+属性加算放这一层，两处都生效。
 
 1. **`immune` 时不要加** —— `Damage.compute()` 返回的字典带 `immune` 标记，此时伤害本就无效。
-2. **别改 `damage.gd`** —— `Damage.compute()` 是 `static`（摸不到 `status_table`），且
-   `combat_test`/`damage_test`/`status_test` 有大量 `hit["damage"]` 断言。
+2. **别改 `damage.gd`** —— `Damage.compute()` 是 `static`（摸不到 `status_table`），
+   且 `combat_test` / `damage_test` / `status_test` 有大量 `hit["damage"]` 断言。
+3. **伤害必须钳到 0** —— 防御可能高过攻击（`stat_system_test` [3] 就是 2 点攻击打 3 点防御）。
+   不钳位时负伤害会流进 `take_damage()` 的「护盾够扣」分支变成 `shield -= 负数`，
+   **白送护盾、血量不掉**，看着像「挡住了」，其实是数据被写坏。[3] 有一条专门断言 `shield == 0`。
+4. **攻击方和反击方都要用生效值** —— `attack_unit` 里两次 `compute_damage`：攻击方一次、
+   反击方一次（`no_counter()` 为 false 的分支）。只改前一处的红绿指纹是 **[2][4] 红**、其余绿。
 
-### 验收：`tests/pending/stat_mod_test.gd` **7 项**
+### 验收一：`tests/pending/stat_mod_test.gd` **7 项**（规则）
 
 | # | 内容 | 项数 |
 |---|---|---|
@@ -1666,31 +1713,59 @@ static func load_deck(path: String) -> Array[Card]:
 | [6] | buff 失效后攻击成立（防空跑；2026-11-25 补） | 1 |
 | [7] | buff 失效后伤害恢复：10 - 3 = 7 | 1 |
 
-全绿后 `git mv tests/pending/stat_mod_test.gd tests/`，主套 15 → **16 文件、449 → 456 项**。
+### 验收二：`tests/pending/stat_system_test.gd` **18 项**（通用性）
 
-> **✅ 2026-11-26 在 `6efcbb6` 上复验通过**：`M37-impl.patch` 干净 apply，`stat_mod_test` **7/7 PASS**、
-> 主套 **449/449** 全绿 0 SCRIPT ERROR、`validate_data` PASS。
-> 反假绿探针：把 `if not d.get("immune", false):` 改成 `if false:` → **[2][3][4] 三项立刻红**（7 项中 3 红），
-> 证明这三条断言真的在测加算逻辑。
+这个文件用的 `attack_up` / `defense_up` / `luck` / 无 `timing` 四种状态定义**都不在**
+`data/tables/statuses.json` 里，而是运行时注入 `b.status_table.statuses[id] = d`
+（故意不改数据文件 —— `tests/data_test.gd:157` 有 `_check_eq(st.status_count(), 4, "状态数量")`）。
+**写死状态 id 或属性名白名单必红。**
 
-### 6 条坑
+| # | 内容 | 项数 |
+|---|---|---|
+| [1] | 基线：无 buff 时 `stat_of(atk,"attack") == attack`、`stat_of(atk,"defense") == 0`、伤害不变 | 3 |
+| [2] | `attack_up`（+2）注入后 `stat_of(atk,"attack") == attack + 2`，伤害跟着 +2 | 3 |
+| [3] | `defense_up`（+3）注入后伤害被吃掉，且**钳到 0**：`shield == 0`、血量不掉 | 4 |
+| [4] | 双属性互不串台：同时带 attack/defense 两条 stat_mod，各自只算自己的 | 3 |
+| [5] | `timing: "turn_start"` 的 stat_mod **不计入**属性 | 1 |
+| [6] | **缺 `timing` 的 stat_mod 按常驻计入**（等价 `passive`） | 1 |
+| [7] | 未知属性：查 `"luck"` 返回那条的加总，且不影响 `attack` / 伤害 | 3 |
 
-1. **`add_buff` 是「叠加不加对象」**。`Unit.add_buff()` 遇到同 `kind` 只做 `b.stacks += 1` 和 `b.duration = max(...)`，
-   所以「叠 2 层」在数据上仍是 **1 个 Buff、`stacks == 2`**。算伤害要用 `stacks`，不能数 `buffs.size()`。
-2. **减防是「受到的伤害 +1」，不是「攻击力 +1」**。加在 `compute_damage` 的目标侧；若错加到攻击者的 `attack` 上，
-   [1]（无 buff）也会跟着变，红得莫名其妙。
-3. **`Unit` 不持有 `status_table`**，`Buff` 也没有 `stat`/`value`（只有 `kind`/`stacks`/`duration`）。
-   要么按路线 1 在 `Battle` 里算，要么按路线 2 把 `StatusTable` 当参数传。
-   **不要**给 `Unit` 加 `status_table` 成员——那会让单位脱离数据表就不能独立测试。
-4. **`immune` 时不要加减防**。`Damage.compute()` 返回 `immune == true` 表示被元素免疫，
-   此时 `damage` 本来就是 0/无效，再加 `defense_down` 会算出一个"免疫还掉血"的怪结果。
-5. **`static func` 里不能访问实例成员**。`Damage.compute()` 是 `static`，如果想把减防塞进去，
-   需要把 `target` 已有的 buff 信息当参数传进去——但 `Buff` 的 `stat`/`value` 又不在 `Buff` 上，
-   所以**最优解是在 `battle.gd` 的 `compute_damage`（实例方法）里加**，那里能直接摸 `status_table`。
-6. **别改 `Damage.compute()` 的返回字典形状**。`combat_test` / `damage_test` / `status_test` 里有大量
-   `hit["damage"]` 断言；在 `battle.gd` 外层加算，`Damage.compute()` 保持纯函数语义最安全。
+未实现时的基线：**18 项 / 18 失败**（文件开头有 `has_method("stat_of")` 守卫，
+未实现时打满 18 条失败再 `_finish()` 早退，**显示 18 项全红而不是 0 项**）。
+
+### 反假绿探针（四条，全部实测过红绿指纹）
+
+| # | 把什么改坏 | 期望指纹 |
+|---|---|---|
+| ① | `stat_of` 改成只认 `defense_down` / `defense` | `stat_mod_test` 仍 **7/7 绿**，`stat_system_test` **红 9 项** |
+| ② | 攻击侧改回 `compute_damage(attacker.attack, ...)` | `stat_system_test` 红 **[2][4]** |
+| ③ | 去掉 `max(0, ...)` 钳位 | 红 [3] 的 `shield == 0` 断言 |
+| ④ | `timing` 写成严格 `== "passive"` | 红 [6]（缺 timing 的被静默丢掉） |
+
+另有数据跟随性判据：把 JSON 里 `-1.0` 改成 `-2.0`，`stat_mod_test` [2] 期望值应变 5；
+不变 = 数值写死在代码里。
+
+### 全绿之后
+
+`git mv tests/pending/stat_mod_test.gd tests/` 与 `git mv tests/pending/stat_system_test.gd tests/`，
+主套 15 → **17 文件、449 → 474 项**（449 + 7 + 18）。
+（`deck_build_test` 是 M3.5 的活，不在这里。）
+
+> **✅ 2026-11-26 在 `0f67677` 上复验通过**：参考实现（路线 1，`Stat-impl.patch`，26 插入 2 删除）
+> 干净 apply 后 `stat_mod_test` **7/7 PASS**、`stat_system_test` **18/18 PASS**、
+> 主套 **15 文件 449/449** 全绿 0 SCRIPT ERROR、`validate_data` PASS、
+> `balance_sim` 100 场 48.0% / 13.0 回合 / RUNNING 0%（真实卡池无减防卡，行为不变）。
+
+### 四条坑
+
+1. **叠层要用 `b.stacks`**。`add_buff()` 同 `kind` 只做 `b.stacks += 1`，不新增对象 —— 数 `buffs.size()` 永远算 1 倍。
+2. **加在目标侧，不是攻击侧**。是「目标受到的伤害 +1」，不是「攻击者攻击力 +1」；加错到攻击者，[1]（无 buff）也会变，红得莫名其妙。
+3. **`Buff` 上没有 `stat` / `value`**。别指望 `b.value`，数值必须经 `status_table.get_status(b.kind)` 问出来。
+4. **别给 `Unit` 加 `status_table` 成员**。用参数传（路线 2）。加成员会让单位脱离数据表就不能单测，
+   `unit_test` 里那些直接 `Unit.from_dict(...)` 造的单位会崩。
 
 ---
+
 ## 附：常用 GDScript 手段速查
 
 | 想做的事 | 用什么 |
