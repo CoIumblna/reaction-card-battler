@@ -1,8 +1,8 @@
 extends SceneTree
-## M3.5 卡组构筑（39 张 + 1 HQ）验收测试 —— 待实现
+## M3.5 卡组构筑（39 张 + 1 HQ）验收测试 —— 已启用（2026-11-26）
 ##
 ## 运行：
-##   ... --headless --path . --script res://tests/pending/deck_build_test.gd
+##   ... --headless --path . --script res://tests/deck_build_test.gd
 ##
 ## 规格：docs/implementation-tasks.md §34
 ## API 约定：_load_deck(path: String) -> Array[Card]

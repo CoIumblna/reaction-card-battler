@@ -2,6 +2,8 @@ class_name DataLoader
 extends RefCounted
 
 const DATA_DIR := "res://data/tables/"
+const DECK_SIZE := 39
+const MAX_SAME_CARD := 4
 
 
 static func load_json(path: String) -> Dictionary:
@@ -48,4 +50,64 @@ static func load_enemies(path: String = DATA_DIR + "enemies.json") -> Array[Unit
 			push_error("enemies.json里面有一条不是对象: "+path)
 			continue
 		out.append(Unit.from_dict(item))
+	return out
+
+
+static func _card_catalog(path:String = DATA_DIR +"cards.json") -> Dictionary:
+	var out:Dictionary = {}
+	var data = load_json(path)
+	for c in data.get("cards",[]):
+		if typeof(c) != TYPE_DICTIONARY:
+			push_error("cards.json里有一条不是对象："+path)
+			continue
+		out[str(c["id"])] = c
+	return out
+
+
+static func load_deck(path:String) -> Array[Card]:
+	var out:Array[Card] = []
+	var data := load_json(path)
+	if data.is_empty():return out
+	if not data.has("cards"):
+		push_error("未找到cards数组："+ path)
+		return out
+	var deck = data["cards"]
+	if typeof(deck) != TYPE_ARRAY:
+		push_error("cards不是数组："+ path)
+		return out
+	
+	var catalog := _card_catalog()
+	var sum:int = 0
+	var cnt:Dictionary = {}
+	
+	for c in deck:
+		if typeof(c) != TYPE_DICTIONARY:
+			push_error("deck里面有一条不是对象"+path)
+			return out
+		var id:String = str(c["id"])
+		var count:int = int(c["count"])
+		if not catalog.has(id):
+			push_error("加载到未知卡牌 id:%s path:%s"%[id,path])
+			return out
+		if count <= 0:
+			push_error("卡牌数不合法 id:%s"%id)
+			return out
+		if cnt.get(id,"") == "":
+			cnt[id] = count
+		else: cnt[id] += count
+		sum += count
+		if cnt[id] > MAX_SAME_CARD:
+			push_error("同类型卡牌超出上限 id:%s"%id)
+			return out
+		if sum > DECK_SIZE:
+			push_error("卡组牌数超出上限")
+			return out
+	if sum != DECK_SIZE:
+		push_error("牌库不足: 当前%d张"%sum)
+		return out
+	for c in deck:
+		var count:int = int(c["count"])
+		var id:String = str(c["id"])
+		for i in range(count):
+			out.append(Card.from_dict(catalog[id]))
 	return out
