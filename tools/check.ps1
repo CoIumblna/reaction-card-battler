@@ -40,6 +40,23 @@ Write-Host "[import] ..." -NoNewline
 & $Godot --headless --path $ProjectRoot --import > $null 2>&1
 Write-Host " done"
 
+# 跑一个 Godot 脚本并取回完整文本。
+# 不能写 `& $Godot ... 2>&1 | Out-String`：Godot 的 printerr 会被 PowerShell 包成
+# NativeCommandError 记录，行首带上 "Godot_v4.7.2...exe : " 前缀和 CategoryInfo 噪声，
+# 导致 [FAIL] 行被截断/重复。改成用 cmd.exe 重定向到临时文件再按 UTF-8 读回。
+function Invoke-GodotScript {
+    param([string]$ScriptPath, [string]$Tag = "cap")
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dsh_" + $Tag + "_" + [System.Guid]::NewGuid().ToString("N").Substring(0,8) + ".log")
+    $exe = '"' + $Godot + '"'
+    $cmd = $exe + ' --headless --path "' + $ProjectRoot + '" --script "' + $ScriptPath + '" > "' + $tmp + '" 2>&1'
+    cmd.exe /c $cmd | Out-Null
+    $text = ""
+    if (Test-Path $tmp) {
+        $text = [System.IO.File]::ReadAllText($tmp, [System.Text.Encoding]::UTF8)
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    }
+    return $text
+}
 $files = Get-ChildItem (Join-Path $ProjectRoot "tests") -Filter "*_test.gd" -File | Sort-Object Name
 if ($files.Count -eq 0) {
     Write-Host "[错误] tests\ 下没有 *_test.gd" -ForegroundColor Red
@@ -58,8 +75,7 @@ Write-Host ("-" * 76)
 
 foreach ($f in $files) {
     $name = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-    $raw = & $Godot --headless --path $ProjectRoot --script ("res://tests/" + $name + ".gd") 2>&1
-    $text = ($raw | Out-String)
+    $text = Invoke-GodotScript -ScriptPath ("res://tests/" + $name + ".gd") -Tag $name
     $outputs[$name] = $text
 
     $checks = 0
@@ -149,7 +165,7 @@ if ($pendingFiles.Count -gt 0) {
     Write-Host "[待启用验收] tests/pending（不参与 CI / run_tests，只做基线报告）"
     foreach ($pf in $pendingFiles) {
         $pname = [System.IO.Path]::GetFileNameWithoutExtension($pf.Name)
-        $pout = & $Godot --headless --path $ProjectRoot --script ("res://tests/pending/" + $pname + ".gd") 2>&1 | Out-String
+        $pout = Invoke-GodotScript -ScriptPath ("res://tests/pending/" + $pname + ".gd") -Tag ("p_" + $pname)
         $pm = [regex]::Match($pout, "共 (\d+) 项检查，失败 (\d+) 项")
         $pc = 0
         $pfl = -1
@@ -162,6 +178,17 @@ if ($pendingFiles.Count -gt 0) {
             Write-Host ("  [就绪] {0}：{1} 项全绿 → 可以移到 tests/ 启用" -f $pname, $pc) -ForegroundColor Green
         } else {
             Write-Host ("  [待实现] {0}：{1} 项检查 / {2} 红 / {3} SCRIPT ERROR" -f $pname, $pc, $pfl, $perr) -ForegroundColor Yellow
+            # 把每条失败断言原样打出来：只给「N 红」等于让人去翻日志。
+            $fails = [regex]::Matches($pout, "\[FAIL\][^\r\n]*")
+            foreach ($fm in $fails) {
+                Write-Host ("      " + $fm.Value.Trim()) -ForegroundColor DarkYellow
+            }
+            if ($perr -gt 0) {
+                $serrs = [regex]::Matches($pout, "[^\r\n]*SCRIPT ERROR[^\r\n]*")
+                foreach ($sm in $serrs) {
+                    Write-Host ("      " + $sm.Value.Trim()) -ForegroundColor DarkRed
+                }
+            }
         }
     }
 }
@@ -169,7 +196,7 @@ if ($pendingFiles.Count -gt 0) {
 # ---------------------------------------------------------------- 数据校验（M3.5）
 $validatePath = Join-Path $ProjectRoot "tools\validate_data.gd"
 if (Test-Path $validatePath) {
-    $vout = & $Godot --headless --path $ProjectRoot --script res://tools/validate_data.gd 2>&1 | Out-String
+    $vout = Invoke-GodotScript -ScriptPath "res://tools/validate_data.gd" -Tag "validate"
     $vpass = $vout.Contains("PASS") -and (-not $vout.Contains("[ERROR]"))
     Write-Host ""
     if ($vpass) {
@@ -195,7 +222,7 @@ if ($totalFailed -eq 0 -and $totalScriptErrors -eq 0 -and $redFiles.Count -eq 0)
     if ($pendingFiles.Count -gt 0) {
         Write-Host "待启用验收在 tests/pending：任务卡见 docs/implementation-tasks.md §31–§35，全绿后移入 tests/ 再提交。"
     }
-    Write-Host "可以提交了：git add -A; git commit -F <消息文件>"
+    Write-Host "可以提交了：git add <逐个路径>; git commit -F <消息文件>（别用 git add -A，会把 WIP 和行尾噪音带进去）"
     exit 0
 }
 

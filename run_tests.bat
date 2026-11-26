@@ -16,6 +16,7 @@ if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 set "FAILED=0"
 set "PASSED_FILES=0"
 set "FAILED_FILES=0"
+set "PEND_RED=0"
 
 REM ============================================================================
 REM PART 1 -- main suite (tests\*_test.gd, auto-discovered)
@@ -110,7 +111,15 @@ if not "%NSERR%"=="0" goto :pending_red
 echo   [READY  ] %T%  %NCHK% checks  --^> git mv tests/pending/%T%.gd tests/
 goto :eof
 :pending_red
+set /a PEND_RED+=1
 echo   [PENDING] %T%  %NCHK% checks / %NFL% failed / %NSERR% script errors
+echo     ---- failed checks: %NFL% ----
+findstr /C:"[FAIL]" "%PLOG%"
+if not "%NSERR%"=="0" (
+    echo     ---- script errors: %NSERR% ----
+    findstr /C:"SCRIPT ERROR" "%PLOG%"
+)
+echo     ---- full log: %PLOG%
 goto :eof
 
 REM ============================================================================
@@ -135,5 +144,6 @@ if "%FAILED%"=="1" (
 ) else (
     echo ===== ALL GREEN =====  %PASSED_FILES% file^(s^) passed. Logs: "%OUTDIR%"
 )
+if not "%PEND_RED%"=="0" echo ===== note: %PEND_RED% pending test^(s^) still red -- details above in PART 1.5 =====
 if not "%NO_PAUSE%"=="1" pause
 exit /b %FAILED%
