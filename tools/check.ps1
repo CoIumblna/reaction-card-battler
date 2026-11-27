@@ -43,17 +43,34 @@ Write-Host " done"
 # 跑一个 Godot 脚本并取回完整文本。
 # 不能写 `& $Godot ... 2>&1 | Out-String`：Godot 的 printerr 会被 PowerShell 包成
 # NativeCommandError 记录，行首带上 "Godot_v4.7.2...exe : " 前缀和 CategoryInfo 噪声，
-# 导致 [FAIL] 行被截断/重复。改成用 cmd.exe 重定向到临时文件再按 UTF-8 读回。
+# 导致 [FAIL] 行被截断/重复。改成 Start-Process 直接重定向到临时文件再按 UTF-8 读回。
+#
+# 必须有墙钟超时：测试里（或被测代码里）有死循环时 Godot 不会崩、也不退出，
+# 整个 check 就永远挂着，看起来像工具坏了。超时杀掉并返回带 [HUNG] 的文本，
+# 让调用方按「没跑完」报，而不是去解析一个不存在的「共 N 项检查」。
 function Invoke-GodotScript {
-    param([string]$ScriptPath, [string]$Tag = "cap")
+    param([string]$ScriptPath, [string]$Tag = "cap", [int]$TimeoutSec = 90)
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dsh_" + $Tag + "_" + [System.Guid]::NewGuid().ToString("N").Substring(0,8) + ".log")
-    $exe = '"' + $Godot + '"'
-    $cmd = $exe + ' --headless --path "' + $ProjectRoot + '" --script "' + $ScriptPath + '" > "' + $tmp + '" 2>&1'
-    cmd.exe /c $cmd | Out-Null
+    $err = $tmp + ".err"
+    $proc = Start-Process -FilePath $Godot -ArgumentList '--headless','--path',('"' + $ProjectRoot + '"'),'--script',('"' + $ScriptPath + '"') -RedirectStandardOutput $tmp -RedirectStandardError $err -PassThru -NoNewWindow
+    if (-not $proc.WaitForExit($TimeoutSec * 1000)) {
+        try { $proc.Kill() } catch { }
+        try { $proc.WaitForExit() } catch { }
+        try { $proc.Dispose() } catch { }
+        Start-Sleep -Milliseconds 300
+        try { [System.IO.File]::AppendAllText($tmp, [Environment]::NewLine + "[HUNG] godot did not finish within $TimeoutSec s and was killed" + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding $false)) } catch { }
+    } else {
+        try { $proc.Dispose() } catch { }
+    }
     $text = ""
     if (Test-Path $tmp) {
         $text = [System.IO.File]::ReadAllText($tmp, [System.Text.Encoding]::UTF8)
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    }
+    if (Test-Path $err) {
+        $etext = [System.IO.File]::ReadAllText($err, [System.Text.Encoding]::UTF8)
+        if ($etext.Trim() -ne "") { $text = $text + [Environment]::NewLine + $etext }
+        Remove-Item $err -Force -ErrorAction SilentlyContinue
     }
     return $text
 }
@@ -89,14 +106,16 @@ foreach ($f in $files) {
     }
     $scriptErrors = ([regex]::Matches($text, "SCRIPT ERROR")).Count
     $hasPass = $text.Contains("PASS")
+    $hung = $text.Contains("[HUNG]")
 
     $totalChecks += $checks
     $totalFailed += $failed
     $totalScriptErrors += $scriptErrors
 
     $verdict = "PASS"
-    if ($failed -gt 0 -or -not $hasPass -or $scriptErrors -gt 0) {
-        $verdict = "FAIL"
+    if ($hung) { $verdict = "HUNG" }
+    if ($failed -gt 0 -or -not $hasPass -or $scriptErrors -gt 0 -or $hung) {
+        if (-not $hung) { $verdict = "FAIL" }
         $redFiles += $name
     }
     Write-Host ("{0,-26} {1,8} {2,8} {3,12}  {4}" -f $name, $checks, $failed, $scriptErrors, $verdict)
@@ -174,7 +193,15 @@ if ($pendingFiles.Count -gt 0) {
             $pfl = [int]$pm.Groups[2].Value
         }
         $perr = ([regex]::Matches($pout, "SCRIPT ERROR")).Count
-        if ($pfl -eq 0 -and $perr -eq 0) {
+        $phung = $pout.Contains("[HUNG]")
+        if ($phung) {
+            # 没跑完 = 没有任何裁决。"0 红" 在这里毫无意义，必须单独报。
+            Write-Host ("  [挂死] {0}：90 s 内没跑完，进程已杀（死循环？）→ 无裁决" -f $pname) -ForegroundColor Red
+            $tailLines = ($pout -split "`n") | Where-Object { $_.Trim() -ne "" } | Select-Object -Last 5
+            foreach ($tl in $tailLines) {
+                Write-Host ("      " + $tl.TrimEnd()) -ForegroundColor DarkRed
+            }
+        } elseif ($pfl -eq 0 -and $perr -eq 0) {
             Write-Host ("  [就绪] {0}：{1} 项全绿 → 可以移到 tests/ 启用" -f $pname, $pc) -ForegroundColor Green
         } else {
             Write-Host ("  [待实现] {0}：{1} 项检查 / {2} 红 / {3} SCRIPT ERROR" -f $pname, $pc, $pfl, $perr) -ForegroundColor Yellow
@@ -220,7 +247,7 @@ if ($target -eq 0) { $target = $totalChecks }
 if ($totalFailed -eq 0 -and $totalScriptErrors -eq 0 -and $redFiles.Count -eq 0) {
     Write-Host ("===== ALL GREEN：{0}/{0} =====" -f $target) -ForegroundColor Green
     if ($pendingFiles.Count -gt 0) {
-        Write-Host "待启用验收在 tests/pending：任务卡见 docs/implementation-tasks.md §31–§35，全绿后移入 tests/ 再提交。"
+        Write-Host "待启用验收在 tests/pending：任务卡见 docs/implementation-tasks.md（当前 M3.4 前置块 = §39），全绿后 git mv 进 tests/ 再提交。"
     }
     Write-Host "可以提交了：git add <逐个路径>; git commit -F <消息文件>（别用 git add -A，会把 WIP 和行尾噪音带进去）"
     exit 0
