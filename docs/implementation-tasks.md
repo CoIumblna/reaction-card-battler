@@ -2664,7 +2664,7 @@ attack_unit(我方, 敌方后排)          = true        ← 能打
 
 | 项 | 结果 |
 |---|---|
-| `run_tests.bat` | **ALL GREEN 19 file(s)**、`[详细自检] PASS（13 项通过、0 条提醒）`、退出码 0 |
+| `run_tests.bat` | **ALL GREEN 19 file(s)**、`[详细自检] PASS（14 项通过、0 条提醒）`、退出码 0 |
 | 逐文件求和 | **499 项 / 0 红**（ai_guard 14 + air_intercept 3 + m1_smoke 58 + m2 63 + board 38 + combat 59 + damage 23 + data 46 + deck_build 11 + deck 20 + guard 8 + keywords 17 + opening 25 + order 35 + stat_mod 7 + stat_system 18 + status 12 + unit_class 21 + unit 21） |
 | `validate_data` | **PASS**（0 错 0 警；15 种 / 57 张；两个 deck 各 39 张） |
 | `balance_sim --games 200 --seed 1` | **45.0% 胜 / 13.4 回合 / RUNNING 0%** —— 与改动前**逐位相同** |
