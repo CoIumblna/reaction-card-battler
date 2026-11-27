@@ -5,8 +5,9 @@ extends SceneTree
 ##   $g --headless --path . --script res://tools/validate_data.gd
 ##   退出码 0 = 数据合法；1 = 有非法项（会逐条打印 文件/位置/原因）
 ##
-## 检查范围：cards.json（字段/枚举/重复 id/张数）、reactions.json（元素配对/效果/状态引用）、
-##          statuses.json（效果字段）、elements.json（枚举完整性）。
+## 检查范围：cards.json（字段/枚举/重复 id/张数/limit）、reactions.json（元素配对/效果/状态引用）、
+##          statuses.json（效果字段）、elements.json（枚举完整性/duration）、
+##          enemies.json（hp/attack/immunities/固有护盾槽）、data/decks/*.json（39 张/每卡 limit）。
 ## 说明：只做"结构合法性"，不做数值平衡（平衡用 tools/balance_sim.gd）。
 
 var errors: Array[String] = []
@@ -47,6 +48,7 @@ func _initialize() -> void:
 	_check_statuses(statuses)
 	_check_reactions(reactions, statuses, element_ids)
 	_check_cards(cards, statuses, element_ids)
+	_check_enemies(element_ids)
 	_check_decks(cards)
 
 	print("---------------------------------------")
@@ -238,6 +240,66 @@ func _check_cards(cards: Array, statuses: Dictionary, element_ids: Array[String]
 	print("  [info] 卡牌种类 %d、牌组总张数 %d" % [seen.size(), total_count])
 
 
+# ---------------------------------------------------------------- 敌人校验（M3.6b）
+
+## 敌人数据很小但有两个容易写错的地方：
+##   1) immunities 是静态免疫（伤害 0、不反应、不挂槽），v3 起不再用它表达"自带元素护盾"；
+##   2) 固有护盾要写在 auras 里，且必须 innate:true + duration:0（护盾槽不随时间衰减）。
+## 写错了不会崩，只会静默变成"没有护盾的普通单位"，所以这里逐条抓出来。
+func _check_enemies(element_ids: Array[String]) -> void:
+	var path := "res://data/tables/enemies.json"
+	var enemies: Array = _load_array(path, "enemies")
+	if enemies.is_empty():
+		_error(path, "enemies 为空或加载失败")
+		return
+	var seen := {}
+	for i in range(enemies.size()):
+		var e = enemies[i]
+		if typeof(e) != TYPE_DICTIONARY:
+			_error("%s[%d]" % [path, i], "敌人项不是对象")
+			continue
+		var id := str(e.get("id", ""))
+		if id == "":
+			_error("%s[%d]" % [path, i], "缺 id")
+			continue
+		if seen.has(id):
+			_error(path, "敌人 id 重复：`%s`" % id)
+		seen[id] = true
+		if str(e.get("name", "")) == "":
+			_error(path, "敌人 `%s` 缺 name" % id)
+		if int(e.get("hp", 0)) <= 0:
+			_error(path, "敌人 `%s` 的 hp 必须 > 0" % id)
+		if int(e.get("attack", 0)) < 0:
+			_error(path, "敌人 `%s` 的 attack 不能为负" % id)
+
+		var innates: Array[String] = []
+		for a in _as_array(e.get("auras", [])):
+			if typeof(a) != TYPE_DICTIONARY:
+				_error(path, "敌人 `%s` 的 auras 项不是对象" % id)
+				continue
+			var el := str(a.get("element", ""))
+			if not element_ids.has(el):
+				_error(path, "敌人 `%s` 的 aura 元素 `%s` 不在 elements.json" % [id, el])
+			if not bool(a.get("innate", false)):
+				_warn(path, "敌人 `%s` 的 %s 槽不是 innate（普通附着，会随时间消失）" % [id, el])
+				continue
+			innates.append(el)
+			if float(a.get("amount", 0.0)) <= 0.0:
+				_error(path, "敌人 `%s` 的护盾 `%s` 的 amount 必须 > 0" % [id, el])
+			if int(a.get("duration", -1)) != 0:
+				_error(path, "敌人 `%s` 的护盾 `%s` 的 duration 必须写 0（护盾不随时间衰减）" % [id, el])
+		if innates.size() > 3:
+			_error(path, "敌人 `%s` 的护盾槽 %d 个，超过 Unit.MAX_AURAS(3)" % [id, innates.size()])
+
+		for im in _as_array(e.get("immunities", [])):
+			var imel := str(im)
+			if not element_ids.has(imel):
+				_error(path, "敌人 `%s` 的免疫元素 `%s` 不在 elements.json" % [id, imel])
+			if innates.has(imel):
+				_error(path, "敌人 `%s` 对 `%s` 同时写了静态免疫和固有护盾，语义冲突（护盾免疫要能被反应啃掉，静态免疫不会）" % [id, imel])
+	print("  [info] 敌人 %d 种 ✓" % enemies.size())
+
+
 func _as_array(v: Variant) -> Array:
 	if typeof(v) == TYPE_ARRAY:
 		return v
@@ -248,6 +310,10 @@ func _as_array(v: Variant) -> Array:
 
 func _error(where: String, msg: String) -> void:
 	errors.append("%s：%s" % [where, msg])
+
+
+func _warn(where: String, msg: String) -> void:
+	warnings.append("%s：%s" % [where, msg])
 
 # ---------------------------------------------------------------- 牌组校验（M3.5）
 
