@@ -70,7 +70,12 @@ set "RG_SEC=%~3"
 if "%RG_SEC%"=="" set "RG_SEC=90"
 del /q "%RG_LOG%" 2>nul
 del /q "%RG_LOG%.err" 2>nul
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$sec=[int]'%RG_SEC%'; $p=Start-Process -FilePath '%GODOT%' -ArgumentList '--headless','--path','%PROJ%.','--script','%RG_SCRIPT%' -RedirectStandardOutput '%RG_LOG%' -RedirectStandardError '%RG_LOG%.err' -PassThru -NoNewWindow; if(-not $p.WaitForExit($sec*1000)){ try{$p.Kill()}catch{}; $p.WaitForExit(); Add-Content -LiteralPath '%RG_LOG%' -Value ''; Add-Content -LiteralPath '%RG_LOG%' -Value ('[HUNG] godot did not finish within ' + $sec + 's and was killed'); exit 3 }; exit $p.ExitCode"
+REM On timeout: Kill(), then WAIT for the redirect handles to close before
+REM appending the [HUNG] marker. Add-Content right after Kill() fails with
+REM "Stream was not readable" because the child still owns the log handle --
+REM that error used to be printed as noise above the [HUNG] report. Hence:
+REM Dispose + a short settle, then AppendAllText (no handle reuse, UTF-8 no BOM).
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$sec=[int]'%RG_SEC%'; $p=Start-Process -FilePath '%GODOT%' -ArgumentList '--headless','--path','%PROJ%.','--script','%RG_SCRIPT%' -RedirectStandardOutput '%RG_LOG%' -RedirectStandardError '%RG_LOG%.err' -PassThru -NoNewWindow; if(-not $p.WaitForExit($sec*1000)){ try{$p.Kill()}catch{}; try{$p.WaitForExit()}catch{}; try{$p.Dispose()}catch{}; Start-Sleep -Milliseconds 300; try{ [IO.File]::AppendAllText('%RG_LOG%', [Environment]::NewLine + '[HUNG] godot did not finish within ' + $sec + 's and was killed' + [Environment]::NewLine, (New-Object Text.UTF8Encoding $false)) }catch{ exit 4 }; exit 3 }; exit $p.ExitCode"
 set "RG_RC=%errorlevel%"
 if exist "%RG_LOG%.err" (
     for %%s in ("%RG_LOG%.err") do if %%~zs GTR 0 type "%RG_LOG%.err" >> "%RG_LOG%"
@@ -151,7 +156,7 @@ REM nothing. Report the kill, not a failure count.
 set /a PEND_RED+=1
 echo   [HUNG   ] %T%  killed on timeout -- infinite loop, no verdict available
 echo     ---- last lines before the kill ----
-powershell -NoProfile -Command "Get-Content -LiteralPath '%PLOG%' -Tail 5 -Encoding UTF8"
+powershell -NoProfile -Command "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-Content -LiteralPath '%PLOG%' -Tail 5 -Encoding UTF8"
 echo     ---- full log: %PLOG%
 goto :eof
 
