@@ -49,7 +49,9 @@
 > `run_tests.bat` 和 CI 都是**自动发现** `tests/*_test.gd`（`tests/pending/` 不算），加测试文件不用改脚本。
 
 > **每个单文件跑都带 90 s 硬性超时**：超时杀掉进程并在日志尾部写 `[HUNG]`，该文件判红。
-> 以前死循环会让整场测试永远卡住、看起来像环境坏了；现在它是一条明确的失败。详见 [HANDOFF §22](docs/HANDOFF-2026-11-23.md)。
+> 以前死循环会让整场测试永远卡住、看起来像环境坏了；现在它是一条明确的失败。
+> `run_tests.bat`、`tools\check.bat`、CI 三个入口都有这个超时——只要有一个入口没有，整条工具链就还是会被死循环挂死。
+> 详见 [HANDOFF §22](docs/HANDOFF-2026-11-23.md)。
 
 ## 玩法（三行版，详细设计见 docs/game-design.md）
 
@@ -101,7 +103,7 @@ $g = "..\..\..\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.e
 
 # 2. 跑测试（唯一验收入口：主套 + pending 基线 + 详细自检三段式）
 #    严格版：run_tests.bat —— 每个文件要求 PASS + 无 [FAIL] + 无 SCRIPT ERROR + 无 [HUNG]
-#    看进度：tools\check.bat —— 进度表 + 检查点 + 下一步建议
+#    看进度：tools\check.bat —— 进度表 + 检查点 + 下一步建议（同样带 90s 超时）
 run_tests.bat
 
 # 2b. 只跑某一个文件（调试时用）
