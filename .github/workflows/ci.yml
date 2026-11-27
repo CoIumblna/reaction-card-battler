@@ -23,19 +23,33 @@ jobs:
 
       # 自动发现 tests/*_test.gd（tests/pending/ 不参与）。
       # 退出码 0 不等于全绿：脚本报错被吞时测试照样打印 PASS，
-      # 所以每个文件额外要求：① 退出码 0 ② 打印了 PASS ③ 输出里没有 SCRIPT ERROR。
+      # 所以每个文件额外要求：① 退出码 0 ② 打印了 PASS ③ 没有 SCRIPT ERROR ④ 没有 [FAIL]。
+      # 另外每个文件 90 s 硬超时：死循环不会报错、只会永远不返回，
+      # 没有超时的话表现是「CI 卡住 10 分钟后整个 job 超时」，看不出是哪个文件在转圈。
       - name: 跑所有测试文件
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           FAIL=0
           for f in tests/*_test.gd; do
             t=$(basename "$f" .gd)
             echo "========== $t =========="
             LOG="/tmp/$t.log"
-            godot --headless --path . --script "res://tests/$t.gd" 2>&1 | tee "$LOG" || FAIL=1
+            timeout 90 godot --headless --path . --script "res://tests/$t.gd" > "$LOG" 2>&1
+            RC=$?
+            cat "$LOG"
+            if [ "$RC" -eq 124 ]; then
+              echo "::error file=tests/$t.gd::$t 90s 内没跑完（死循环？）"
+              FAIL=1
+            elif [ "$RC" -ne 0 ]; then
+              FAIL=1
+            fi
             if grep -q "SCRIPT ERROR" "$LOG"; then
               echo "::error file=tests/$t.gd::$t 输出里有 SCRIPT ERROR（可能假绿）"
+              FAIL=1
+            fi
+            if grep -q "\[FAIL\]" "$LOG"; then
+              echo "::error file=tests/$t.gd::$t 输出里有 [FAIL]"
               FAIL=1
             fi
             if ! grep -q "PASS" "$LOG"; then

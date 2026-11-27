@@ -8,7 +8,8 @@
 > 项目计划见 [项目计划_知识储备与行动大纲.md](项目计划_知识储备与行动大纲.md)。
 
 当前状态：**M1 / M2 / P1（E7a）/ P2（E7b）/ M3.1 / M3.2 / M3.3 / M3.3b / M3.5 / M3.7 全部已完成**，
-主套 **18 个测试文件 485 项全绿**；`tests/pending/` 只剩 **1 份红基线**：`ai_guard_test`（14 项 / 6 失败）。
+主套 **18 个测试文件 485 项全绿**；`tests/pending/` 只剩 **1 份红基线**：`ai_guard_test`（14 项）。
+**它现在的状态是 `[HUNG]` 而不是「6 红」**——学员 WIP 里有个死循环，跑不完（见 [HANDOFF §22](docs/HANDOFF-2026-11-23.md)）。
 当前任务：**M3.4 前置块 · AI 选目标**（清 M3.2 遗留的「AI 遇 Guard 白扔回合」）——作业单 [docs/brief-m34-ai-guard-2026-11-26.md](docs/brief-m34-ai-guard-2026-11-26.md)，
 第一轮评审 [docs/review-m34-ai-guard-2026-11-27.md](docs/review-m34-ai-guard-2026-11-27.md)；做完它主套变成 **19 文件 499 项**。
 之后的活已经在 GitHub 上开成 issue（milestone **M3**）：[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种 · [#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3 · [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；当前块是 [#1](https://github.com/CoIumblna/reaction-card-battler/issues/1)。
@@ -39,12 +40,15 @@
 | `tests/deck_build_test.gd` | M3.5：卡组构筑 39+1 | 11 | 0 |
 | `tests/stat_mod_test.gd` | M3.7：defense_down 数值 | 7 | 0 |
 | `tests/stat_system_test.gd` | M3.7：通用 stat 系统 | 18 | 0 |
-| `tests/pending/ai_guard_test.gd` | **M3.4 前置块待启用**：AI 选目标的 Guard 规则（S1–S6） | 14 | 6 |
+| `tests/pending/ai_guard_test.gd` | **M3.4 前置块待启用**：AI 选目标的 Guard 规则（S1–S6） | 14 | `[HUNG]` |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
 
 > 主套合计 **485 项 / 18 文件**；`ai_guard_test` 启用后 **499 项 / 19 文件**。
 
 > `run_tests.bat` 和 CI 都是**自动发现** `tests/*_test.gd`（`tests/pending/` 不算），加测试文件不用改脚本。
+
+> **每个单文件跑都带 90 s 硬性超时**：超时杀掉进程并在日志尾部写 `[HUNG]`，该文件判红。
+> 以前死循环会让整场测试永远卡住、看起来像环境坏了；现在它是一条明确的失败。详见 [HANDOFF §22](docs/HANDOFF-2026-11-23.md)。
 
 ## 玩法（三行版，详细设计见 docs/game-design.md）
 
@@ -95,7 +99,7 @@ $g = "..\..\..\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.e
 & $g --headless --path . --import
 
 # 2. 跑测试（唯一验收入口：主套 + pending 基线 + 详细自检三段式）
-#    严格版：run_tests.bat —— 每个文件要求 PASS + 无 [FAIL] + 无 SCRIPT ERROR
+#    严格版：run_tests.bat —— 每个文件要求 PASS + 无 [FAIL] + 无 SCRIPT ERROR + 无 [HUNG]
 #    看进度：tools\check.bat —— 进度表 + 检查点 + 下一步建议
 run_tests.bat
 

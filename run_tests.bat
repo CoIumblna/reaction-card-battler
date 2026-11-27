@@ -49,10 +49,38 @@ if not errorlevel 1 (
 for %%f in ("%PROJ%tests\*_test.gd") do call :run_one "%%~nf"
 goto :pending
 
+REM ============================================================================
+REM :run_godot  <res-script>  <logfile>  <timeout-seconds>
+REM   Runs one test script with a hard wall-clock limit.
+REM
+REM   WHY: an infinite loop in a test (or in the code under test) does not
+REM   crash Godot -- it prints nothing and never exits, so the whole .bat sits
+REM   there forever and CI looks "still running" instead of "failed". A red
+REM   baseline you cannot finish is worse than a red baseline.
+REM
+REM   On timeout the process is killed and the log gets a final line:
+REM       [HUNG] godot did not finish within Ns and was killed
+REM   so PART 1 / PART 1.5 can report it as a normal failure.
+REM ============================================================================
+:run_godot
+if "%~1"=="" goto :eof
+set "RG_SCRIPT=%~1"
+set "RG_LOG=%~2"
+set "RG_SEC=%~3"
+if "%RG_SEC%"=="" set "RG_SEC=90"
+del /q "%RG_LOG%" 2>nul
+del /q "%RG_LOG%.err" 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$sec=[int]'%RG_SEC%'; $p=Start-Process -FilePath '%GODOT%' -ArgumentList '--headless','--path','%PROJ%.','--script','%RG_SCRIPT%' -RedirectStandardOutput '%RG_LOG%' -RedirectStandardError '%RG_LOG%.err' -PassThru -NoNewWindow; if(-not $p.WaitForExit($sec*1000)){ try{$p.Kill()}catch{}; $p.WaitForExit(); Add-Content -LiteralPath '%RG_LOG%' -Value ''; Add-Content -LiteralPath '%RG_LOG%' -Value ('[HUNG] godot did not finish within ' + $sec + 's and was killed'); exit 3 }; exit $p.ExitCode"
+set "RG_RC=%errorlevel%"
+if exist "%RG_LOG%.err" (
+    for %%s in ("%RG_LOG%.err") do if %%~zs GTR 0 type "%RG_LOG%.err" >> "%RG_LOG%"
+)
+exit /b %RG_RC%
+
 :run_one
 set "T=%~1"
 set "LOG=%OUTDIR%\%T%.log"
-"%GODOT%" --headless --path "%PROJ%." --script "res://tests/%T%.gd" > "%LOG%" 2>&1
+call :run_godot "res://tests/%T%.gd" "%LOG%" 90
 set "BAD=0"
 if errorlevel 1 set "BAD=1"
 findstr /C:"PASS" "%LOG%" >nul
@@ -60,6 +88,8 @@ if errorlevel 1 set "BAD=1"
 findstr /C:"[FAIL]" "%LOG%" >nul
 if not errorlevel 1 set "BAD=1"
 findstr /C:"SCRIPT ERROR" "%LOG%" >nul
+if not errorlevel 1 set "BAD=1"
+findstr /C:"[HUNG]" "%LOG%" >nul
 if not errorlevel 1 set "BAD=1"
 if "%BAD%"=="1" (
     set /a FAILED_FILES+=1
@@ -96,7 +126,9 @@ goto :preflight
 :pending_one
 set "T=%~1"
 set "PLOG=%OUTDIR%\pending_%T%.log"
-"%GODOT%" --headless --path "%PROJ%." --script "res://tests/pending/%T%.gd" > "%PLOG%" 2>&1
+REM A pending test is the MOST likely place to hang (that is what the student
+REM is mid-implementation on), so it gets a shorter leash than the main suite.
+call :run_godot "res://tests/pending/%T%.gd" "%PLOG%" 90
 REM Count lines by iterating the matches -- do NOT use "| find /c /v \"\"" here:
 REM inside for /f that empty-string arg gets mangled and find hangs on stdin.
 set "NCHK=0"
@@ -106,10 +138,23 @@ for /f %%c in ('findstr /C:"[ok]" "%PLOG%"') do set /a NCHK+=1
 for /f %%c in ('findstr /C:"[FAIL]" "%PLOG%"') do set /a NFL+=1
 for /f %%c in ('findstr /C:"SCRIPT ERROR" "%PLOG%"') do set /a NSERR+=1
 set /a NCHK+=NFL
+findstr /C:"[HUNG]" "%PLOG%" >nul
+if not errorlevel 1 goto :pending_hung
 if not "%NFL%"=="0" goto :pending_red
 if not "%NSERR%"=="0" goto :pending_red
 echo   [READY  ] %T%  %NCHK% checks  --^> git mv tests/pending/%T%.gd tests/
 goto :eof
+
+:pending_hung
+REM Distinct from a normal red: the run never finished, so "0 failed" means
+REM nothing. Report the kill, not a failure count.
+set /a PEND_RED+=1
+echo   [HUNG   ] %T%  killed on timeout -- infinite loop, no verdict available
+echo     ---- last lines before the kill ----
+powershell -NoProfile -Command "Get-Content -LiteralPath '%PLOG%' -Tail 5 -Encoding UTF8"
+echo     ---- full log: %PLOG%
+goto :eof
+
 :pending_red
 set /a PEND_RED+=1
 echo   [PENDING] %T%  %NCHK% checks / %NFL% failed / %NSERR% script errors
