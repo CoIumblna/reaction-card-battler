@@ -154,18 +154,14 @@ func _ai(owner:String) -> void:#这是初版ai,后续会加入各种流派卡组
 				continue
 			move_unit(u,"front",board.first_empty_unit_slot("front"))
 			
-	if board.has_unit_of("front") == owner:
-		for u in board.units_in("front"):
-			if u.is_hq || not u.can_attack() || u.operation_cost > _energy_of(owner):
+	for l in Board.LINES:
+		for u in board.units_in(l):
+			if u.owner != owner or u.is_hq:
 				continue
-			attack_unit(u,_opposite_hq(owner))
-	elif board.has_unit_of("front") == _opposite(owner):
-		for u in board.units_in(_support_of(owner)):
-			if u.is_hq || not u.can_attack() || u.operation_cost > _energy_of(owner):
-				continue
-			var tgu = board.find_first_attackable("front",owner)
-			if tgu == null: break
-			attack_unit(u,tgu)
+			_ai_attack(u,owner)
+			if is_over():
+				return
+	
 
 
 
@@ -528,8 +524,10 @@ func shuffle(dck:Array[Card]) -> void:
 
 
 func _is_guarded(target:Unit) -> bool:
+	if target == null: return false
 	if target.is_guard(): return false
 	var tmp = board.position_of(target)
+	if tmp.is_empty(): return false
 	for i in range(Board.SLOT_COUNT):
 		if abs(i-tmp[1]) == 1:
 			if board.slots[tmp[0]][i] != null && board.slots[tmp[0]][i].is_guard():
@@ -552,4 +550,38 @@ func _line_span_to(attacker:Unit, from:String, to:String) -> bool:
 		return true
 	elif attacker.is_air():
 		return true
+	return false
+
+
+func _ai_attack_targets(owner:String) -> Array[Unit]:
+	var out:Array[Unit] = []
+	var fst:Array[Unit] = []
+	var sec:Array[Unit] = []
+	out.append(_opposite_hq(owner))
+	for l in Board.LINES:
+		for u in board.units_in(l):
+			if u == _opposite_hq(owner):continue
+			if u.owner == _opposite(owner):
+				if u.is_guard():
+					sec.append(u)
+				elif not _is_guarded(u):
+					fst.append(u)
+	for u in fst:out.append(u)
+	for u in sec:out.append(u)
+	return out
+
+
+func _ai_attack(unit:Unit, owner:String) -> bool:
+	if unit == null: return false
+	if unit.owner != owner: return false
+	if _energy_of(owner) < unit.operation_cost: return false
+	if unit.has_attacked: return false
+	var at:Array = board.position_of(unit)
+	var avai:Array[Unit] = _ai_attack_targets(owner)
+	if avai.is_empty(): return false
+	for u in avai:
+		var to:Array = board.position_of(u)
+		if _line_span_to(unit,at[0],to[0]):
+			if attack_unit(unit,u):
+				return true
 	return false
