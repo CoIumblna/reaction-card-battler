@@ -345,44 +345,54 @@ static func self_check(path: String, must_have: String, expect_count: int, must_
 	return ""
 
 
-## 在 cards 数组末尾插一行（并给原来的最后一张补逗号）
+## 在 cards 数组末尾插一张卡（并给原来的最后一张补逗号）
+## 关键：cards.json 允许「一张卡占多行」（学员 2026-11-27 把它重排成了多行缩进格式），
+## 所以一切定位都按**卡块**（大括号配对的整段）来做，不能假设「一张卡一行」。
 static func surgical_insert(text: String, line: String) -> String:
 	var lines := text.split("\n")
 	var close := _cards_close_index(lines)
 	if close < 0:
 		return ""
-	var last := _last_card_index(lines, close)
-	if last >= 0 and not lines[last].strip_edges().ends_with(","):
-		lines[last] = lines[last] + ","
+	var last: Array = _last_card_block(lines, close)
+	if last.size() == 2:
+		var end_line: String = lines[int(last[1])]
+		if not end_line.strip_edges().ends_with(","):
+			lines[int(last[1])] = end_line + ","
 	lines.insert(close, "    " + line)
 	return "\n".join(lines)
 
 
-## 把 id 对应的那一行换掉
+## 把 id 对应的那一整块（单行或多行）换掉
 static func surgical_replace(text: String, id: String, line: String) -> String:
 	var lines := text.split("\n")
-	var idx := _card_index_of(lines, id)
-	if idx < 0:
+	var blk: Array = _card_block_of(lines, id)
+	if blk.is_empty():
 		return ""
-	var had_comma := lines[idx].strip_edges().ends_with(",")
-	lines[idx] = "    " + line + ("," if had_comma else "")
+	var had_comma := lines[int(blk[1])].strip_edges().ends_with(",")
+	var indent := _indent_of(lines[int(blk[0])])
+	var merged := indent + line + ("," if had_comma else "")
+	for i in range(int(blk[1]), int(blk[0]) - 1, -1):
+		lines.remove_at(i)
+	lines.insert(int(blk[0]), merged)
 	return "\n".join(lines)
 
 
-## 删掉 id 对应的那一行（若成了最后一张，去掉它前一张的尾逗号）
+## 删掉 id 对应的那一整块（若成了最后一张，去掉它前一张的尾逗号）
 static func surgical_delete(text: String, id: String) -> String:
 	var lines := text.split("\n")
-	var idx := _card_index_of(lines, id)
-	if idx < 0:
+	var blk: Array = _card_block_of(lines, id)
+	if blk.is_empty():
 		return ""
-	lines.remove_at(idx)
+	for i in range(int(blk[1]), int(blk[0]) - 1, -1):
+		lines.remove_at(i)
 	var close := _cards_close_index(lines)
 	if close >= 0:
-		var last := _last_card_index(lines, close)
-		if last >= 0 and lines[last].strip_edges().ends_with(","):
-			var s := lines[last]
-			var pos := s.rfind(",")
-			lines[last] = s.substr(0, pos) + s.substr(pos + 1)
+		var last: Array = _last_card_block(lines, close)
+		if last.size() == 2:
+			var s: String = lines[int(last[1])]
+			if s.strip_edges().ends_with(","):
+				var pos := s.rfind(",")
+				lines[int(last[1])] = s.substr(0, pos) + s.substr(pos + 1)
 	return "\n".join(lines)
 
 
@@ -393,29 +403,93 @@ static func _cards_close_index(lines: PackedStringArray) -> int:
 	return -1
 
 
-static func _last_card_index(lines: PackedStringArray, close: int) -> int:
-	for i in range(close - 1, -1, -1):
-		if lines[i].strip_edges().begins_with("{"):
+## 最后一张卡的卡块，返回 [首行, 末行]；没有卡时返回空数组
+static func _last_card_block(lines: PackedStringArray, close: int) -> Array:
+	var blocks: Array = _card_blocks(lines, close)
+	if blocks.is_empty():
+		return []
+	return blocks[blocks.size() - 1]
+
+
+## 按 id 找卡块，返回 [首行, 末行]；找不到返回空数组
+static func _card_block_of(lines: PackedStringArray, id: String) -> Array:
+	var close := _cards_close_index(lines)
+	if close < 0:
+		return []
+	for blk in _card_blocks(lines, close):
+		if _id_of_block(lines, blk) == id:
+			return blk
+	return []
+
+
+## 扫出 cards 数组里所有卡块。大括号配对，跳过字符串字面量里的括号。
+## 只扫 `"cards": [` 之后到数组闭合 `]` 之前，否则会把最外层文件对象的大括号算进来。
+static func _card_blocks(lines: PackedStringArray, close: int) -> Array:
+	var out: Array = []
+	var open := _cards_open_index(lines, close)
+	if open < 0:
+		return out
+	var depth := 0
+	var start := -1
+	for i in range(open + 1, close):
+		var in_str := false
+		var escaped := false
+		for idx in range(lines[i].length()):
+			var c := lines[i][idx]
+			if in_str:
+				if escaped:
+					escaped = false
+				elif c == "\\":
+					escaped = true
+				elif c == "\"":
+					in_str = false
+				continue
+			if c == "\"":
+				in_str = true
+			elif c == "{":
+				if depth == 0:
+					start = i
+				depth += 1
+			elif c == "}":
+				depth -= 1
+				if depth <= 0:
+					depth = 0
+					if start >= 0:
+						out.append([start, i])
+						start = -1
+	return out
+
+
+## cards 数组的 `[` 所在行（跳过字符串里的方括号）
+## 先找标准写法 `"cards": [` / `"cards":[`；找不到就退回「以 "cards" 开头的行」，
+## 这样缩进或空格写法变了也不会整段失效（2026-11-27 学员重排过格式，踩过这个坑）。
+static func _cards_open_index(lines: PackedStringArray, close: int) -> int:
+	for i in range(close):
+		var s := lines[i].strip_edges()
+		if s == "\"cards\": [" or s == "\"cards\":[":
+			return i
+	for i in range(close):
+		if lines[i].strip_edges().begins_with("\"cards\""):
 			return i
 	return -1
 
 
-static func _card_index_of(lines: PackedStringArray, id: String) -> int:
-	for i in range(lines.size()):
-		if not lines[i].strip_edges().begins_with("{"):
-			continue
-		if _id_of_line(lines[i]) == id:
-			return i
-	return -1
-
-
-static func _id_of_line(line: String) -> String:
-	var s := line.strip_edges()
+static func _id_of_block(lines: PackedStringArray, blk: Array) -> String:
+	var buf := ""
+	for i in range(int(blk[0]), int(blk[1]) + 1):
+		buf += lines[i] + "\n"
+	var s := buf.strip_edges()
 	if s.ends_with(","):
 		s = s.substr(0, s.length() - 1)
-	if not s.ends_with("}"):
-		return ""
 	var d = JSON.parse_string(s)
 	if typeof(d) == TYPE_DICTIONARY:
 		return str(d.get("id", ""))
 	return ""
+
+
+## 取一行的前导空白（制表符或空格），拼新行时沿用原缩进
+static func _indent_of(line: String) -> String:
+	var i := 0
+	while i < line.length() and (line[i] == "\t" or line[i] == " "):
+		i += 1
+	return line.substr(0, i)

@@ -18,7 +18,7 @@
 |---|---|---|
 | `unit_maker.bat` + `unit_maker.tscn` + `unit_maker.gd` | **单位卡图形制作工具**（双击 `unit_maker.bat`）：左栏选卡 → 中栏预览卡面 → 右栏改数值 → `Ctrl+S` 写回 `cards.json` | 预览用的是 `src/ui/card_view.gd`，**和 M4 手牌区是同一个组件** |
 | `card_lib.gd` | 卡牌数据的唯一格式入口：读 / 校验 / 序列化 / **行级手术**写回 | `add_unit_card.gd` 与图形工具共用它，格式只维护一份 |
-| `test_card_lib.gd` | `card_lib.gd` 的自检（55 项）：读、插入、覆盖、删除、组合手术、校验、数值格式、**元素可选清单** | `run_tests.bat` 的 preflight 第 10 项会自动跑 |
+| `test_card_lib.gd` | `card_lib.gd` 的自检（61 项）：读、插入、覆盖、删除、组合手术、校验、数值格式、**元素可选清单** | `run_tests.bat` 的 preflight 第 10 项会自动跑 |
 | `test_card_view.gd` | `card_view.gd` 的回归（7 项）：主题共享 stylebox、**同屏多卡串色**、卡图路径约定 | preflight 第 12 项；防的是「单卡预览看不出来、一显示 5 张手牌全变一个色」 |
 | `check_font.gd` | 中文字体体检：确认界面能把中文画成字而不是方块 | preflight 第 8 项；M4 所有界面都依赖它 |
 | `src/ui/ui_theme.gd` | 全局主题（中文字体 / 配色 / 控件样式） | M4 每个场景 `theme = UiTheme.make_theme()` |
@@ -98,7 +98,7 @@ Godot_v4.x-stable_win64_console.exe --headless --path . --script res://tools/add
 **验证手段（两条，都不靠肉眼）**：
 
 ```powershell
-# 1. 卡牌读写/校验逻辑（55 项）
+# 1. 卡牌读写/校验逻辑（61 项）
 & $g --headless --path . --script res://tools/test_card_lib.gd
 
 # 2. 真界面端到端：用代码驱动这个窗口走「选卡→改字段→保存→新建→删除→还原」（30 项）
@@ -315,14 +315,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 | `delete_card` | `static (path, id) -> String` | 删一行；若删的是最后一张，会去掉前一张的行尾逗号（否则 JSON 坏） |
 | `write_text` | `static (path, text) -> String` | 落盘。返回 `""` = 成功 |
 | `self_check` | `static (path, must_have, expect_count, must_be_gone) -> String` | 写完重新解析自检：条数对、该有的在、该没的没了。失败时提示 `git checkout --` 回滚 |
-| `surgical_insert` / `surgical_replace` / `surgical_delete` | `static (text: String, ...) -> String` | 在**文本行**上做手术，其它行字节不变。拼不出来时返回 `""`（表示格式不是「一张卡一行」） |
-| `_cards_close_index` / `_last_card_index` / `_card_index_of` / `_id_of_line` | 私有 | 定位 `]` 行 / 最后一张卡行 / 某 id 的行 / 从行文本里取 id |
+| `surgical_insert` / `surgical_replace` / `surgical_delete` | `static (text: String, ...) -> String` | 在**文本块**上做手术，其它卡块的字节不变。拼不出来时返回 `""`（`cards` 数组里找不到卡块） |
+| `_cards_close_index` / `_cards_open_index` / `_card_blocks` / `_last_card_block` / `_card_block_of` / `_id_of_block` / `_indent_of` | 私有 | 定位 `]` 行 / `"cards": [` 行 / **扫出所有卡块（大括号配对，跳过字符串里的括号）** / 最后一个卡块 / 某 id 的卡块 / 从卡块文本里取 id / 取原缩进 |
 
-**为什么必须行级手术**：现有 `cards.json` 里指令卡的键顺序并不统一（`guard` 是 `power` 在前，`fire_bolt` 是 `target` 在前）。整份重新序列化会把没动过的 10 张卡全部重排，git diff 里冒出几十行无关改动。
+**为什么必须卡块级手术**：现有 `cards.json` 里指令卡的键顺序并不统一（`guard` 是 `power` 在前，`fire_bolt` 是 `target` 在前）。整份重新序列化会把没动过的卡全部重排，git diff 里冒出几十行无关改动。
+
+**一张卡占几行都可以**：2026-11-27 学员把 `cards.json` 重排成了「一张卡多行、缩进展开」的格式，原来的「一张卡一行」
+假设（`begins_with("{")` 找最后一行）当场失效 —— 它会命中一个独立的 `\t\t{` 行、把逗号补成 `{,`，
+`test_card_lib` 的 [2]插入/[3]覆盖/[4]删除/[5]组合手术 全红。现在改成**按卡块（大括号配对）定位**，
+插入补在最后一块的 `}` 行、替换/删除整块拿下、新行沿用原缩进，单行与多行两种格式都过（61 项全绿，两种格式各验证过一次）。
 
 ### D3. `tools/test_card_lib.gd` 与 `tools/unit_maker.gd` 的验证方法
 
-`test_card_lib.gd`（55 项，`--script` 跑）：`_reset_tmp`/`_tmp_text`/`_line_count`/`_card_ids` 把 `cards.json` 复制到 `user://` 上反复手术，断言「其余行字节不变」「删最后一张后 JSON 仍合法」等。`EXPECTED_CHECKS := 55`（第 [9] 组 `_test_element_choices` 专门守「卡牌只能选 6 基础元素，复合元素禁止」）。
+`test_card_lib.gd`（61 项，`--script` 跑）：`_reset_tmp`/`_tmp_text`/`_line_count`/`_card_ids` 把 `cards.json` 复制到 `user://` 上反复手术，断言「其余行字节不变」「删最后一张后 JSON 仍合法」等。`EXPECTED_CHECKS := 61`（第 [9] 组 `_test_element_choices` 专门守「卡牌只能选 6 基础元素，复合元素禁止」）。
 
 `unit_maker.gd`（图形工具，`Control`）：
 

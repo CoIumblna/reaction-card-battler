@@ -1,9 +1,7 @@
-# ui_smoke.bat — M4 UI 测试冒烟入口（教练侧验收脚本）
-# 跑 tests/ui_*_test.gd（主套）与 tests/pending/ui_*_test.gd（待启用），
-# 逐个执行、汇总裁决；任一 [FAIL]/[HUNG]/[SCRIPT ERROR] 则退出码 1。
-# 约束：CRLF + 纯 ASCII + 无 BOM（.gitattributes 固定 .bat -> eol=crlf）。
-# 90s 硬超时与 run_tests.bat 同源（Start-Process + WaitForExit + Kill + [HUNG]）。
 @echo off
+REM ui_smoke.bat -- M4 UI smoke runner (pure ASCII; CRLF; no BOM).
+REM Runs tests/ui_*_test.gd (main) and tests/pending/ui_*_test.gd (pending),
+REM one by one, aggregates verdicts; any [FAIL]/[HUNG]/[SCRIPT ERROR] -> exit 1.
 setlocal EnableDelayedExpansion
 chcp 65001 >nul
 

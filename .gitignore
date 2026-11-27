@@ -10,5 +10,8 @@ export/
 *.log
 .DS_Store
 
+# 验收脚本的运行日志（tools/ui_smoke.bat 与 tools/ai_order_report.ps1 会往这里写）
+/logs/
+
 # 平衡模拟输出（M3.6）
 /balance*.csv
