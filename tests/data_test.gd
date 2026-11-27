@@ -9,7 +9,7 @@ var checks: int = 0
 
 ## 全绿时应执行的检查项数。对不上 = 有测试段被静默跳过（或 SCRIPT ERROR 打断），
 ## 只看"共 N 项检查、失败 0 项"会假绿，所以这里硬校验。
-const EXPECTED_CHECKS := 46
+const EXPECTED_CHECKS := 50
 
 
 func _initialize() -> void:
@@ -115,15 +115,25 @@ func _test_enemies() -> void:
 		return
 	_check_eq(enemies[0].display_name, "史莱姆", "第一个敌人名字")
 	_check_eq(enemies[0].hp, enemies[0].max_hp, "初始 HP 等于最大 HP")
-	# 火史莱姆免疫火
+	# 火史莱姆：v3 起"免疫火"不再靠静态名单，而是 innate 固有护盾（能被水反应啃掉）
 	var fire_slime: Unit = null
 	for e in enemies:
-		if e.immunities.has(Element.FIRE):
+		if e.has_innate_shield(Element.FIRE):
 			fire_slime = e
-	_check(fire_slime != null, "存在免疫火的敌人（火史莱姆）")
+	_check(fire_slime != null, "存在免疫火的敌人（火史莱姆，靠固有护盾）")
 	if fire_slime != null:
-		_check(fire_slime.is_immune(Element.FIRE), "is_immune(fire) 为真")
+		_check(fire_slime.is_immune(Element.FIRE), "is_immune(fire) 为真（护盾也算免疫）")
 		_check(not fire_slime.is_immune(Element.WATER), "is_immune(water) 为假")
+		_check(not fire_slime.is_static_immune(Element.FIRE), "火史莱姆不是静态免疫火（否则反应不了）")
+		_check_eq(fire_slime.describe_auras(), "火2U(盾)", "护盾在 describe 里标成 (盾)")
+	# 岩傀儡仍是纯静态免疫，作为两种免疫的对照样本
+	var golem: Unit = null
+	for e in enemies:
+		if e.is_static_immune(Element.GEO):
+			golem = e
+	_check(golem != null, "存在静态免疫岩的敌人（岩傀儡）")
+	if golem != null:
+		_check(not golem.has_innate_shield(Element.GEO), "岩傀儡是静态免疫，没有护盾槽")
 
 
 ## [3]
