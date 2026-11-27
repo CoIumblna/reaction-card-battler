@@ -40,7 +40,7 @@
 | 26b | `battle.gd`（**M3.4 前置**：AI 选目标，清 M3.2 遗留） | 1 | ★★★ | 70 | **0.5–1 h**（实际编码约 40 min） | `tests/ai_guard_test.gd`（14 项，**2026-11-27 已启用**） | [x] ✅ 完成（2026-11-27，主套 19 文件 **499/499**，balance 45.0%/13.4 逐位不变；落地记录见 §39.9） |
 | 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（实际约 1 h） | `tests/deck_build_test.gd`（11 项） | [x] ✅ 完成（2026-11-26，commit `014ad88`，主套 485/485） |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（实际约 2 h 备课 + 1.5 h 施工 + 1 h 迁移；用子 agent 并行写） | `tests/aura_v3_test.gd`（**59 项，2026-11-27 已启用**） | [x] ✅ 完成（2026-11-27，主套 20 文件 **560/560**，balance 45.0%/13.4 逐位不变；落地记录见 §41.7） |
-| 28b | `unit.gd`+`damage.gd`+`battle.gd`（**固有护盾**：自己挂元素 + 免疫该元素伤害 + 仍可被反应，3 回合重生，**任务卡见 §42**） | 4 | ★★★ | 160 | **2–3 h** | `tests/innate_shield_test.gd`（约 32 项，测试待写） | [ ] |
+| 28b | `unit.gd`+`damage.gd`+`battle.gd`（**固有护盾**：自己挂元素 + 免疫该元素伤害 + 仍可被反应，3 回合重生，**任务卡见 §42**） | 4 | ★★★ | 160 | **2–3 h** | `tests/innate_shield_test.gd`（**36 项，2026-11-27 已启用**） | [x] ✅ 完成（2026-11-27，主套 21 文件 **600/600**，balance 45.0%/13.4 逐位不变；落地记录见 §42.13） |
 | 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（实际约 1 h，含一轮两行修复） | stat_mod_test（7）+ stat_system_test（18），**已启用** | [x] |
 | 30 | `battle.gd`（M3.8a：AI 打指令卡） | 2 | ★★★ | 80 | **1.5–2.5 h** | battle_m2_test 增补（测试待写） | [ ] |
 | 31 | 平衡（M3.8：balance_sim 调参） | 3 | ★★★ | 60 | **2–3.5 h**（含反复跑模拟的时间） | docs/balance-report.md | [ ] |
@@ -1818,7 +1818,7 @@ func stat_of(unit: Unit, stat: String) -> int:
 > 本节是**施工用的任务卡**：每一块照着 §37.N 做，做完回来打勾。
 >
 > **前置**：M3 全部完成、`run_tests.bat` 全绿并 tag `v0.3` 之后才开 M4。
-> 当前 M3 还剩 固有护盾（§42）/ M3.8a / M3.8 / M3.9。
+> 当前 M3 还剩 M3.8a / M3.8 / M3.9（固有护盾 §42 已完成）。
 >
 > **分工**：`scenes/*.tscn`、`src/ui/*.gd` = 学员写；规格 / 测试 / 数据 / 文档 / CI = 教练。
 > `src/core/` 只允许**新增** UI 需要的公开接口，已有的 `play_card` / `move_unit` / `attack_unit` / `stat_of`
@@ -3160,13 +3160,16 @@ v2 里 `lightning+water` 的 effects 是 `[status shock, aura electro_charged cl
 
 ### 41.10 下一步
 
-M3.6 关闭后，M3 剩下：**固有护盾（§42，当前块）** → **M3.8a（AI 打指令卡，#4）** → **M3.8 平衡调参（#5）** → **M3.9 收尾 tag v0.3（#6）**。
+固有护盾（§42）已完成。M3 剩下：**M3.8a（AI 打指令卡，#4，下一块）** → **M3.8 平衡调参（#5）** → **M3.9 收尾 tag v0.3（#6）**。
 注意 §40.4 的结论：平衡调参的前置是"先手补偿"，否则怎么调都是 45%（先手 90/200 的随机结果）。
 
 ---
 
 ## 42. 固有护盾：自己挂元素 + 免疫该元素伤害 + 仍可被反应 · 2026-11-27
 
+> **✅ 已完成（2026-11-27）。** 主套 21 文件 **600/600** 全绿，`tests/pending/` 清空。
+> 验收与反假绿实测、四条实现期踩到的真实行为，见 **§42.13 落地记录**。
+>
 > **本节是这一块的唯一文档。** 不再新建 `brief-*.md` / `review-*.md`（见文件头「文档纪律」）。
 
 ### 42.0 需求与已拍板决策
@@ -3378,7 +3381,47 @@ M3.6 关闭后，M3 剩下：**固有护盾（§42，当前块）** → **M3.8a�
 
 ### 42.13 落地记录
 
-（实现并验收后在此回填：实测项数、四个提交、反假绿三组红指纹结果。）
+**✅ 2026-11-27 完成。主套 21 文件 600 项全绿，`tests/pending/` 再次清空。**
+
+实现（两个子 agent 并行写、我审 + 补 + 验收）：
+
+| 文件 | 改动 |
+|---|---|
+| `src/core/unit.gd`（247 → 338 行） | 加 `INNATE_REGEN_TURNS := 3`、`innate_template`、`innate_timer`；`from_dict` 读 `innate` 并记模板；`is_immune` 拆成 `is_static_immune` / `has_innate_shield` / `active_innate_elements` / `is_immune`；`add_or_refresh_aura` 加护盾短路 + 同元素只认非 innate + 满槽只挤非 innate；`tick_auras` 跳过护盾；新增 `tick_innate_shield()`；`describe_auras` 把护盾显示成 `火2U(盾)` |
+| `src/core/damage.gd`（68 → 78 行） | `compute` 改用 `is_static_immune` 短路；末尾加 `has_innate_shield` → `damage = 0` 但反应全留；返回字典加 `immune_source` |
+| `src/core/battle.gd`（590 → 601 行） | `_apply_aura` 的免疫判断改 `is_static_immune`；`play_card` / `attack_unit` / 反击三处改成按 `immune_source` 分三支（护盾挡下也照样 `_apply_aura`，盾才会被啃）；`_settle_status` 末尾调 `tick_innate_shield()` |
+| `data/tables/enemies.json` | 火史莱姆从 `immunities: ["fire"]` 改成 `auras: [{element:"fire", amount:2.0, duration:0, innate:true}]`；岩傀儡保持静态免疫作为对照；`_note` 写清两种语义 |
+| `tools/validate_data.gd` | **新增 `_check_enemies()`**（此前完全没有敌人校验）：id 重复 / hp / attack / 护盾元素合法 / 护盾 amount > 0 / 护盾 duration 必须 0 / 护盾槽 ≤ 3 / 同一个元素既静态免疫又挂护盾 → 报语义冲突 |
+| `tests/data_test.gd` | 46 → **50 项**：改用 `has_innate_shield` 找火史莱姆、补 `is_static_immune(fire) == false`、`describe_auras() == "火2U(盾)"`、岩傀儡作静态免疫对照 |
+| `tests/innate_shield_test.gd` | 新建，**36 项**（8 段） |
+
+**验收实测**
+
+| 项 | 结果 |
+|---|---|
+| `run_tests.bat` | `ALL GREEN 21 file(s)`，退出码 0 |
+| 主套项数 | **600**（原 560 + data_test +4 + innate_shield 36） |
+| `[详细自检]` | PASS（13 项 —— 工作区有改动时的正常读数，提交后变 14） |
+| `validate_data` | PASS，0 错 0 警，`敌人 3 种 ✓` 是新增的就地校验输出 |
+| `balance_sim --games 200 --seed 1` | **WIN 90 / LOSE 110 / 45.0% / 13.4 回合 / RUNNING 0%** —— 与改动前逐位相同（敌人数据不进 balance_sim，双方都是训练假人） |
+
+**四组反假绿探针（改坏 → 跑 → 还原，全部实测）**
+
+| 探针 | 改法 | 红 |
+|---|---|---|
+| A | `compute` 里把 `is_static_immune` 换回 `is_immune`（护盾被当静态免疫，反应被短路） | 1 红（`immune_source 是 shield、immune 为真`） |
+| B | 护盾分支改成 `if false and target.has_innate_shield(...)`（不归零伤害） | 2 红（`火打火盾：伤害归零` 期望 0 实际 10、`immune_source`） |
+| C | `tick_innate_shield` 开头 `if true: return false`（永不重生） | 3 红（第 3 回合没回来、盾量 0、满盾 timer 没复位） |
+| D | `tick_auras` 不再跳过 innate 槽（护盾随时间衰减） | 4 红（5 回合后盾没了、盾量 0、duration 变 -1、被当过期附着报出来） |
+
+**四条实现期踩到的真实行为（写进断言，别当 bug）**
+
+1. **同元素打护盾不产生反应**：`find_reaction_slot` 本来就跳过同元素槽，所以火打火盾 = 伤害 0 + 无反应名，靠的正是 `immune_source == "shield"` 而不是反应机制。
+2. **`Damage.compute` 只算数不动状态**：护盾被啃薄是 `_apply_aura` 里 `consume` 的活，`compute` 返回后盾量不变。两条路径必须分开测。
+3. **`immune_source` 的判定顺序必须是 `elif` 而不是两个并列 `if`**：否则静态免疫（`immunities` 名单）和护盾撞同一个元素时，`"static"` 会被后写的 `"shield"` 覆盖，日志分类错。子 agent 第一版写成了并列 `if`，我改成 `elif`。
+4. **重生时挤占也要「只挤非 innate」**：子 agent 第一版 `tick_innate_shield` 用了裸 `auras.pop_front()`，多护盾场景下会把刚重生的另一面盾挤掉，与 `add_or_refresh_aura` 的规则自相矛盾。已统一成同一套 victim 逻辑。
+
+**三处「子 agent 报警、我采纳」的收获**：`battle.gd` 里 `if immune_source != "static"` 后面再跟 `elif == "shield"` 是死分支（`"shield" != "static"` 恒真）—— 第一版会打印「造成 0 元素伤害」而不是「被护盾挡下」。已改成 `shield` 分支在前、`static` 居中、其余走正常三支。**这是并行改动的价值：写的人没意识到自己写的分支不可达，审的人一眼能看出来。**
 
 ---
 
