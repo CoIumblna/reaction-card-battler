@@ -76,8 +76,22 @@ const MAX_AMOUNT := 2.0    # 单槽元素量上限
 
 ## 4. 免疫
 
-`Unit.immunities`：元素 id 数组。攻击元素在免疫列表里 → **伤害 0、不触发反应、不消耗附着、不附着新元素**，
+免疫有**两种来源**，语义不同（详见 `docs/implementation-tasks.md` §42）：
+
+**4.1 静态免疫（`Unit.immunities`）**：元素 id 数组。攻击元素在免疫列表里 → **伤害 0、不触发反应、不消耗附着、不附着新元素**，
 日志写「免疫」。`Damage.compute()` 在这种情况下 `immune = true`、`reaction_slot = -1`。
+`Unit.is_static_immune()` 查的就是这个名单。岩傀儡（`golem` 免疫 geo）是这种。
+
+**4.2 护盾免疫（`auras` 里 `innate: true` 的槽）**：单位自带一个元素附着，该元素打上来 **伤害 0，但反应照常结算**。
+- 同元素打它：`find_reaction_slot()` 本来就跳过同元素 → 既无反应也无伤害，表现和「免疫」一样；
+- 别的元素打它：找到这条 innate 槽 → 正常算倍率、正常扣 `consume` → **盾被一点点咬薄、`consume` 吃光就破盾**；
+- **不会自然衰减**（`tick_auras()` 跳过 innate 槽），只能被反应吃掉；
+- **破盾后 3 个回合重生**（`Unit.INNATE_REGEN_TURNS`）；
+- `Damage.compute()` 在这种情况下返回 `immune = true`、`immune_source = "shield"`，且 `reaction` / `consume` / `effects` / `reaction_slot` 全部保留。
+- `Unit.is_immune()` = 静态名单 **∪** innate 槽；`Unit.has_innate_shield(element)` 只查 innate 槽。
+
+火史莱姆（`fire_slime`）是这种：`auras` 里带 `{element: "fire", amount: 2.0, duration: 0, innate: true}`。
+火打它免疫、水打它蒸发咬盾 —— 「免疫」和「能被反应」同时成立。
 
 ## 5. 反应清单（14 条，v3）
 
