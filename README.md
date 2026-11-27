@@ -17,7 +17,7 @@
 M3.6（元素 v3 + 每张卡独立 `limit`）的作业单、子 agent 规格与落地记录在 [docs/implementation-tasks.md **§41**](docs/implementation-tasks.md)（§41.6 验收实测、§41.9 坑）；
 卡池块的作业单与落地记录在 **§40**（§40.4 的实测结论：`balance_sim` 对卡池零敏感；§40.10 落地记录）；
 M3.4 前置块的规格、评审、红绿指纹与落地记录在 **§39**（§39.6 第一轮评审、§39.7 红绿指纹、§39.9 落地记录）。
-之后的活已经在 GitHub 上开成 issue（milestone **M3**）：~~[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种~~（已完成关闭）· ~~[#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3~~（2026-11-27 完成关闭）· [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；~~#1 AI 选目标~~ 已于 2026-11-27 完成关闭。
+之后的活已经在 GitHub 上开成 issue（milestone **M3**）：~~[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种~~（已完成关闭）· ~~[#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3~~（2026-11-27 完成关闭）· ~~[#7](https://github.com/CoIumblna/reaction-card-battler/issues/7) 固有护盾~~（2026-11-27 完成关闭）· [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；~~#1 AI 选目标~~ 已于 2026-11-27 完成关闭。
 每完成一块关一个 issue，仓库首页的进度条自动走。详见 [HANDOFF §21.3](docs/HANDOFF-2026-11-23.md)。
 跑 `tools\check.bat` 看进度表 + 检查点 + pending 验收基线（它还会告诉你下一步做什么）。
 
