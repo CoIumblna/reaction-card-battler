@@ -42,6 +42,24 @@
 | `name` | string | ✅ | 显示名 |
 | `hp` | int | ✅ | 最大生命，加载时当前 HP = 最大 HP |
 | `attack` | int | | 每回合攻击力（M2 用，现在代码里写死 4） |
+| `immunities` | string[] | | **静态免疫**的元素 id 列表：该元素伤害 0、**不触发反应**、不挂附着。岩傀儡 `golem` 免疫 `geo` 就是这种 |
+| `auras` | object[] | | 初始元素附着槽（结构同「单位多槽附着」） |
+
+### 2.1 `auras` 里的元素盾（`innate: true`）
+
+> **元素的盾不是免疫。** 盾是一层独立的**吸收层**：有它的时候吸收全部伤害（不分元素），
+> 破盾量 = 被吸收量 ÷ `SHIELD_HP_PER_U`(2.0) × **反应类型系数**，同属性/无反应元素的系数是 **0**，
+> 所以「同属性打不破」；破盾后 3 回合重生。完整系数表见 `docs/implementation-tasks.md` §42.3。
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `element` | string | ✅ | 盾的元素，必须在 `elements.json` 里 |
+| `amount` | float | ✅ | 盾量（U），必须 `> 0` 且 `<= 20`（`Unit.MAX_INNATE_AMOUNT`）。**盾量 × 2.0 = 能吸收的总伤害** |
+| `duration` | int | ✅ | 护盾槽必须写 **`0`**（盾不随时间衰减，只被反应吃掉）。写别的会 warning |
+| `innate` | bool | ✅ | 必须显式 `true`，否则会被当成普通附着、每回合掉 duration |
+
+样本：水法师 `hydro_mage`（30 HP / 5 攻击 / `{"element":"water","amount":12.0,"duration":0,"innate":true}`）。
+同一元素既写进 `immunities` 又挂护盾会 warning（语义冲突，静态免疫已经全挡了，盾是多余的）。
 
 ## 3. reactions.json
 

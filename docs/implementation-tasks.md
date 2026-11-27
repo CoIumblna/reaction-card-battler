@@ -40,7 +40,7 @@
 | 26b | `battle.gd`（**M3.4 前置**：AI 选目标，清 M3.2 遗留） | 1 | ★★★ | 70 | **0.5–1 h**（实际编码约 40 min） | `tests/ai_guard_test.gd`（14 项，**2026-11-27 已启用**） | [x] ✅ 完成（2026-11-27，主套 19 文件 **499/499**，balance 45.0%/13.4 逐位不变；落地记录见 §39.9） |
 | 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（实际约 1 h） | `tests/deck_build_test.gd`（11 项） | [x] ✅ 完成（2026-11-26，commit `014ad88`，主套 485/485） |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（实际约 2 h 备课 + 1.5 h 施工 + 1 h 迁移；用子 agent 并行写） | `tests/aura_v3_test.gd`（**59 项，2026-11-27 已启用**） | [x] ✅ 完成（2026-11-27，主套 20 文件 **560/560**，balance 45.0%/13.4 逐位不变；落地记录见 §41.7） |
-| 28b | `unit.gd`+`damage.gd`+`battle.gd`（**固有护盾**：自己挂元素 + 免疫该元素伤害 + 仍可被反应，3 回合重生，**任务卡见 §42，施工顺序见 §42.13**） | 4 | ★★★ | 160 | **2–3 h** | `tests/innate_shield_test.gd`（约 32 项，测试待写） | [ ] |
+| 28b | `unit.gd`+`damage.gd`+`battle.gd`（**魔物元素盾**：独立吸收层，不是免疫；被反应按系数削、物理少量削、同属性不削、破盾 3 回合重生。**任务卡见 §42，施工顺序见 §42.13**） | 4 | ★★★ | 200 | **3–4 h** | `tests/elemental_shield_test.gd`（约 32 项，测试待写） | [ ] |
 | 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（实际约 1 h，含一轮两行修复） | stat_mod_test（7）+ stat_system_test（18），**已启用** | [x] |
 | 30 | `battle.gd`（M3.8a：AI 打指令卡，**细化规格见 §43.A，验收脚本 `tools/ai_order_report.ps1`**） | 2 | ★★★ | 80 | **1.5–2.5 h** | `tests/pending/ai_order_test.gd`（约 14 项，§43.A.3）+ 10 seed 对照 | [ ] |
 | 31 | 平衡（M3.8：先手补偿 → 再基线 → 卡表微调，**四步顺序见 §43.B**） | 3 | ★★★ | 60 | **2–3.5 h**（含反复跑模拟） | `docs/balance-report.md` + 胜率 45%–55% 且先手两侧达标 | [ ] |
@@ -1818,7 +1818,7 @@ func stat_of(unit: Unit, stat: String) -> int:
 > 本节是**施工用的任务卡**：每一块照着 §37.N 做，做完回来打勾。
 >
 > **前置**：M3 全部完成、`run_tests.bat` 全绿并 tag `v0.3` 之后才开 M4。
-> 当前 M3 还剩 固有护盾（§42）/ M3.8a / M3.8 / M3.9（后三块的细化规格见 **§43**）。
+> 当前 M3 还剩 魔物元素盾（§42）/ M3.8a / M3.8 / M3.9（后三块的细化规格见 **§43**）。
 >
 > **分工**：`scenes/*.tscn`、`src/ui/*.gd` = 学员写；规格 / 测试 / 数据 / 文档 / CI = 教练。
 > `src/core/` 只允许**新增** UI 需要的公开接口，已有的 `play_card` / `move_unit` / `attack_unit` / `stat_of`
@@ -3164,14 +3164,22 @@ v2 里 `lightning+water` 的 effects 是 `[status shock, aura electro_charged cl
 
 ### 41.10 下一步
 
-M3.6 关闭后，M3 剩下：**固有护盾（§42，当前块）** → **M3.8a（AI 打指令卡，#4）** → **M3.8 平衡调参（#5）** → **M3.9 收尾 tag v0.3（#6）**。
+M3.6 关闭后，M3 剩下：**魔物元素盾（§42，当前块）** → **M3.8a（AI 打指令卡，#4）** → **M3.8 平衡调参（#5）** → **M3.9 收尾 tag v0.3（#6）**。
 注意 §40.4 的结论：平衡调参的前置是"先手补偿"，否则怎么调都是 45%（先手 90/200 的随机结果）。
 
 ---
 
-## 42. 固有护盾：自己挂元素 + 免疫该元素伤害 + 仍可被反应 · 2026-11-27
+## 42. 魔物元素盾：自带元素吸收层（**不是免疫**）· 2026-11-27
 
 > **本节是这一块的唯一文档。** 不再新建 `brief-*.md` / `review-*.md`（见文件头「文档纪律」）。
+>
+> **2026-11-27 19:0x 重大修正**：本节初版把元素盾写成了「免疫的变体」（新增 `immune_source = "shield"`、
+> 改 `is_immune()` 语义）。**用户指出这是错的**，原话：
+>
+> > 「疑问：魔物的护盾确实不会被同属性元素破坏，这并不是静态免疫」
+>
+> 已按「独立吸收层」重写：§42.1 说明原方案错在哪，§42.2–§42.13 全部替换。
+> **此前按旧版写的代码（`is_static_immune` / `immune_source` / `is_immune` 改语义）要按 §42.13 第 1 步回退。**
 
 ### 42.0 需求与已拍板决策
 
@@ -3179,369 +3187,432 @@ M3.6 关闭后，M3 剩下：**固有护盾（§42，当前块）** → **M3.8a�
 
 > 「自己给自己挂元素例如深渊法师护盾、史莱姆等应当具有免疫，同时也会反应，这一点如何做到？」
 
-随后拍板两条：
+**第一轮拍板（m03202）**：① 按讨论方案定规格；② 护盾 **3 回合重生**。
 
-1. **按讨论的方案定规格** —— 纯增量：静态免疫语义一个字不改，新增「固有护盾槽」表达「自带元素 + 免疫该元素伤害 + 仍可被反应」。
-2. **护盾 3 回合重生** —— 破盾后第 3 个回合开始时重新凝聚。
+**第二轮拍板（m03376，本块的定稿依据）** —— 用户给了参考文章
+（[米游社《原神元素护盾机制》](https://www.miyoushe.com/ys/article/25366671)）并要求简化：
 
-### 42.1 现状为什么做不到（三处卡点，都是行号级）
+1. **只由反应破盾** —— 破盾量 = 「盾的元素量 × 系数」，系数参照元素反应类型设计；
+2. **物理攻击是特殊的** —— 可以**少量**削盾；
+3. **盾的元素量直接决定能挡多少伤害** —— 所以盾量上限要适当放大（普通附着 2U 的上限**不适用**于盾）；
+4. 可以引入一般浮点数，**显示保留 2 位小数**；
+5. 数据样本：**火史莱姆改回静态免疫**，另加一个**带水盾的法师**（冰/岩史莱姆的再生护盾以后再说）。
 
-| # | 位置 | 现状 | 后果 |
-|---|---|---|---|
-| 1 | `src/core/unit.gd:73-77` `is_immune()` | 只线性扫 `immunities: Array[String]`，与 `auras` 完全无关 | 「身上有火」和「免疫火」是两个互不相交的概念 |
-| 2 | `src/core/damage.gd:44-47` `compute()` | `if target.is_immune(element): immune = true; reaction_slot = -1` | 免疫 = 连反应槽都不找，**不可能同时"免疫又反应"** |
-| 3 | `src/core/battle.gd:302-303` `_apply_aura()` | 开头 `if target.is_immune(element): return` | 免疫时连槽都不挂，护盾无法被反应一点点咬掉 |
+### 42.1 为什么「盾」不能当成「免疫」（初版方案的错，务必先读）
 
-结论：想同时要「免疫」和「反应」，必须先把**免疫拆成两种来源**。
-
-### 42.2 语义拆分（本块的唯一新概念）
-
-| | 静态免疫（旧） | 护盾免疫（新） |
+| | 静态免疫 | 元素盾 |
 |---|---|---|
-| 数据从哪来 | `immunities: ["fire"]` | `auras` 里一条带 `"innate": true` 的槽 |
-| 该元素伤害 | 归零 | 归零 |
-| 能不能被该元素反应 | **不能**（连槽都不找） | **能**（反应照算、`consume` 照扣） |
-| 该元素打上来会不会加新槽 | 不会 | 不会（同元素在 `find_reaction_slot` 里本来就跳过） |
-| 会不会自然衰减 | 不会 | **不会**（`tick_auras` 跳过 innate） |
-| 怎么消失 | 永远不会 | 只能被反应 `consume` 吃光（或单位死亡） |
-| 破掉后 | —— | **3 个回合后重生** |
-| 典型用例 | 岩傀儡免疫 geo | 火史莱姆自带火盾、深渊法师自带水盾 |
+| 本质 | **属性**（有 / 没有） | **资源**（还剩多少） |
+| 会不会变 | 永远不变 | 被消耗、破掉、重生 |
+| 破了以后 | 不存在「破」 | 掉血，进入真空期 |
+| 谁在挡 | 元素豁免（连反应都不算） | 吸收池（反应照算） |
+| 判定位置 | `Damage.compute()` 最前面短路 | 伤害结算里、反应算完之后 |
 
-**为什么这套自然成立**：`Damage.find_reaction_slot()`（`src/core/damage.gd:13-24`）本来就有「同元素跳过」这一条，所以火史莱姆挂 innate 火时——
+初版把盾写成 `is_immune()` 的第二个来源，后果有三条：
 
-- 火打它：找不到反应槽（同元素跳过）+ 伤害归零 → 表面就是「免疫火」；
-- 水打它：找到火槽 → 蒸发 `consume 1.0` → 火盾从 2U 掉到 1U，伤害照常吃蒸发倍率；
-- 再一发水：火盾清零移除 → 之后水打它就吃正常伤害。
+1. **反应根本算不出来**：`reaction_slot` 被置 -1，`consume` 恒为 0 → 盾没有「被啃薄」的过程，只能一刀归零。
+2. **破盾瞬间表现像开关**：盾在 = 免疫火，盾破 = 怕火。玩家看到的是「免疫消失」，而不是「盾碎了」。
+3. **`is_immune()` 语义被污染**：`_apply_aura()` 的跳过判断、`is_immune` 的四处既有测试全被带偏，
+   而它们本来都是「静态免疫」的意思。
 
-**克制关系是白送的**：深渊法师挂 innate 水盾时，雷打过来走感电（`consume 0`）→ 只挂 `shock`、盾一点不掉；冰打过来走冻结（`consume 0`）→ 同样不掉盾。所以「拿雷/冰去打水盾」是打不动的，只能靠蒸发/结晶这类有 `consume` 的反应——这正是想要的策略深度。
+**结论**：`immunities` / `is_immune()` **一个字都不改**；盾是一层独立吸收，判定落在「伤害结算」，不在「免疫豁免」。
 
-### 42.2b 三种护盾（2026-11-27 修正：参考原神把「护盾」拆成三类）
+### 42.2 三种「额外血条」的对照（原 §42.2b 合并进来）
 
-用户修正：不要把所有「盾」混为一谈。参考原神，本项目有三类护盾，**机制完全不同**：
+三种盾机制不同，但**都不是免疫**：
 
-| | ① 魔物元素盾 | ② 结晶盾 | ③ 技能盾 |
+| | ① 魔物元素盾（**本块实现**） | ② 结晶盾 | ③ 技能盾 |
 |---|---|---|---|
-| 原神对应 | 史莱姆/深渊法师的元素护盾 | 岩元素结晶反应生成的盾 | 角色技能给的盾（钟离/迪奥娜…） |
-| 数据载体 | `auras` 槽 `innate: true`（**本块实现**） | `Unit.shield: int`（数值盾） | 同左，`Unit.shield: int` |
-| 挡什么 | 只免疫**盾元素**的伤害；其它元素走反应啃盾 | 挡**所有直接伤害**（反应附着照常发生） | 同结晶盾 |
-| 怎么消失 | 被克制元素反应 `consume` 啃光；**3 回合重生** | 打空为止；**不重生** | 打空为止或持续回合结束；不重生 |
-| 谁能拥有 | 只有敌人（`enemies.json`） | 任何单位（盾挂给**触发结晶的一方**） | 任何单位（`target: "self"` 的指令卡） |
-| 分不分元素 | 分（火盾怕水） | **不分**（数值盾就是数字） | 不分 |
-| 引擎现状 | 全新，本块实现 | `shield` 字段已有、`take_damage` 已先扣盾（`unit.gd:81-90`）；**缺**的是把 geo 反应的 `shield` 效果实装（现为死数据，见 42.12） | `shield` 字段已有；**缺**的是 `kind: "shield"` 的指令卡与 `play_card` 分支 |
+| 原神对应 | 史莱姆/深渊法师的元素护盾 | 岩元素结晶生成的护盾 | 角色技能护盾 |
+| 数据载体 | `auras` 槽 `innate: true`，槽的 `amount` **就是盾量** | `Unit.shield: int` | `Unit.shield: int` |
+| 挡什么 | 盾在时**吸收全部伤害**（不分元素） | 全部直接伤害 | 全部直接伤害 |
+| 怎么掉 | **反应**按系数削；**物理**少量削；同元素/无反应元素**不削** | 打空为止 | 打空为止 |
+| 会不会重生 | **破盾后 3 回合重生** | 不重生 | 不重生 |
+| 判定位置 | 伤害结算**最前面**（反应算完之后） | `take_damage` 内先扣盾后扣血 | 同左 |
+| 引擎现状 | 全新，本块实现 | `shield` 字段与扣盾顺序已存在；缺的是 geo 反应的 `shield` 效果实装（现为死数据） | 缺 `kind: "shield"` 指令卡（有分支、缺卡） |
 
-**关键区分（写代码前必须想清）**：① 是「元素免疫的变体」——它的判定在 `Damage.compute` 的**免疫/反应路径**里；②③ 是「额外血条」——它们的判定在 `take_damage` 的**扣血顺序**里（先盾后血），与元素反应完全正交：任何元素打在有 ②③ 的单位上，附着照挂、反应照算，伤害先吃盾再吃血。
+**吸收顺序**：元素盾 → 数值盾（`Unit.shield`）→ HP。三者互不干扰。
 
-**对 §42.13 施工顺序的影响**：①→⑧ 步不变，仍然只实现 ①。②③ 的**数据与判定地基**（`shield` 字段、扣盾顺序）已经存在，不需要为它们改 `unit.gd`；它们的**产生途径**（geo 反应实装 shield 效果、新增盾指令卡）各留一个口子：
+**②③ 的排期不变**：② 结晶盾 → M3.8 平衡块（激活 `reactions.json` 里 4 条结晶的 `shield 2.0` 死数据会改平衡基线）；
+③ 技能盾 → M3.8a AI 打指令卡（先有卡和分支，AI 才有得选）。
 
-- ② 结晶盾 → 排进 **M3.8 平衡块**（激活 `reactions.json` 里 4 条结晶的 `shield 2.0` 死数据会改平衡基线，必须与先手补偿一起调）。
-- ③ 技能盾 → 排进 **M3.8a AI 打指令卡**（先有 `kind: "shield"` 的卡和 `play_card` 分支，AI 才有得选）。
+### 42.3 数据结构与系数（**全部数值都在这张表，实现不许自己发明**）
 
-### 42.3 数据结构
-
-**`Unit.auras` 每一项多一个可选键**（与现有 `element` / `amount` / `duration` 并列）：
+**`Unit.auras` 每一项多一个可选键**：
 
 ```json
-{ "element": "fire", "amount": 2.0, "duration": 0, "innate": true }
+{ "element": "water", "amount": 12.0, "duration": 0, "innate": true }
 ```
 
-- `innate: true` 的槽：`duration` 无意义（写 0），**永不衰减**，由 42.6 的重生逻辑管。
-- `innate` 缺省 `false`，所以现有所有卡牌/敌人数据、所有既有测试都**不需要改**。
+| 键 | 说明 |
+|---|---|
+| `element` | 盾元素（决定「什么反应能削它」） |
+| `amount` | **盾量**，单位 U，`float`，上限 `MAX_INNATE_AMOUNT := 20.0`（**不是** `MAX_AMOUNT` 的 2.0） |
+| `duration` | 盾必须写 **0**（不按回合衰减，靠 §42.6 重生） |
+| `innate` | `true`。缺省 `false`，所以现有卡牌/敌人数据与既有测试**一行都不用改** |
 
-**`Unit` 新增两个字段**：
+**`Unit` 新增常量**：
+
+| 常量 | 值 | 含义 |
+|---|---|---|
+| `MAX_INNATE_AMOUNT` | `20.0` | 盾量上限（普通附着上限 `MAX_AMOUNT = 2.0` 不适用于盾） |
+| `SHIELD_HP_PER_U` | `2.0` | 1U 盾量能挡 2 点伤害（即 12U 盾 = 24 点吸收量） |
+| `INNATE_REGEN_TURNS` | `3` | 破盾后第 3 个回合开始重生 |
+
+**`Unit` 新增字段**：
 
 | 字段 | 类型 | 含义 |
 |---|---|---|
-| `innate_template: Array` | `Array` | `from_dict()` 时把 innate 槽**深拷贝**存一份，作为重生时恢复的模板 |
-| `innate_timer: int` | `int` | 距离重生还有几回合；满盾时恒等于 `INNATE_REGEN_TURNS` |
+| `innate_template` | `Array` | `from_dict()` 时把 innate 槽**深拷贝**存一份，重生照它恢复 |
+| `innate_timer` | `int` | 距离重生还剩几回合；满盾时恒等于 `INNATE_REGEN_TURNS` |
 
-**`Unit` 新增常量**：`const INNATE_REGEN_TURNS := 3`。
+**破盾系数表（`Unit.shield_break_rate()` 的唯一依据）**：
 
-**`Unit` 新增/修改的方法**（签名写死，供实现照着填）：
-
-| 方法 | 行为 |
-|---|---|
-| `func is_static_immune(element_id: String) -> bool` | **新增**。就是现在 `is_immune()` 的实现（只扫 `immunities` 名单） |
-| `func is_immune(element_id: String) -> bool` | **改含义**。`is_static_immune()` 为真，**或** `auras` 里存在 `innate == true and element == element_id` 的槽 |
-| `func has_innate_shield(element_id: String) -> bool` | **新增**。只查 innate 槽（`Damage` 要用它区分「护盾免疫」） |
-| `func active_innate_elements() -> Array[String]` | **新增**。当前所有 innate 槽的元素 id，给日志/UI 用 |
-| `func tick_innate_shield() -> bool` | **新增**。42.6 的重生逻辑，`true` = 这一回合重生了 |
-| `func add_or_refresh_aura(...)` | **改**。见 42.5（挤占规则要避开 innate） |
-| `func tick_auras() -> Array[String]` | **改**。遍历时 `if bool(a.get("innate", false)): continue` |
-| `func describe_auras() -> String` | **改**。innate 槽输出 `火2U(盾)`，普通槽仍是 `火1U(2)` |
-
-### 42.4 判定顺序（`Damage.compute()` 的改造点）
-
-顺序**不能反**，否则要么盾不掉、要么免疫失效：
-
-1. `var slot := find_reaction_slot(element, target, table)`（不变，仍是第一步）。
-2. **静态免疫优先**：`if target.is_static_immune(element): immune = true; immune_source = "static"; reaction_slot = -1; return`（其余字段保持 0/空，与现在完全一致）。
-3. 否则按 slot 正常算倍率/`consume`/`effects`（一分不改）。
-4. **护盾免疫兜底**：算完之后，`if target.has_innate_shield(element): damage = 0; immune = true; immune_source = "shield"`，但 **`reaction` / `multiplier` / `consume` / `effects` / `reaction_slot` 全部保留**。
-
-返回字典新增 `"immune_source": String`，取值 `"static"` / `"shield"` / `""`。原来的 `"immune": bool` 保留（两个来源都为 true），这样 `battle.gd` 里现有的 `if not hit.get("immune", false)` 判断不用改写法、只需改成看 `immune_source`。
-
-**`Battle._apply_aura()` 只改一行**：开头 `if target.is_immune(element): return` → `if target.is_static_immune(element): return`。护盾的「减薄 / 破盾」完全复用现有逻辑（`src/core/battle.gd:311-320`：`left = auras[idx]["amount"] - consume`，`<= 0.0` 就 `remove_at`，否则写回 `amount`），**一行都不用加**。
-
-**`Battle` 里三处 `immune` 判断的落点**（都必须从「整体跳过」改成「静态才跳过」）：
-
-| 位置 | 现状 | 改成 |
+| 受击情况 | `k` | 说明 |
 |---|---|---|
-| `src/core/battle.gd:242` `play_card()` | `if not hit.get("immune",false): _apply_aura(...)` | 静态免疫才跳过；护盾免疫照常 `_apply_aura`（这样指令卡的元素也能啃盾） |
-| `src/core/battle.gd:367` `attack_unit()` 主伤害 | `if not dam["immune"]: _apply_aura(target,attacker.element,1.0)` | 同上 |
-| `src/core/battle.gd:376-377` 反击 | 同上 | 同上 |
+| 反应 `type == "amplify"`（蒸发 / 融化） | **3.0** | 克制元素，最快 |
+| 反应 `type == "transformative"`（超载 / 超导 / 扩散） | **2.0** | |
+| 反应 `type == "crystallize"`（结晶） | **1.5** | |
+| 反应 `type == "coexist"`（感电 / 冻结，`consume == 0`） | **0.5** | 能磨，但很慢 |
+| 物理：`element == Element.NONE` | **0.25** | 「物理少量削盾」 |
+| 有元素但**没触发反应** | **0.0** | 包括**同元素**——这就是「同属性打不破」 |
 
-判据统一用 `hit.get("immune_source","") != "static"`。
+> `type` 字段 `reactions.json` 里本来就有（`amplify` / `transformative` / `crystallize`），
+> 感电/冻结目前写的是 `transformative` 但 `consume == 0` —— 判定顺序里**先看 `consume == 0` 判共存型**，
+> 再按 `type` 查系数，否则感电会走 2.0 那一档，玩家拿雷一下就把水盾打没，克制关系就反了。
 
-### 42.5 槽位上限与挤占规则（**不改会出 bug**）
+**一次受击的结算（`Unit.absorb_elemental_shield()`，签名写死）**：
 
-`MAX_AURAS := 3`。现有 `add_or_refresh_aura()` 在满槽时 `auras.pop_front()`（挤掉最旧的）—— 如果最旧的是 innate 槽，**护盾会被别人挂的一个元素凭空挤掉**。必须改成：
+```
+func absorb_elemental_shield(damage: int, element_id: String, reaction_type: String) -> Dictionary
+```
 
-- 满槽时挤掉**最旧的、`innate == false` 的槽**；
-- 如果 3 个槽全是 innate，**放弃这次附着**（护盾优先，普通元素挂不上）；日志写「附着失败：护盾占满槽位」。
+返回 `{ "absorbed": int, "hp_damage": int, "break_u": float, "broken": bool, "shield_element": String }`，行为：
 
-同理 `tick_auras()` 绝不能因为 innate 槽 `duration` 是 0 就把它减成负数移除 —— 直接 `continue` 跳过。
+1. 没有 innate 槽 → 原样返回 `absorbed = 0`、`hp_damage = damage`、`break_u = 0.0`、`broken = false`。
+2. `absorbed = min(damage, ceil(shield_amount × SHIELD_HP_PER_U))`；`hp_damage = damage − absorbed`。
+3. `break_u = (float(absorbed) / SHIELD_HP_PER_U) × shield_break_rate(element_id, reaction_type)`。
+4. 盾量 `-= break_u`；`<= 0.0` → 移除该槽、`broken = true`（并把 `innate_timer` 复位为 `INNATE_REGEN_TURNS`）。
+5. 盾量四舍五入到 **2 位小数**（`snappedf(x, 0.01)`），避免 `0.1+0.2` 那种尾巴。
+
+**数值举例（写测试时照这个算，别凭感觉）**：水法师 12U 水盾（吸收量 24）
+
+| 攻击 | 伤害 | 吸收 | `k` | 破盾量 | 盾量变化 |
+|---|---|---|---|---|---|
+| 火卡（蒸发 amplify） | 6 | 6 | 3.0 | `6/2×3.0 = 9.0` | 12.00 → 3.00（两发破） |
+| 雷卡（感电 coexist） | 6 | 6 | 0.5 | `6/2×0.5 = 1.50` | 12.00 → 10.50 |
+| 物理（element none） | 6 | 6 | 0.25 | `6/2×0.25 = 0.75` | 12.00 → 11.25 |
+| 水卡（同元素、无反应） | 6 | 6 | 0.0 | `0.0` | 12.00 不变 |
+
+### 42.4 结算顺序（`Damage` 几乎不动，改动全在 `Battle` 与 `Unit`）
+
+**`src/core/damage.gd` 只加一个字段**：返回字典里补 `"reaction_type": String`（值 = `act.get("type","")`，
+无反应时 `""`）。**初版加的 `immune_source`、`is_static_immune` 判断全部撤销**，免疫那段回到原样一行不动。
+
+**顺序（不能反）**：
+
+1. `Damage.compute()` 照常算反应、倍率、`consume`、`effects`、`damage`（**免疫逻辑零改动**）。
+2. `Battle.compute_damage()` 照常扣防御。
+3. **元素盾吸收**：调 `Unit.absorb_elemental_shield(d["damage"], 攻击元素, d["reaction_type"])`，
+   把 `d["damage"]` 换成 `hp_damage`，日志记「吸收 X 点，盾量 → Y」。
+4. `Unit.take_damage(hp_damage)` → 先扣 `Unit.shield`（数值盾）再扣 HP（**现有代码不动**）。
+5. `_apply_aura()` 照常挂附着/结算反应效果，但**命中 innate 槽时不许扣它的 `consume`**
+   （盾的消耗只由第 3 步管，否则一发反应会被算两遍）。
+
+**`Battle` 里的三个伤害入口**（现在都是 `compute_damage` → `take_damage`，中间插一步）：
+
+| 位置 | 攻击元素 |
+|---|---|
+| `src/core/battle.gd` `play_card()` 的 `"damage"` 分支 | `card.element` |
+| `src/core/battle.gd` `attack_unit()` 主伤害 | `attacker.element` |
+| `src/core/battle.gd` `attack_unit()` 反击 | `target.element`（反击方元素） |
+
+三处**必须走同一个私有方法**（例如 `_absorb_by_shield(target, damage, element, reaction_type) -> int`），
+不要写成三种样子。返回值 = 真正打到血上的伤害。
+
+### 42.5 槽位与挤占规则（**不改会出 bug**）
+
+`MAX_AURAS := 3`。现有 `add_or_refresh_aura()` 满槽时 `pop_front()` 挤掉最旧的一槽 —— 如果最旧的是 innate 盾槽，
+**盾会被别人随手挂的元素凭空挤掉**。必须改成：
+
+- 满槽时只挤**最旧的、`innate == false`** 的槽；
+- 三槽全是 innate → **放弃这次附着**（盾优先），日志写「附着失败：盾占满槽位」；
+- **同元素分支要分辨**：普通附着不能和 innate 槽合并（否则会出一个 `innate:false` 的合并槽，把盾变成附着）；
+  同元素且命中的是 innate 槽 → 也走「新槽」路径（而不是量相加）；
+- 新加的普通槽**显式写 `"innate": false`**，不依赖缺省。
+
+`tick_auras()` 必须**跳过** innate 槽（`continue`，不是 `break`），否则 `duration: 0` 的盾第一回合就被删。
 
 ### 42.6 3 回合重生（`tick_innate_shield()`）
 
-挂在**回合开始**，位置在 `src/core/battle.gd:490-493`（`tick_auras()` 那段）**之后**、同一个 `for u` 循环体内：
+挂在**回合开始**，位置在 `src/core/battle.gd` 的 `_settle_status()` 里 `tick_auras()` 那段**之后**、
+同一个 `for u` 循环体内（`tick_auras()` 的 `for el in expired` 之后）。
 
-```
-			u.tick_buffs()
-			if u.is_alive():
-				var expired := u.tick_auras()
-				for el in expired:
-					_log(...)
-				if u.tick_innate_shield():
-					_log("%s 的护盾重新凝聚" % u.display_name)
-```
+规则：
 
-`tick_innate_shield()` 的行为：
+1. `innate_template` 为空（这单位本来没盾）→ `return false`。
+2. 当前 innate 槽**齐全**（数量 == 模板数量）→ `innate_timer = INNATE_REGEN_TURNS`，`return false`
+   （**满盾时不倒计时**，破盾那一刻才开始数）。
+3. 否则 `innate_timer -= 1`；`> 0` → `return false`。
+4. `innate_timer <= 0` → 按模板把缺的槽补回去（`amount` 用模板值、`duration` 用 0、`innate = true`），
+   `innate_timer = INNATE_REGEN_TURNS`，`return true`（要让 `battle.gd` 记一条日志）。
 
-1. `innate_template` 为空（这单位本来就没护盾）→ `return false`，什么都不做。
-2. 当前 innate 槽**齐全**（数量 == 模板数量）→ `innate_timer = INNATE_REGEN_TURNS`，`return false`（满盾时不倒计时，破盾那一刻才开始数）。
-3. 否则 `innate_timer -= 1`；`> 0` 就 `return false`。
-4. `innate_timer <= 0` → 按模板把缺的 innate 槽**补回去**（`amount` 用模板值、`duration` 用 0、`innate = true`），`innate_timer = INNATE_REGEN_TURNS`，`return true`。
+**为什么「破盾后才数」**：读作「破盾后最多挨 3 个自己的回合」；也避免「一直没破盾、某回合莫名回满」。
 
-**为什么是「破盾后才开始数」**：这样「3 回合」读作「破盾后最多挨 3 个自己的回合」，玩家能预期；满盾期间不倒计时也避免了「一直没破盾、某个回合莫名其妙回满」的观感问题。
+**回合结算顺序**：dot 掉血 → 死亡移除 → disable → `tick_buffs()` → `tick_auras()` → `tick_innate_shield()`。
+重生放最后，所以「这回合刚回来的盾」不会被同一回合的 dot 再打掉。
 
-**回合结算顺序**（`_begin_turn` / `_enemy_turn` 都是先 `_settle_status`）：dot 掉血 → 死亡移除 → disable → `tick_buffs()` → `tick_auras()` → `tick_innate_shield()`。**重生放在最后**，所以「这一回合刚重生」的盾不会被同一回合的 dot 或附着结算再打掉。
+**重生时补齐槽位可能撞 `MAX_AURAS`**：若此时 3 槽被普通附着占满，重生**优先**——先挤掉最旧的普通槽。
+这条容易漏，测试 `[6]` 里要有一个「槽满 + 破盾 + 3 回合后盾回来了且普通槽让位」的用例。
 
-### 42.7 数据迁移
-
-`data/tables/enemies.json`（现 8 行）——**只改火史莱姆一条**，其余不动：
+### 42.7 数据迁移（`data/tables/enemies.json`）
 
 | 敌人 | 改前 | 改后 |
 |---|---|---|
-| `slime` 史莱姆 24hp/4atk | `immunities: []` | 不动 |
-| `fire_slime` 火史莱姆 20hp/4atk | `immunities: ["fire"]` | **删掉 `immunities`**，改成 `"auras": [{ "element": "fire", "amount": 2.0, "duration": 0, "innate": true }]` |
-| `golem` 岩傀儡 40hp/6atk | `immunities: ["geo"]` | **不动**（纯静态免疫，作为两种免疫的对照样本保留） |
+| `slime` 史莱姆 24hp/4atk | `immunities: []` | **不动** |
+| `fire_slime` 火史莱姆 20hp/4atk | `immunities: ["fire"]` | **改回静态免疫**（就是现在这样，一行不动）。它就是「真·免疫」的样本：水打它也**永远**没有反应、没有伤害 |
+| `golem` 岩傀儡 40hp/6atk | `immunities: ["geo"]` | **不动**（第二个静态免疫样本） |
+| `hydro_mage` 水法师 **新增** | —— | `hp: 30, attack: 5, immunities: []`，`auras: [{ "element": "water", "amount": 12.0, "duration": 0, "innate": true }]` |
 
-文件顶部 `_note` 要补一句：「`immunities` = 纯静态免疫（不反应、不掉）；`auras` 里 `innate: true` 的槽 = 护盾（免疫该元素伤害、但能被反应吃掉、破盾后 3 回合重生）」。
+**为什么这样分**：火史莱姆与岩傀儡做「静态免疫」对照（怎么打都打不破），水法师做「元素盾」样本
+（不拿火/冰这类能反应的元素，就打不动它；拿火两发破盾，之后正常掉血；3 回合后盾回来）。
 
-**为什么保留岩傀儡的静态免疫**：它是「两种免疫语义确实不同」的活样本 —— 火史莱姆能被水啃掉盾、岩傀儡永远免疫岩。
+`_note` 要补一句：「`immunities` = 静态免疫（永久、不反应）；`auras` 里 `innate: true` 的槽 = 元素盾
+（吸收伤害、被反应按系数削、破后 3 回合重生）」。
 
-### 42.8 校验器缺口（本轮顺手补上）
+**冰/岩史莱姆的「再生护盾」本次不做**：等元素盾这套跑通、平衡调过之后再加数据即可（数据层不需要新代码）。
 
-`tools/validate_data.gd` 目前**完全没校验 `enemies.json`**（`_initialize()` 只读 elements / statuses / reactions / cards / decks 五个文件）。火史莱姆要写 `auras`，就必须补一个 `_check_enemies()`：
+### 42.8 校验器缺口（`tools/validate_data.gd`，本轮必须补）
 
-| 检查 | 失败等级 |
+`validate_data.gd` 目前**完全没读 `enemies.json`**（`_initialize()` 只校验 elements / statuses / reactions / cards / decks）。
+新增 `_check_enemies(element_ids)`：
+
+| 检查 | 等级 |
 |---|---|
 | `enemies` 是数组、每项是对象 | error |
 | `id` 非空且不重复 | error |
-| `hp` / `attack` 为整数且 `> 0` / `>= 0` | error |
+| `name` 非空 | error |
+| `hp` 为整数且 `> 0`；`attack` 为整数且 `>= 0` | error |
 | `immunities` 是数组、每个元素 id 在 `elements.json` 里 | error |
-| `auras` 是数组、每项 `element` 在 `elements.json` 里、`amount > 0` | error |
-| `auras` 项里 `innate` 非 bool 时报错；`innate == true` 但 `duration != 0` 时**只 warning**（提醒作者别写错） | warning |
+| `auras` 是数组、每项是对象、`element` 在 `elements.json` 里 | error |
+| `auras` 项 `amount` 是数字、`> 0`、`<= MAX_INNATE_AMOUNT (20.0)` | error |
+| `auras` 项 `innate` 非 bool | error |
+| `innate == true` 但 `duration != 0` | **warning**（提醒作者别写错） |
+| 同一元素既在 `immunities` 又在 innate 盾里 | **warning**（语义冗余：静态免疫会先短路，盾永远咬不动） |
+| 结尾打印 `[info] 敌人 N 种 ✓` | —— |
 
-**同时**：`_check_reactions()` 里现有那条「`aura` 效果的 element 必须在 elements.json 里」的检查要顺带确认**不会把 `innate` 槽误判成反应效果**（`innate` 只在 `enemies.json`/`cards.json` 的 `auras` 里出现，与 reactions 无关，理论上不会撞；但要在测试里钉一条）。
+`_initialize()` 里插在 `_check_cards` 与 `_check_decks` 之间。
 
 ### 42.9 测试计划
 
-**新增 `tests/pending/innate_shield_test.gd`**（约 **28–32 项**，`EXPECTED_CHECKS` 按实际写）：
+**新增 `tests/pending/elemental_shield_test.gd`**（约 **30–34 项**，`EXPECTED_CHECKS` 先跑再对齐）：
 
-| 段 | 覆盖什么 | 条数 |
+| 段 | 覆盖什么 | 约条数 |
 |---|---|---|
-| `[1]` 槽与免疫语义 | `add_innate` 后 `is_immune` 真、`is_static_immune` 假、`has_innate_shield` 真；静态免疫时三者关系反过来 | 5 |
-| `[2]` 伤害归零但反应照算 | 火打 innate 火盾 → `damage == 0`、`immune == true`、`immune_source == "shield"`、`reaction_slot >= 0` 但同元素找不到槽 → 实际 `reaction == ""`；水打 innate 火盾 → `damage > 0`（蒸发倍率）、`reaction == "蒸发"` | 5 |
-| `[3]` 盾被反应啃薄 / 破盾 | 水 1U 打 2U 火盾 → 盾剩 1U；再一发 → 盾消失；盾消失后火打它吃正常伤害 | 5 |
-| `[4]` 共存型反应不掉盾 | 雷打 innate 水盾 → 盾量不变、`shock` 已挂；冰打 innate 水盾 → 盾量不变、`immobilized` 已挂 | 4 |
-| `[5]` 不衰减 | 连跑 5 个回合结算，innate 槽还在、`amount` 不变、`duration` 仍是 0 | 3 |
-| `[6]` 3 回合重生 | 破盾后第 1、2 回合不回来，第 3 回合回来且 `amount` 回到模板值；满盾时不倒计时 | 5 |
-| `[7]` 挤占规则 | 3 槽全是 innate 时普通元素挂不上；有非 innate 槽时挤掉最旧的非 innate 槽、护盾不动 | 3 |
-| `[8]` 老契约不破 | 纯静态免疫（`golem` 那种）仍「伤害 0 + 不反应 + 不挂槽」 | 2 |
+| `[1]` 数据与基本谓词 | `from_dict` 认 `innate` 与模板；`has_innate_shield(water)` 真；**`is_immune(water)` 假**（盾不是免疫，这条是本块的立身之本）；`immunities` 为空 | 5 |
+| `[2]` 盾在时全挡 | 火/雷/物理/同元素打水法师 → `hp` 一点不掉、`absorbed == damage`、`hp_damage == 0`；盾量按 §42.3 表精确变化 | 6 |
+| `[3]` 反应削盾最快 | 火打水盾两发破（12 → 3 → 破）；第三发火正常掉血；破盾后 `has_innate_shield` 假 | 5 |
+| `[4]` 系数差异 | 同一伤害下，蒸发削减 > 超载 > 结晶 > 感电 > 物理 > 同元素(0)；**用 §42.3 的数值逐条断言** | 5 |
+| `[5]` 同属性打不破 | 水打水盾：伤害 0、盾量**一分不变**、连跑 5 回合仍旧 | 3 |
+| `[6]` 3 回合重生 | 破盾后第 1、2 回合不回、第 3 回合回且 `amount` == 模板值；满盾时不倒计时；**槽满时重生优先** | 5 |
+| `[7]` 挤占规则 | 三槽全 innate 时普通元素挂不上；有普通槽时挤掉最旧**普通**槽、盾不动 | 3 |
+| `[8]` 老契约不破 | 静态免疫（火史莱姆 / 岩傀儡）仍「伤害 0 + 不反应 + 不挂槽」；`is_immune` 语义与 560 基线完全一致 | 2 |
 
-**必须同步迁移的既有测试**：
-
-- `tests/data_test.gd:112-126`：现在是靠 `e.immunities.has(Element.FIRE)` 找火史莱姆、并断言 `fire_slime.is_immune(Element.FIRE)` 真 / `is_immune(WATER)` 假。火史莱姆改成 innate 火盾后——**`immunities.has` 会变假**，必须改成用 `has_innate_shield(Element.FIRE)` 找、并补一条断言 `is_static_immune(Element.FIRE) == false`（证明它确实不是静态免疫）。**项数会变，`EXPECTED_CHECKS := 46` 要同步。**
-- `tests/damage_test.gd:99-106`（D5 免疫四项）、`tests/battle_m1_smoke_test.gd:331-341`、`tests/aura_v3_test.gd:252-260`、`tests/order_test.gd:247-252`：这些用的是**手动 `immunities.append(...)`**，语义仍是静态免疫 → **一行都不用改**（这正是「纯增量」的价值）。跑一遍确认即可。
+**必须同步迁移的既有测试**：`tests/data_test.gd` 的 `_test_enemies()` 断言 `enemies.size() == 3` → **4**；
+补一条「水法师有 innate 水盾、`is_immune(water)` 为假」；`EXPECTED_CHECKS` 按实际数改。
+其余免疫测试（`damage_test` D5、`battle_m1_smoke`、`aura_v3` `[9]`、`order_test`）**一行都不用改** ——
+因为它们走的都是静态免疫，而本块不动静态免疫。
 
 ### 42.10 验收
 
 | 项 | 期望 |
 |---|---|
-| `tests/pending/innate_shield_test.gd` | 全绿，`[READY  ]` |
-| 主套 | `run_tests.bat` 全绿，项数 = **560 − 46 + 新增 data_test 条数 + innate_shield 条数**（data_test 会因为 `[3]` 加断言而变，必须实测后把算式写进 §42.14） |
-| `validate_data` | PASS，0 错 0 警（新增 `_check_enemies` 后仍要是 0 警） |
-| `balance_sim --games 200 --seed 1` | **必须与改动前逐位相同**（45.0% / 13.4 / 0%）。`balance_sim` 自己造「训练假人」不吃 `enemies.json`，所以理论上零影响；**若变了说明碰坏了共享代码路径** |
-| 反假绿 | ①把 `has_innate_shield` 恒 `false` → `[2][3]` 必红；②把 `tick_innate_shield` 直接 `return false` → `[6]` 必红；③把 `_apply_aura` 的 `is_static_immune` 改回 `is_immune` → `[3]` 必红 |
-| 编码 | 所有 `.gd` / `.md` / `.json` **无 BOM + LF**；`validate_data` 与 `run_tests.bat` 输出口径同前 |
+| `tests/pending/elemental_shield_test.gd` | 全绿，`[READY  ]` |
+| 主套 | `run_tests.bat` 全绿，项数 = **560 − 46 + data_test 新数 + 新文件条数**（实测后写进 §42.14） |
+| `validate_data` | PASS，**0 错 0 警**（含新增的 `敌人 N 种 ✓`） |
+| `balance_sim --games 200 --seed 1` | **必须逐位相同**（45.0% / 13.4 / 0%）。`balance_sim` 不读 `enemies.json`，变了就是碰坏了共享路径 |
+| 反假绿 | ①`shield_break_rate` 恒 `0.0` → `[3][4]` 必红；②`absorb_elemental_shield` 原样返回（不吸收）→ `[2]` 必红；③`tick_innate_shield` 恒 `return false` → `[6]` 必红；④同元素 `k` 从 0 改 3.0 → `[5]` 必红 |
+| 编码 | `.gd` / `.md` / `.json` **无 BOM + LF** |
 
-### 42.11 六个坑
+### 42.11 七个坑
 
-1. **顺序不能反**：先静态免疫短路 → 正常算反应 → 最后护盾归零。反过来会出现「盾永不掉」或「静态免疫也能被反应」。
-2. **`tick_auras()` 必须先跳过 innate 再减 duration**，否则 `duration: 0` 的盾第一回合就被删。
-3. **`pop_front()` 挤占必须先筛 `innate == false`**，否则护盾被别人随手挂的元素挤掉（这是最容易漏的一条）。
-4. **`is_immune()` 改含义后，`_apply_aura()` 的入口必须同步换 `is_static_immune()`**，否则护盾永远咬不动 —— 而所有既有免疫测试仍然是绿的（因为它们走的就是静态免疫），这个 bug 只能靠新测试 `[3]` 抓。
-5. **`balance_sim` 不受影响不代表 `battle_m2_test` 不受影响** —— 那 63 项里有 AI 打带盾单位的路径，跑一遍确认。
-6. **重生日志要打在 `_log` 里**，否则「盾为什么回来了」在复盘时无从查证。
+1. **别再把盾做成免疫**：`is_immune()` / `immunities` / `Damage.compute` 的免疫短路**一个字不改**。
+   上一版就是死在这里（用户当场指出）。
+2. **`_apply_aura()` 命中 innate 槽时不许扣 `consume`**，否则一发反应算两遍（盾被扣两次）。
+3. **`tick_auras()` 里 innate 用 `continue` 不是 `break`**，否则盾后面的槽永不衰减。
+4. **满槽挤占只挤非 innate**，否则盾被普通元素挤掉；重生时相反——**要挤普通槽给盾让位**。
+5. **系数判定先看 `consume == 0`（共存型）再看 `type`**，否则感电按 `transformative` 的 2.0 削盾，克制关系反了。
+6. **盾量用 `float` 且 `snappedf(_, 0.01)`**，否则 `0.75` 一路减下去会出现 `10.499999` 这种脏值，测试断言挂掉。
+7. **`balance_sim` 不受影响不代表 `battle_m2_test` 不受影响**：那 63 项里有 AI 打单位的完整路径，跑一遍确认。
 
 ### 42.12 明确不做的事
 
-- **反应里的 `damage` / `shield` / `heal` 三种效果仍然不实现**（超载的 2 点额外伤害、结晶的 2 点护盾依旧是死数据）。补上会改平衡基线，留到 M3.8 平衡调参一起做 —— 即 **§42.2b 的 ② 结晶盾本轮不做**，但定义已在 §42.2b 定稿。
-- **玩家侧的「火盾术」指令卡不加**（§42.2b 的 ③ 技能盾同理：需要新的卡牌 `kind` 分支，等 M3.8a AI 打指令卡做完再说）。
-- **`immunities` 旧契约不破**：现有 4 个测试钉死的「免疫 → 不反应 / 不消耗 / 不挂槽」全部保留，一个字不改。
-- **`Unit.shield`（数值盾）的扣盾顺序本轮不动**：`take_damage` 已先扣盾后扣血（`unit.gd:81-90`），这正是 ②③ 的判定地基，本轮只读不写。
+- **`reactions.json` 里的 `damage` / `shield` / `heal` 三种效果仍不实装**（超载额外伤害、结晶护盾都是死数据），
+  留到 M3.8 平衡调参（会改基线，必须与先手补偿一起做）。
+- **技能盾（`kind: "shield"` 指令卡）与结晶盾**不动（见 §42.2 排期）。
+- **冰/岩史莱姆的再生护盾**不加（数据层以后直接加即可）。
+- **`Unit.shield`（数值盾）的扣盾顺序不动**：`take_damage` 已先扣盾后扣血，本块只在它**之前**插一层元素盾。
+- **玩家侧不给元素盾**：只有 `enemies.json` 里能配（玩家要的是技能盾，M3.8a 再做）。
 
-### 42.13 施工指引（按这个顺序做，每步都有「怎么知道这一步对了」）
+### 42.13 施工指引（按顺序做，每步都有「怎么知道这一步对了」）
 
-> 这一节只给**思路与判据**，函数体你自己写。签名在 42.3 已经写死，照抄签名不算抄实现。
-> 顺序不是建议而是要求：**每一步做完都必须能单独验证**，不要一口气改完六个文件再跑测试 ——
-> 那时红了你也分不清是哪一步引入的。
+> 只给**思路与判据**，函数体自己写。签名在 §42.3 已写死，照抄签名不算抄实现。
+> **顺序是要求不是建议**：每一步都要能单独验证，不要一口气改完再跑测试 —— 那时红了分不清是哪步。
 
-#### 第 0 步：先想清楚「三个身份」再动手
+#### 第 0 步：先把上一版的错误代码清掉（**必须先做**）
 
-在写任何一行之前，先能用自己的话说出这三件事的区别，说不清就先回去读 42.2：
+如果你已经按 42.13 的旧版（免疫变体那一版）动过手，先回退这几处，否则后面全是歪的：
 
-1. **静态免疫**（`immunities` 名单）：这是「我天生不怕火」，火打上来连反应都不发生。
-2. **护盾**（`auras` 里 `innate: true` 的槽）：这是「我身上裹着一层火」，火打上来打不动，但水能把这层火一点点蒸发掉。
-3. **普通附着**（`innate: false` 的槽）：会自然衰减、会被反应消耗、被别人挤掉。
+| 文件 | 要回退的东西 |
+|---|---|
+| `src/core/unit.gd` | `is_immune()` 里那段「遍历 auras 看 innate」**删掉**；`is_static_immune()` **删掉**（不需要了）；`SHIELD_RESET` / `shield_reset_discount` / `innate_copy` 这类规格外命名一并清掉 |
+| `src/core/damage.gd` | `immune_source` 相关全部**删掉**；`compute()` 回到原来的三段（静态免疫 → 无反应 → 有反应），只在返回字典里**加一个 `reaction_type`** |
+| `src/core/unit.gd` | `tick_auras` 里读的是 `"immune"` 键、`describe_auras` 也读 `"immune"` —— 统一改成 **`"innate"`**。这个键名混用是本轮最容易漏的 bug |
+| `src/core/unit.gd` | `from_dict` 里 `immunities` 被 append 了**两遍**（一遍 `e` 原样、一遍 `str(e)`）—— 删掉多余那遍 |
+| `src/core/unit.gd` | `innate_template` 现在把**每一个非 NONE 的槽**都塞进模板（包括普通附着）—— 只许塞 `innate == true` 的 |
 
-判据：如果此时你还需要问「为什么既要写 `is_static_immune` 又要写 `has_innate_shield`」，说明第 2 条还没想透 —— 因为 `Damage` 必须能区分「这次挡下来该不该连反应一起停掉」，一个 bool 装不下两种答案。
+**判据**：改完 `git diff src/` 里不该再出现 `immune_source`、`is_static_immune` 这两个词。
 
-#### 第 1 步：`src/core/unit.gd`（七处，全文件最底层）
+#### 第 1 步：`src/core/unit.gd`（数据结构 + 三个新谓词 + 两个常量）
 
-**这一步的产出是「数据结构 + 五个谓词」，先不碰任何战斗流程。**
+产出「数据 + 查询」，**先不碰战斗流程**：
 
-1. 加常量 `INNATE_REGEN_TURNS := 3`。
-2. 加两个字段：一个是**模板**（`from_dict` 时把 innate 槽深拷贝存一份，将来重生照它恢复），一个是**倒计时**（距离重生还剩几回合）。为什么不直接拿 `auras` 现存的槽当模板？因为破盾之后槽就没了，模板必须独立于槽存活。
-3. `from_dict()`：现在读 `auras` 的循环只取 `element`/`amount`/`duration` 三个键。要让它**多认一个 `innate` 键**，读到 true 时同时往模板里塞一份。注意是**深拷贝**——直接把字典引用塞进模板，将来槽被 `remove_at` 之后模板会跟着指向已删除对象的状态，重生就恢复不出来。
-4. `is_immune()`：**改含义**，变成「静态免疫 **或** 有同元素护盾」。这是本块唯一一处「改旧语义」，改完 `data_test` 会立刻红（见第 6 步），那是预期的。
-5. 拆出 `is_static_immune()`：内容就是**原来的** `is_immune()` 一字不动地搬过来。
-6. 加 `has_innate_shield()`：只查 innate 槽，不看名单。这个方法是给 `Damage` 用的，判据是「同一个元素，静态免疫为真时它应该为假」（除非你故意两个都配，那种数据 `validate_data` 会拦，见第 5 步）。
-7. 加 `active_innate_elements()`：把当前所有 innate 槽的元素 id 收集成数组，纯给日志和 UI 用，不参与任何判定。
+1. 常量 `MAX_INNATE_AMOUNT := 20.0`、`SHIELD_HP_PER_U := 2.0`、`INNATE_REGEN_TURNS := 3`。
+2. 字段 `innate_template`（只存 innate 槽的深拷贝）与 `innate_timer`。
+3. `from_dict()` 的 `auras` 循环多认一个 `innate` 键；`true` 时**深拷贝**一份进模板（不能存引用 —— 槽被移除后模板会跟着失效）。
+4. `has_innate_shield(element_id) -> bool`：只在 innate 槽里找同元素。
+5. `active_innate_shields() -> Array`：返回当前 innate 槽的数组（给日志/UI/测试用）。
+6. `get_innate_shield(element_id) -> Dictionary`：返回那**一个槽字典本身**（改它就是改盾量；没有返回 `{}`）。
 
-**这一步的完成判据**：改完之后 `project` 还能解析（不要求测试全绿，因为 `is_immune` 语义刚变，`data_test` 必然红）。如果这一步就报 `Parse Error`，八成是编码坏了——`.gd` 只能用编辑器改，别用 PowerShell 整篇重写。
+**判据**：`project` 能解析；写个一次性探针（或在 `tests/pending` 里先写两条）确认 `from_dict` 传 `innate: true` 的敌人
+能读到 `has_innate_shield`、且 `is_immune` 仍是**假**（这条最关键：盾不是免疫）。
 
-#### 第 2 步：`src/core/unit.gd` 的三个改旧方法（**最容易漏的就是这三条**）
+#### 第 2 步：`src/core/unit.gd` 的三个改旧方法（最容易漏）
 
-这三个是既有方法，改的时候要看清楚它们**现在**在干什么，别推倒重写：
+1. `add_or_refresh_aura()`：满槽只挤最旧的**非 innate** 槽；三槽全 innate → 放弃附着；同元素若命中 innate 槽 → 不走量相加，走新槽；新普通槽显式 `"innate": false`。
+2. `tick_auras()`：倒序遍历，遇到 innate **`continue`**（不减、不删、不收集）。
+3. `describe_auras()`：innate 槽输出 `水12.00U(盾)`（两位小数），普通槽维持 `火1U(2)` 原样。
 
-1. `add_or_refresh_aura()` —— 现在满 `MAX_AURAS` 槽时直接 `pop_front()` 挤掉最旧的。**问题**：如果最旧的那槽恰好是护盾，一个普通元素就能把盾凭空挤掉。
-   改法：满槽时**只在 `innate == false` 的槽里找最旧的**去挤；如果找不到（三槽全是护盾），这层普通附着就**放弃**，什么都不加。
-   顺便注意同元素分支：现在的逻辑是「同元素就量相加」。但护盾和普通附着**同元素**时不该走这条路（否则会出一个 `innate:false` 的合并槽，语义混乱），所以这里要先判断「命中的那槽是不是 innate 槽」再决定。
-   还有：新加的普通槽必须显式带上 `innate: false`，不能指望「缺省就是 false」——因为 `tick_auras` 和 `add_or_refresh_aura` 两处都会去读这个键，写清楚比依赖缺省安全。
+**判据**：这三个改完，**既有测试仍应全绿**（还没有任何数据用 `innate`）。红了说明动坏了普通附着路径，先回滚。
 
-2. `tick_auras()` —— 它现在无条件 `duration -= 1`，归零就移除。护盾的 `duration` 是 0，**第一回合就会被删掉**。
-   改法：倒序遍历时，遇到 innate 槽直接跳过（不减、不删、不收集）。注意是 `continue` 而不是 `break`——跳过这一槽继续看下一槽。
+#### 第 3 步：`src/core/unit.gd` 的两个新方法（本块的算法核心）
 
-3. `describe_auras()` —— 现在统一输出 `火1U(2)`。护盾的 duration 是 0，会显示成 `火2U(0)`，看着像 bug。
-   改法：innate 槽输出带「盾」字的形式（具体形态见 42.3 那张表），普通槽维持原样。为什么要区分？因为写测试时要靠这个字符串断言「盾还在、量是 2」，人肉复盘时也一眼能看出是盾不是附着。
+1. `shield_break_rate(element_id: String, reaction_type: String) -> float` —— **只做查表**，返回 §42.3 的 `k`。
+   传入的 `reaction_type` 由调用方决定语义：`""` = 没反应；`"physical"` 由**元素**判断（`element_id == Element.NONE`）
+   —— 建议这个函数自己先把「`element_id == NONE` → 0.25」判掉，再查反应表，避免调用方传两种口径。
+   共存型判定：`reaction_type` 传进来的时候已经带上 `"coexist"`（见第 4 步），这里只查表，不做二次推断。
+2. `absorb_elemental_shield(damage, element_id, reaction_type) -> Dictionary` —— 按 §42.3 的 5 步走：
+   全挡 → 算 `break_u` → 扣盾量（`snappedf` 两位）→ `<= 0` 移除槽且复位 `innate_timer` → 返回五字段字典。
 
-**这一步的完成判据**：这三个方法改完，**既有测试应该仍然全绿**（因为现在还没有任何数据用 `innate`）。如果这一步就红了，说明你动坏了普通附着的路径——先回滚这一处，别硬往里走。
+**判据**：写几个临时断言（或直接在 `tests/pending` 里起头 `[2]`），数字要**逐位对得上 §42.3 的举例表**：
+12U 盾 + 火 6 伤害 → `absorbed 6 / break 9.0 / 剩 3.00`。对不上就是系数或单位搞错了。
 
-#### 第 3 步：`src/core/damage.gd`（`compute()` 一处，但顺序是全部的关键）
+#### 第 4 步：`src/core/damage.gd`（一行）
 
-**这一步只改一个函数，但它是整个块最容易写反的地方。**
+只加返回字段 `"reaction_type"`。取值的规则：
 
-现在 `compute()` 是「先找反应槽 → 如果免疫就 `immune = true` 并把槽置 -1 → 否则算伤害」。要变成三段：
+- 没反应 → `""`；
+- 有反应且 `consume == 0.0` → **`"coexist"`**（感电/冻结用它，别让它冒充 `transformative`）；
+- 否则 → `act.get("type","")`。
 
-1. 先算反应槽下标（保持原样，第一步不动）。
-2. **静态免疫优先**：如果静态免疫，直接判免疫、槽置 -1、剩下的字段全保持 0/空、**提前返回**。为什么必须提前返回？因为如果让它往下走到护盾那段，`immune_source` 会被覆盖成 `"shield"`——那样 `battle.gd` 就会误以为「这是能反应的护盾」，把一个本该完全免疫的东西变成可反应的。
-3. 否则照常算倍率 / `consume` / `effects`（这一段一分不改）。
-4. **护盾兜底**：算完之后，如果目标有这个元素的护盾，把 `damage` 归零、判免疫，但 **`reaction` / `multiplier` / `consume` / `effects` / `reaction_slot` 全部原样保留**。这一步为什么必须在最后？因为它要的是「反应已经算出来了，我只是不让伤害生效」，早于反应就没法既免疫又反应了。
+**判据**：`damage_test` 全绿（D5 免疫四项一点没变）。
 
-返回值要多一个 `immune_source`（`"static"` / `"shield"` / `""`）。原来的 `"immune"` 保留、两个来源都为真。
+#### 第 5 步：`src/core/battle.gd`（三个入口 + 一处重生 + 一处 `_apply_aura` 例外）
 
-**这一步的完成判据**：`tests/damage_test.gd` 与 `tests/aura_v3_test.gd`、`tests/battle_m1_smoke_test.gd` 仍然全绿（它们全部走静态免疫那条路，语义没变）。如果 `damage_test` 的 D5「免疫」那四项红了，说明你把静态免疫短路写丢了。
+1. 新增一个私有方法（如 `_absorb_by_shield(target, damage, element, reaction_type) -> int`）：
+   调 `Unit.absorb_elemental_shield`，把 `absorbed / break_u / 破盾` 打进日志，返回真正打到血上的伤害。
+2. 三个伤害入口都改成 `compute_damage` → **过盾** → `take_damage`（见 §42.4 那张表）。
+3. `_apply_aura()` 里：如果命中的反应槽是 innate 槽，**跳过扣 `consume` 那一步**（其余不动）。
+   注意别顺手改它的免疫入口 —— 静态免疫就该挡。
+4. `_settle_status()` 里 `tick_auras()` 之后加 `tick_innate_shield()` 的调用与日志。
 
-#### 第 4 步：`src/core/battle.gd`（四处入口 + 一处重生，判据统一）
+**判据**：`battle_m2_test` 的 63 项仍全绿（AI 打无盾单位的路径没变），`balance_sim` 逐位不变。
 
-**这一步是把「新语义」接到实际战斗流程上。四个入口的改法完全同构，别写成四种样子。**
+#### 第 6 步：`data/tables/enemies.json` 与 `tools/validate_data.gd`
 
-1. `_apply_aura()` 开头：现在 `if target.is_immune(element): return`。要换成**只挡静态免疫**。为什么？因为护盾必须能被「啃」——如果这里还拿 `is_immune` 挡，护盾永远是满的。
-   同时把函数头那段注释的第 2 条（「免疫该元素不处理」）改成「静态免疫不处理」，否则文档和代码打架。
-   护盾的「减薄 / 破盾」**不用写任何新代码**——现有的「旧槽扣 `consume`、`<= 0` 就 `remove_at`」逻辑正好就是啃盾，一行不加。
-2. `play_card()` 里挂附着那一处、`attack_unit()` 主伤害那一处、反击那一处：三处现在都是 `if not xxx.get("immune", false):`。
-   改成判 `immune_source`：**只有 `"static"` 才跳过**，`"shield"` 要照常挂附着（这样指令卡的元素也能啃盾）。
-   三处判据要写成同一个表达式，别一处写 `!= "static"`、另一处写 `== "shield" or == ""`——将来加第三种来源时会分叉。
-3. 建议在这三处各加一条 `"shield"` 分支的日志（比如「被护盾完全挡下，护盾剩 X」），否则「伤害为什么是 0」在复盘日志里查不出来。注意这个分支必须**排在 `"static"` 之后**、而且不能写成 `elif` 挂在「不等于 static」的 `if` 后面——那种写法恒真、永远进不去（这正是我上一轮踩的坑，见 HANDOFF §28.5）。
+数据：火史莱姆**保持**静态免疫（一行不动），**新增** `hydro_mage` 水法师（30hp/5atk，12U 水盾），`_note` 补两种机制的说明。
+校验器：按 §42.8 的表加 `_check_enemies()`。
 
-#### 第 5 步：`data/tables/enemies.json`（只改一条）与 `tools/validate_data.gd`
+**判据**：`validate_data` PASS，**0 错 0 警**，且输出里有 `敌人 4 种 ✓`。
 
-**数据侧只动火史莱姆一条**：把它的 `immunities: ["fire"]` 删掉，换成一条 `innate: true` 的火盾槽（`amount` 给 2.0、`duration` 写 0）。**岩傀儡一个字别动**——它是「两种免疫确实不同」的对照样本：水能把火史莱姆的盾啃掉，但没有任何手段能打穿岩傀儡的岩免疫。这条对照留在数据里，比写在文档里更有说服力。
+#### 第 7 步：迁移 `tests/data_test.gd`
 
-`_note` 补一句两种免疫的区别，否则下一个人看到「火史莱姆不再免疫火了」会以为是回归。
+`_test_enemies()` 的 `enemies.size() == 3` → **4**；补一条「水法师：`has_innate_shield(water)` 真、`is_immune(water)` **假**」。
+`EXPECTED_CHECKS` 先跑再对齐，别先改数字。
 
-**校验器是这一块另一个必须补的洞**：`validate_data.gd` 现在**完全没读 `enemies.json`**（只校验 elements / statuses / reactions / cards / decks 五个文件）。你要加一个敌人校验函数，检查项按 42.8 那张表来：结构、id 唯一、`hp`/`attack` 范围、`immunities` 里每个元素在 `elements.json` 存在、`auras` 每项元素合法且 `amount > 0`、`innate` 是 bool。
-还有一条表里没写但一定要加：**同一个元素既在 `immunities` 里、又挂了个 innate 盾 → 报错**。这种数据是语义自相矛盾的（既「天生不怕、连反应都没有」又「能被反应啃掉」），让它通过校验等于埋雷。
+#### 第 8 步：写 `tests/pending/elemental_shield_test.gd`（八段，按 §42.9）
 
-**这一步的完成判据**：`validate_data` PASS、**0 错 0 警**。特别盯 warning 数为 0——如果你把「innate 槽 duration 不为 0」写成 error，正常数据不受影响；但如果你把某条正常检查写宽了，warning 数会冒出来。
+实战要点：
 
-#### 第 6 步：迁移 `tests/data_test.gd`（一定会红，是预期的）
+- 造带盾单位**走 `Unit.from_dict()`** 传 `auras`，别手改数组 —— 否则模板是空的，`[6]` 永远测不过，你会误怀疑重生代码。
+- `[2][4]` 的数字**照抄 §42.3 举例表**，不要自己算个大概再对 —— 系数表就是契约。
+- `[6]` 要测三个时间点（第 1、2 回合不回、第 3 回合回），只测「最后回来了」抓不到 off-by-one；再补「满盾倒计时不动」。
+- `[5]` 同属性要**真的连跑 5 个回合**，不是连调五次 `tick_auras()`（重生也在回合结算里，顺序错只有完整回合才暴露）。
+- `[8]` 老契约用火史莱姆/岩傀儡，验证静态免疫**没有**被本块污染。
 
-`_test_enemies()` 现在是靠 `e.immunities.has(Element.FIRE)` 去**找**火史莱姆，然后断言 `is_immune(FIRE)` 为真、`is_immune(WATER)` 为假。
+#### 第 9 步：验收与反假绿
 
-火史莱姆改成护盾后：
-- 查找条件失效（`immunities` 空了）→ 改用 `has_innate_shield(FIRE)` 找。这里顺便验证了第 1 步那个方法真的能用。
-- 只断言 `is_immune(FIRE)` 为真**不够**——它现在可能因为两种原因都为真。要**再补一条** `is_static_immune(FIRE) == false`，这条断言的价值是：将来有人把火史莱姆不小心改回静态免疫，它会立刻红。
-- 岩傀儡那边加一组反向对照（静态免疫真、护盾假），两条免疫路径就都被钉住了。
+四件套 + 四组探针（§42.10）。**任何一组没变红 = 对应断言是假绿，回去补**，不要因为「全绿了」就收工。
 
-`EXPECTED_CHECKS` 要跟着实际项数改。**不要先改数字再数项**——先跑一遍看实际报了几项，再对齐。
-
-#### 第 7 步：写 `tests/pending/innate_shield_test.gd`（八个段，按 42.9 那张表）
-
-**先写测试再改代码也可以，但这一块建议代码先跑通再写测试** —— 因为你要先确认 `unit.gd` 那五个方法的行为，才知道断言该怎么写。
-
-几个写测试时的实战要点：
-
-- 造带盾单位**别手改 `auras` 数组**，走 `Unit.from_dict()` 传一条 `auras` 进去。这样顺便验证了第 1 步「`from_dict` 认 `innate` 键」和「模板深拷贝」——如果你手改 `auras`，模板是空的，重生那段（`[6]`）永远测不过，你会去怀疑重生的代码，其实错在测试的造法上。
-- `[5]`「不衰减」要真的跑**多个回合结算**（调 `_settle_status` 或推进回合），不是连调五次 `tick_auras()` 就完事 —— 因为 `tick_auras` 在 `_settle_status` 里被调用，而重生逻辑也在那儿，两者顺序错了只有在完整回合里才暴露。
-- `[6]`「3 回合重生」要测三个时间点：破盾后第 1 回合不回、第 2 回合不回、**第 3 回合回**。只测「最后回来了」抓不到 off-by-one。
-- `[6]` 还要测「满盾时倒计时不动」：满盾连跑几回合，`innate_timer` 必须一直等于 `INNATE_REGEN_TURNS`。这条是防「一直没破盾、某回合莫名其妙回满」的观感 bug。
-- `[4]`「共存型反应不掉盾」是本块最有价值的一组：雷打水盾走感电（`consume 0`）→ 盾量必须一点不变、同时 `shock` 挂上了。这一条同时验证了「能反应」和「反应不消耗也不掉盾」两个性质。
-- `[7]` 挤占规则要造两个场景：三槽全护盾时普通元素挂不上（`auras.size()` 不变、盾一个不少）；有普通槽时挤掉的是**最旧的那个普通槽**、护盾位置不变。
-- `[8]` 老契约：纯静态免疫仍然「伤害 0 + 不反应 + 不挂槽」。这一段是回归网，防止你在第 3 步把静态免疫短路写漏了却没人发现。
-
-#### 第 8 步：验收与反假绿（**这一段决定你是不是真的做对了**）
-
-四件套：`tests/pending/innate_shield_test.gd` 全绿 `[READY]`、主套 `run_tests.bat` 全绿、`validate_data` 0 错 0 警、`balance_sim --games 200 --seed 1` **仍然 45.0% / 13.4 / 0%**。
-
-`balance_sim` 这一条要特别当心：它自己造「训练假人」、根本不读 `enemies.json`，所以理论上**必然**零影响。**如果它变了，说明你碰坏了共享代码路径**（最可能是 `compute()` 的静态免疫短路或 `_apply_aura` 的入口条件），不是「平衡变了」。
-
-反假绿三组（改坏 → 跑 → 改回来），别跳过：
-
-1. `has_innate_shield()` 恒 `false` → `[2][3]` 必红。抓不到的话说明你的 `[2][3]` 断言在拿 `is_immune` 顶班。
-2. `tick_innate_shield()` 直接 `return false` → `[6]` 必红。抓不到说明 `[6]` 只测了「没回来」，没测「第 3 回合回来了」。
-3. `_apply_aura()` 的入口从 `is_static_immune` 改回 `is_immune` → `[3]` 必红。这一条最关键：**所有既有免疫测试仍然会是绿的**（它们走静态免疫），只有新测试 `[3]` 能抓到这个 bug。
-
-如果三组里有任何一组没变红，说明对应的断言是假绿，回去补断言——**不要因为「测试已经全绿」就认为做完了**。
-
-#### 最后：自查一遍这六条
+#### 最后：自查这六条
 
 | # | 自查 | 错的样子 |
 |---|---|---|
-| 1 | 静态免疫时 `immune_source` 是 `"static"` 不是 `"shield"` | 静态免疫被当成能反应的盾 |
-| 2 | `tick_auras()` 里 innate 是 `continue` 不是 `break` | 盾后面的槽永远不衰减 |
-| 3 | 满槽挤占只挤非 innate | 盾被普通元素挤掉 |
-| 4 | `battle.gd` 三处入口判据写法一致 | 指令卡能啃盾、普攻不能（或反之） |
-| 5 | 新普通槽显式写 `innate: false` | 缺省值一改就全乱 |
-| 6 | `validate_data` warning 数为 0 | 新增检查写得太宽 |
-
-（实现并验收后，把实测数据回填到 §42.14。）
+| 1 | `is_immune()` / `immunities` / `compute()` 免疫短路**零改动** | 盾又变成免疫了 |
+| 2 | 系数判定先 `consume == 0` 再看 `type` | 感电一下把水盾打没 |
+| 3 | `_apply_aura` 命中 innate 槽不扣 `consume` | 反应被算两遍 |
+| 4 | 满槽挤非 innate；重生时挤普通槽让位 | 盾被挤掉 / 盾回不来 |
+| 5 | 盾量 `float` + `snappedf(0.01)` | 断言挂在 `10.499999` |
+| 6 | `validate_data` warning 数为 0 | 新检查写太宽 |
 
 ### 42.14 落地记录
 
-（实现并验收后在此回填：实测项数、提交、反假绿三组红指纹的实际红了几项。）
+（实现并验收后在此回填：实测项数、提交、四组反假绿红了几项、水法师实测数值。）
+
+### 42.15 第一轮评审（2026-11-27，学员 WIP，按旧规格写的）
+
+> 结论：**当前 `src/core/{unit,damage}.gd` 的改动是上一版「盾 = 免疫变体」方案的产物，整体要按 §42.13 第 0 步回退重来。**
+> 不要再在这份 diff 上往下加东西 —— 地基错了，加得越多拆得越久。
+> `src/core/battle.gd` 还没动，这是好事：一块都还没接线，回退成本最低。
+
+#### A. 已经做对的（回退时别一起删）
+
+| 位置 | 做对了什么 |
+|---|---|
+| `src/core/unit.gd:57-62` | `from_dict` 的 auras 循环里读 `"innate"` 键并写进槽字典 —— 键名和规格一致 |
+| `src/core/damage.gd:45-58` | 静态免疫**提前 return** 的思路对（静态免疫要短路，不能往下算反应） |
+| `src/core/damage.gd:45` | 用 `immune_source` 三态区分来源，方向对（但本块不需要它了，见下） |
+
+#### B. 必须改的（按严重程度）
+
+| # | 位置 | 现象 | 为什么错 | 怎么改（思路） |
+|---|---|---|---|---|
+| 1 | `src/core/damage.gd:60-63` | `elif target.is_immune(element): immune = true; immune_source = "shield"; reaction_slot = -1` | **这是本块的核心错误**：把盾当成免疫 → 直接 `reaction_slot = -1` 把反应掐死。盾的整个存在意义就是「能挡伤害但**反应照算**」 | 这段整块删掉。盾不进 `Damage.compute`，判定挪到伤害结算之后（§42.13 第 5 步） |
+| 2 | `src/core/unit.gd:94-101` | `is_immune()` 里多了一段「遍历 auras 看 innate」 | 污染了免疫语义；`_apply_aura` 等既有调用点会跟着误判，四处老测试（damage/battle_m1/aura_v3/order）全都建在「免疫 = 不反应」上 | 循环原样恢复成只扫 `immunities` |
+| 3 | `src/core/unit.gd:87-92` | `is_static_immune()` | 本块不需要这个函数（`is_immune` 本来就只指静态免疫，没有第二种来源了） | 删掉 |
+| 4 | `src/core/unit.gd:63-67` | `innate_template.append(...)` 的条件是 `element != NONE` | 把**每一个普通附着槽**都存成了模板 → 普通火附着被吃掉后也会「3 回合重生」，等于所有单位都有再生盾 | 条件换成 `innate == true`，且**深拷贝**（别存槽字典的引用） |
+| 5 | `src/core/unit.gd:189` / `:205` | `tick_auras` 与 `describe_auras` 读的是 `"immune"` 键 | 与 `from_dict` 写的 `"innate"` 不是同一个键 → 护盾照样每回合掉 duration、显示也不带盾标 | 两处都改成 `"innate"`。**这是本轮最隐蔽的 bug，只有跑测试才会露头** |
+| 6 | `src/core/unit.gd:68-73` | `immunities` 被 append 了**两遍**（一遍 `e` 原样、一遍 `str(e)`） | 同一个元素重复入表；虽然 `has()` 结果不变，但 `describe`/长度断言会歪 | 删掉多余那遍，只留原来就有的 `for e in d.get("immunities", []): append(str(e))` |
+| 7 | `src/core/unit.gd:13` / `:28` | `const SHIELD_RESET := 3`、`var shield_reset_discount = 0` | 规格外的命名与字段（§42.3 只有 `INNATE_REGEN_TURNS`、`innate_timer`） | 删掉，重生用 `INNATE_REGEN_TURNS` + `innate_timer` 两个即可 |
+| 8 | `src/core/unit.gd:104-108` | `has_innate_shield() -> bool` 缺 `element_id` 参数 | 规格签名是 `has_innate_shield(element_id: String) -> bool`；无参版本只能回答「有没有盾」不能回答「是不是这面盾」 | 按 §42.3 的签名表补齐 |
+| 9 | 缺 | `MAX_INNATE_AMOUNT` / `SHIELD_HP_PER_U` / `innate_timer` / `get_innate_shield()` / `active_innate_shields()` / `shield_break_rate()` / `absorb_elemental_shield()` / `tick_innate_shield()` 全都没写 | 本块的双主体（盾量吸收 + 破盾系数）一个都还没有 | 按 §42.13 第 1、3 步补 |
+| 10 | 缺 | `src/core/battle.gd` 完全没动 | 三个伤害入口与重生挂点都还没接线 | §42.13 第 5 步 |
+
+#### C. 顺带提醒（不是错，但别在这轮顺手做）
+
+- `src/core/damage.gd:45-58` 的静态免疫分支把整个返回字典抄了一遍，和末尾那份重复。回退时既然要删 `immune_source`，顺手把 `return` 去掉、让它继续走下面同一份返回字典即可 —— 但**先让测试绿**，其次再收拾。
+- `data/tables/cards.json` 被重排成多行缩进格式（259 行）。格式本身没问题（`validate_data` 与 `test_card_lib` 现在都支持单行/多行两种），但**下轮别再做格式化重构**：一次提交里混「改数据」和「改格式」，评审时看不出哪个字段是真改的。
+- 顺带修掉的教练侧 bug：`tools/card_lib.gd` 的写回逻辑原来假设「一张卡一行」，多行格式下会把逗号补到独立的 `\t\t{` 行、产成 `{,`。现已改成按**卡块（大括号配对）定位**，单行与多行两种格式各验过一次，61 项全绿。
+
+#### D. 下一步（照 §42.13 走，别跳步）
+
+1. 第 0 步：按上表 B 的 1–7 条清旧代码。**判据**：`git diff src/` 里搜不到 `immune_source`、`is_static_immune`、`SHIELD_RESET`、`shield_reset_discount`、`"immune"`。
+2. 第 1 步：补常量/字段/三个谓词。**判据**：写个一次性探针，确认 `is_immune(water)` 对水法师是**假**、`has_innate_shield(water)` 是**真**。
+3. 第 2 步：改 `add_or_refresh_aura` / `tick_auras` / `describe_auras`。**判据**：既有 560 项仍全绿（还没有数据用 `innate`）。
+4. 第 3 步：写 `shield_break_rate` + `absorb_elemental_shield`。**判据**：数字逐位对上 §42.3 举例表（12U 水盾 + 火 6 伤害 → `absorbed 6` / `break 9.00` / 剩 `3.00`）。
+5. 第 4 步：`damage.gd` 只加 `reaction_type`。**判据**：`damage_test` 23 项全绿、D5 四项一点没变。
+6. 第 5 步：`battle.gd` 三入口 + 重生挂点 + `_apply_aura` 例外。
+7. 第 6–9 步：数据（水法师）、`_check_enemies`、`data_test` 迁移、`elemental_shield_test` 八段、验收四件套 + 四组反假绿。
 
 ---
 

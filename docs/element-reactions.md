@@ -74,24 +74,44 @@ const MAX_AMOUNT := 2.0    # 单槽元素量上限
 减到 0 就移除（并写一条「X 的 Y 附着结束」日志）。普通附着 2 回合、强附着 3 回合。
 **不在回合结束时衰减**：跟 dot 同阶段、都在回合开始，避免"上一个回合刚挂上、下一个阶段就掉一层"。
 
-## 4. 免疫
+## 4. 免疫与元素盾（**两回事，别混**）
 
-免疫有**两种来源**，语义不同（详见 `docs/implementation-tasks.md` §42）：
+### 4.1 静态免疫（`Unit.immunities`）
 
-**4.1 静态免疫（`Unit.immunities`）**：元素 id 数组。攻击元素在免疫列表里 → **伤害 0、不触发反应、不消耗附着、不附着新元素**，
-日志写「免疫」。`Damage.compute()` 在这种情况下 `immune = true`、`reaction_slot = -1`。
-`Unit.is_static_immune()` 查的就是这个名单。岩傀儡（`golem` 免疫 geo）是这种。
+元素 id 数组。攻击元素在免疫列表里 → **伤害 0、不触发反应、不消耗附着、不附着新元素**，日志写「免疫」。
+`Damage.compute()` 在这种情况下 `immune = true`、`reaction_slot = -1`。`Unit.is_static_immune()` 查的就是这个名单。
 
-**4.2 护盾免疫（`auras` 里 `innate: true` 的槽）**：单位自带一个元素附着，该元素打上来 **伤害 0，但反应照常结算**。
-- 同元素打它：`find_reaction_slot()` 本来就跳过同元素 → 既无反应也无伤害，表现和「免疫」一样；
-- 别的元素打它：找到这条 innate 槽 → 正常算倍率、正常扣 `consume` → **盾被一点点咬薄、`consume` 吃光就破盾**；
-- **不会自然衰减**（`tick_auras()` 跳过 innate 槽），只能被反应吃掉；
-- **破盾后 3 个回合重生**（`Unit.INNATE_REGEN_TURNS`）；
-- `Damage.compute()` 在这种情况下返回 `immune = true`、`immune_source = "shield"`，且 `reaction` / `consume` / `effects` / `reaction_slot` 全部保留。
-- `Unit.is_immune()` = 静态名单 **∪** innate 槽；`Unit.has_innate_shield(element)` 只查 innate 槽。
+**这是「属性」**：永久、有或没有、不存在「破」。岩傀儡（`golem` 免疫 geo）与火史莱姆（`fire_slime` 免疫 fire）都是这种。
 
-火史莱姆（`fire_slime`）是这种：`auras` 里带 `{element: "fire", amount: 2.0, duration: 0, innate: true}`。
-火打它免疫、水打它蒸发咬盾 —— 「免疫」和「能被反应」同时成立。
+### 4.2 元素盾（`auras` 里 `innate: true` 的槽）—— **不是免疫**
+
+2026-11-27 修正：初版把元素盾写成「免疫的第二种来源」，用户当场指出这是错的：
+
+> 「疑问：魔物的护盾确实不会被同属性元素破坏，这并不是静态免疫」
+
+**盾是资源，不是属性**。它有一层独立的吸收池，判定在**伤害结算**里，不在免疫豁免里：
+
+| | 静态免疫 | 元素盾 |
+|---|---|---|
+| 本质 | 属性（有/没有） | 资源（还剩多少 U） |
+| 判定位置 | `Damage.compute()` 最前面短路 | 反应算完之后、`take_damage` 之前 |
+| 反应能不能发生 | **不能**（连槽都不找） | **能**（反应照算、倍率照吃） |
+| 破了以后 | 不存在「破」 | 掉血，进入真空期，3 回合后重生 |
+| 同元素打上去 | 伤害 0 | 伤害 0 **且盾量一分不减** |
+
+**吸收规则**：盾在时**吸收全部伤害**（不分元素）；吸收量 = `min(伤害, 盾量 × 2.0)`；
+破盾量 = `(吸收量 ÷ 2.0) × k`，`k` 只由「元素反应类型」决定 —— **同元素 / 无反应元素 `k = 0`**，
+这就是「同属性打不破」的来处。完整系数表与数值举例见 `docs/implementation-tasks.md` §42.3。
+
+`Unit.is_immune()` **不包含盾**（它是静态免疫的意思）。查盾用 `Unit.has_innate_shield(element)`。
+水法师（`hydro_mage`，12U 水盾）是样本：火两发蒸发破盾、雷打只有微弱削减、水打完全无效。
+
+### 4.3 结晶盾 / 技能盾（都还没实装）
+
+`Unit.shield: int` 是另一条「额外血条」：**不分元素、挡全部直接伤害、不重生**。结晶反应的 `shield` 效果与
+`kind: "shield"` 指令卡目前都还是死数据，排期见 `docs/implementation-tasks.md` §42.2。
+
+**吸收顺序**：元素盾 → `Unit.shield` → HP。
 
 ## 5. 反应清单（14 条，v3）
 
