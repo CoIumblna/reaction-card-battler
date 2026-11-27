@@ -7,12 +7,10 @@
 > 这不是"做一个游戏"，是"用一个游戏练工程"。
 > 项目计划见 [项目计划_知识储备与行动大纲.md](项目计划_知识储备与行动大纲.md)。
 
-当前状态：**M1 / M2 / P1（E7a）/ P2（E7b）/ M3.1 / M3.2 / M3.3 / M3.3b / M3.5 / M3.7 全部已完成**，
-主套 **18 个测试文件 485 项全绿**；`tests/pending/` 只剩 **1 份红基线**：`ai_guard_test`（14 项）。
-**它现在的状态是 `[HUNG]` 而不是「6 红」**——学员 WIP 里有个死循环，跑不完（见 [HANDOFF §22](docs/HANDOFF-2026-11-23.md)）。
-当前任务：**M3.4 前置块 · AI 选目标**（清 M3.2 遗留的「AI 遇 Guard 白扔回合」）——
-任务卡、施工思路、第一轮评审全在 [docs/implementation-tasks.md §39](docs/implementation-tasks.md)（§39.6 是评审，§39.7 是红绿指纹）；
-做完它主套变成 **19 文件 499 项**。
+当前状态：**M1 / M2 / P1（E7a）/ P2（E7b）/ M3.1 / M3.2 / M3.3 / M3.3b / M3.5 / M3.7 / M3.4 前置块 全部已完成**，
+主套 **19 个测试文件 499 项全绿**；`tests/pending/` 已空（最后一份红基线 `ai_guard_test` 于 2026-11-27 启用）。
+当前任务：**M3.4 卡池扩张（20+ 种，现 15 种） + 之后 M3.6 元素 v3**——
+任务卡、施工思路、两轮评审、落地记录全在 [docs/implementation-tasks.md §39](docs/implementation-tasks.md)（§39.6 第一轮评审、§39.7 红绿指纹、§39.9 落地记录）。
 之后的活已经在 GitHub 上开成 issue（milestone **M3**）：[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种 · [#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3 · [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；当前块是 [#1](https://github.com/CoIumblna/reaction-card-battler/issues/1)。
 每完成一块关一个 issue，仓库首页的进度条自动走。详见 [HANDOFF §21.3](docs/HANDOFF-2026-11-23.md)。
 跑 `tools\check.bat` 看进度表 + 检查点 + pending 验收基线（它还会告诉你下一步做什么）。
@@ -41,10 +39,10 @@
 | `tests/deck_build_test.gd` | M3.5：卡组构筑 39+1 | 11 | 0 |
 | `tests/stat_mod_test.gd` | M3.7：defense_down 数值 | 7 | 0 |
 | `tests/stat_system_test.gd` | M3.7：通用 stat 系统 | 18 | 0 |
-| `tests/pending/ai_guard_test.gd` | **M3.4 前置块待启用**：AI 选目标的 Guard 规则（S1–S6） | 14 | `[HUNG]` |
+| `tests/ai_guard_test.gd` | M3.4 前置块：AI 选目标的 Guard 规则（S1–S6） | 14 | 0 |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
 
-> 主套合计 **485 项 / 18 文件**；`ai_guard_test` 启用后 **499 项 / 19 文件**。
+> 主套合计 **499 项 / 19 文件**，全部通过；`tests/pending/` 目前是空的。
 
 > `run_tests.bat` 和 CI 都是**自动发现** `tests/*_test.gd`（`tests/pending/` 不算），加测试文件不用改脚本。
 
@@ -83,10 +81,10 @@
 | ✅ M3.3b 拦截 | 战斗机拦截轰炸机 | `air_intercept_test` 3/3（已完成） |
 | ✅ M3.5 卡组构筑 | `DataLoader.load_deck()` 39+1 | `deck_build_test` 11/11（已完成） |
 | ✅ M3.7 通用 stat | `Battle.stat_of(unit, stat)` | `stat_system_test` 18/18（已完成） |
-| **M3.4 前置：AI 选目标** | `_ai_attack_targets()` / `_ai_attack()` + `_is_guarded()` 两个守卫 | `ai_guard_test` 14/14，主套 499/499 |
+| ✅ **M3.4 前置：AI 选目标** | `_ai_attack_targets()` / `_ai_attack()` + `_is_guarded()` 两个守卫 | `ai_guard_test` 14/14（2026-11-27 已启用），主套 **499/499** |
 
-作业单、施工思路、第一轮评审都在 [docs/implementation-tasks.md §39](docs/implementation-tasks.md)：
-§39.1a 三档判定表 · §39.5 十条坑 · §39.6 评审（三处必改 + 行号）· §39.7 五条红绿指纹 · §39.8 自查判据。
+作业单、施工思路、评审与落地记录都在 [docs/implementation-tasks.md §39](docs/implementation-tasks.md)：
+§39.1a 三档判定表 · §39.5 十条坑 · §39.6 第一轮评审（三处必改 + 行号）· §39.7 五条红绿指纹 · §39.8 自查判据 · **§39.9 落地记录**。
 
 > M1/M2 的参考实现在 `..\_reference_battler\src\core\`（7 个文件，没有 `damage.gd`——那个要你自己从零想）；M3.4 这份在 `..\_ref_ai_guard`（detached worktree，已验过 499/499）。
 > 参考实现都在仓库外，因为它就在那儿，你会在第 3 分钟就去看。
@@ -188,12 +186,12 @@ reaction-card-battler/
 ├── src/ui/                  # 界面基座（M4 沿用）
 │   ├── ui_theme.gd          # 全局主题（中文字体 / 配色）
 │   └── card_view.gd         # 卡面组件（unit_maker 与 M4 手牌区共用）
-└── tests/                   # 18 个文件 485 项（pending/ 是待启用的红基线）
+└── tests/                   # 19 个文件 499 项（pending/ 已空）
     ├── data_test / unit_test / damage_test / board_test / combat_test
     ├── battle_m1_smoke_test / battle_m2_test / status_test / order_test
     ├── deck_test / opening_test / keywords_test / guard_test / unit_class_test
     ├── air_intercept_test / deck_build_test / stat_mod_test / stat_system_test
-    ├── pending/ai_guard_test.gd   # M3.4 前置块待启用（14 项 / 6 红）
+    ├── ai_guard_test              # M3.4 前置块：AI 选目标（14 项，2026-11-27 启用）
     └── run_battle.gd              # 手动跑一局看日志
 ```
 
@@ -232,7 +230,7 @@ reaction-card-battler/
 |---|---|---|
 | M1 | **无战线**：跑通「出牌 → 伤害 → 元素反应」+ 两套测试 | ✅ 完成（155 项） |
 | M2 | **加部署 + 战线（支援/前线）+ 移动 + 行动花费 + 敌方 AI + 状态效果**，变成 KARDS-lite | ✅ 完成（320 项） |
-| M3 | **关键词（闪击/Guard）+ 兵科 + 卡组构筑 + 通用 stat + 卡池 + 平衡** | 🚧 进行中（485 项，剩 M3.4 前置 / M3.6 元素 v3 / M3.8a / M3.8 / M3.9） |
+| M3 | **关键词（闪击/Guard）+ 兵科 + 卡组构筑 + 通用 stat + 卡池 + 平衡** | 🚧 进行中（499 项，剩 M3.4 卡池 / M3.6 元素 v3 / M3.8a / M3.8 / M3.9） |
 | M4 | 可玩 UI + 存档迁移 | 前置已交付（中文字体 / 卡面组件 / 单位卡工具），未开工 |
 | M5 | 发布 itch.io + 3 篇博客 | 未开始 |
 

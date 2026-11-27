@@ -37,7 +37,7 @@
 | 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 140 | **5–7 h**（实际编码约 1–1.5 h） | unit_class_test（21 项，已启用） | [x] |
 | 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **0.5–1 h**（实际编码约 20 min） | air_intercept_test（3 项，2026-11-26 已启用） | [x] |
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [~] 进行中（学员已加 2 张，13 种 / 49 张） |
-| 26b | `battle.gd`（**M3.4 前置**：AI 选目标，清 M3.2 遗留） | 1 | ★★★ | 70 | **0.5–1 h** | `tests/pending/ai_guard_test.gd`（14 项） | [ ] 备课完成（§39），基线 14/6 红 |
+| 26b | `battle.gd`（**M3.4 前置**：AI 选目标，清 M3.2 遗留） | 1 | ★★★ | 70 | **0.5–1 h**（实际编码约 40 min） | `tests/ai_guard_test.gd`（14 项，**2026-11-27 已启用**） | [x] ✅ 完成（2026-11-27，主套 19 文件 **499/499**，balance 45.0%/13.4 逐位不变；落地记录见 §39.9） |
 | 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（实际约 1 h） | `tests/deck_build_test.gd`（11 项） | [x] ✅ 完成（2026-11-26，commit `014ad88`，主套 485/485） |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（最大块；备课前粗估，风险最高） | aura_v3_test（24 项待写） | [ ] |
 | 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（实际约 1 h，含一轮两行修复） | stat_mod_test（7）+ stat_system_test（18），**已启用** | [x] |
@@ -2256,9 +2256,13 @@ M3 的实测已经证明，日历进度的瓶颈是 round-trip 次数，不是�
 
 ---
 
-## 39. M3.4 前置：AI 选目标（清 M3.2 遗留）· 2026-11-26 备课 / 2026-11-27 评审
+## 39. M3.4 前置：AI 选目标（清 M3.2 遗留）· 2026-11-26 备课 / 2026-11-27 评审 / 同日完成
 
-> **本节的定位**：这是这一块的**唯一文档**——开工单、施工思路、验收判据、第一轮评审结论全在这里。
+> **✅ 已完成（2026-11-27）**：学员实现落地，`tests/pending/ai_guard_test.gd` 已 `git mv` 进主套并启用，
+> 主套 **19 文件 499/499**。最终形状、验收数据、反假绿探针、三条教训见 **§39.9 落地记录**。
+> 下面 §39.0–§39.8 是**开工时的备课与评审原文**，保留不删（下次做同类「AI 选目标」块可以照抄流程）。
+>
+> **本节的定位**：这是这一块的**唯一文档**——开工单、施工思路、验收判据、第一轮评审、落地记录全在这里。
 > 2026-11-27 起不再为单块工作新建独立文件（原 `docs/brief-m34-ai-guard-2026-11-26.md` 与
 > `docs/review-m34-ai-guard-2026-11-27.md` 已并入本节 §39.6–§39.8 后删除）。
 >
@@ -2267,7 +2271,8 @@ M3 的实测已经证明，日历进度的瓶颈是 round-trip 次数，不是�
 > 在干净 worktree 上 `git apply` OK；2026-11-27 又在 `G:\constraction\_ref_ai_guard` 手写落盘复验一次。
 > 两次结果一致：`ai_guard_test` **14/14 PASS**、主套 **19 文件 499/499**、`validate_data` PASS、
 > `balance_sim --games 200 --seed 1` **45.0% / 13.4 回合 / RUNNING 0%**（与改动前逐位相同 → 不影响平衡）。
-> 参考实现 `git diff --numstat` = **`36 10 src/core/battle.gd`**（+36/−10，**只改一个文件**）。
+> 参考实现 `git diff --numstat` = **`36 10 src/core/battle.gd`**（+36/−10，**只改一个文件**）；
+> 学员最终实现是 **`41 11`**（多了 `_line_span_to` 预筛与把两个前置过滤搬进 `_ai_attack`）。
 
 ### 39.0 为什么现在做
 
@@ -2395,7 +2400,7 @@ S2 的优先级只有 3 档 → 一次遍历按档位分进三个桶、最后按
 **排序实现**：S2 只有 3 档 → 三个桶（`Array[Unit]`）一次遍历分档、最后 `append_array` 拼接。
 不要用堆（Godot 没有，且 n ≤ 14 没意义），也不要裸用 `sort_custom`（不稳定，实测 17 项起乱序）。
 
-### 39.4 验收（`tests/pending/ai_guard_test.gd`，14 项）
+### 39.4 验收（`tests/ai_guard_test.gd`，14 项；2026-11-27 已启用）
 
 | # | 断言 | 项数 |
 |---|---|---|
@@ -2408,7 +2413,7 @@ S2 的优先级只有 3 档 → 一次遍历按档位分进三个桶、最后按
 - 全绿：`ai_guard_test` **14/14 PASS**；主套 **19 文件 499/499**（485 + 14 启用后）
 - `validate_data` PASS（0 错 0 警）
 - `balance_sim --games 200 --seed 1` → **45.0% / 13.4 回合 / RUNNING 0%**（真实卡池无 guard 卡，此改动不该影响平衡；**13.0 是历史笔误，判据是「与改动前逐位相同」**）
-- 启用：全绿后 `git mv tests/pending/ai_guard_test.gd{,.uid} tests/`（**`.gd` 和 `.gd.uid` 两个都被 git 跟踪，只搬 `.gd` 会留孤儿 uid**），header 改「已启用」
+- 启用：**已于 2026-11-27 完成** —— `git mv tests/pending/ai_guard_test.gd{,.uid} tests/`（**`.gd` 和 `.gd.uid` 两个都被 git 跟踪，只搬 `.gd` 会留孤儿 uid**），header 改「已启用」；落地记录见 §39.9
 
 ### 39.5 十条坑
 
@@ -2432,6 +2437,9 @@ S2 的优先级只有 3 档 → 一次遍历按档位分进三个桶、最后按
 
 ### 39.6 第一轮评审（2026-11-27，针对学员未提交的 WIP）
 
+> **✅ 本节的三处必改在当天全部改完**（学员报 done → 教练核验 → 启用），结果见 §39.9。
+> 保留本节是因为它记录的是「怎么定位到行、为什么那三处会坏」——下次同类问题可以照这个流程查。
+>
 > 对象：`data/tables/cards.json` + `src/core/battle.gd`，HEAD `49625c2` + 未提交改动。
 > 结论：**方向对了一半，实现有三处走偏，其中一处会把测试进程挂死（不是报错，是永远不返回）。**
 > **本节只说「该做什么、为什么」，不贴函数体**（用户 2026-11-27 明确要求）。签名可以照抄，函数体自己写——M3.8a 要在这段代码上继续改。
@@ -2627,6 +2635,57 @@ attack_unit(我方, 敌方后排)          = true        ← 能打
 | 只在一条线上找目标 | [2] 或 [4] 单独红 |
 | 忘了 `tmp.is_empty()` 守卫 | [5] 红 + 1 条 `SCRIPT ERROR` |
 | 主套其他文件变红 | 把 `attack_unit` 的规则也改了 —— 那不是这块的活 |
+
+### 39.9 落地记录（2026-11-27 完成，学员实现 + 教练核验）
+
+**结论：M3.4 前置块已完成并启用。** `tests/pending/ai_guard_test.gd` 已 `git mv` 进主套
+（`.gd` 与 `.gd.uid` 两个文件都搬了，`tests/pending/` 现在是空目录），header 改成「已启用」。
+主套从 **18 文件 485 项** 变成 **19 文件 499 项**。
+
+最终实现形状（`src/core/battle.gd`，`git diff --numstat` = `41 11`，只改一个文件）：
+
+- `_ai()` 攻击段：删掉「前线归谁」的 `if/elif` 两条老分支，改成
+  `for l in Board.LINES: for u in board.units_in(l):` → `if u.owner != owner or u.is_hq: continue` → `_ai_attack(u,owner)`。
+  **注意这版把 `can_attack()` / `operation_cost > 能量` 两个前置过滤留在了 `_ai_attack()` 里**（见下条），
+  与 §39.6.7 步骤 4 建议的「留在 `_ai()` 里」形状不同但等价 —— 两处判定合在一处反而更难写漏。
+- `_ai_attack_targets(owner) -> Array[Unit]`：**两个类型化数组** `out` / `fst`（档 1）与 `sec`（档 2），
+  先 `out.append(_opposite_hq(owner))` 当档 0，遍历 `Board.LINES` 时
+  `if u == _opposite_hq(owner): continue`（用「跳过 HQ」代替「排除 `is_hq`」，效果相同）
+  → `if u.owner == _opposite(owner): if u.is_guard(): sec.append(u) elif not _is_guarded(u): fst.append(u)`，
+  末尾 `for u in fst: out.append(u)` + `for u in sec: out.append(u)`，`return out`。
+  **没有再经过 `Dictionary`**，所以 §39.6.5(c) 那个 `SCRIPT ERROR` 从根上没了。
+- `_ai_attack(unit, owner) -> bool`：五个前置守卫（null / owner 不符 / 能量不够 / 已攻击）
+  → 取 `position_of` → 拿清单 → `for u in avai:` 用 `_line_span_to` 先筛线、再 `if attack_unit(unit,u): return true`
+  → 全部失败 `return false`。**这也顺手把「能打到」的粗筛做在了 AI 侧**，比参考实现多一层筛选，
+  但因为最终裁决仍是 `attack_unit` 的返回值，所以不构成第二份规则副本。
+- `_is_guarded()` 两个守卫（`target == null` / `tmp.is_empty()`）保留了，S5 靠它。
+
+**验收实测（2026-11-27，工作目录 `G:\constraction\reaction-card-battler`）**：
+
+| 项 | 结果 |
+|---|---|
+| `run_tests.bat` | **ALL GREEN 19 file(s)**、`[详细自检] PASS（13 项通过、0 条提醒）`、退出码 0 |
+| 逐文件求和 | **499 项 / 0 红**（ai_guard 14 + air_intercept 3 + m1_smoke 58 + m2 63 + board 38 + combat 59 + damage 23 + data 46 + deck_build 11 + deck 20 + guard 8 + keywords 17 + opening 25 + order 35 + stat_mod 7 + stat_system 18 + status 12 + unit_class 21 + unit 21） |
+| `validate_data` | **PASS**（0 错 0 警；15 种 / 57 张；两个 deck 各 39 张） |
+| `balance_sim --games 200 --seed 1` | **45.0% 胜 / 13.4 回合 / RUNNING 0%** —— 与改动前**逐位相同** |
+| 编码 | `battle.gd` 17162 B / 无 BOM / 587 LF；`tests/ai_guard_test.gd` 7972 B / 无 BOM / 193 LF |
+
+**反假绿探针（对学员自己的实现跑的，跑完 `git checkout --` 还原）**：
+
+| 探针 | 结果 | 说明 |
+|---|---|---|
+| B：判定顺序写反（先 `not _is_guarded(u)` 再 `elif u.is_guard()`） | **2 红**：`优先打普通单位（5 → 2）（期望 2，实际 5）` + `Guard 这一回合没被打（期望 6，实际 3）` | 与 §39.7 指纹表完全对上 |
+| D：`_is_guarded` 恒 `return true` | **8 红**（[1][2][3][4][5] 全炸） | 比参考实现的指纹（5 红）多 3 项，因为学员版把 `_is_guarded` 也用在了 `attack_unit` 之外的前置筛选上；**但方向正确 —— 测试确实在判保护** |
+
+两条探针都红了 → 这 14 项不是自证，实现真的在做 S1–S6。
+
+**过程中值得记的一件事**：学员中途有一版把桶从 `Dictionary` 换成两个 `Array[Unit]`，
+但 `_ai()` 里漏了 `u.owner != owner` 过滤、且 `_ai_attack` 里没有 `_line_span_to` 预筛，
+跑出来 `battle_m2_test` **4 项红**（`敌方前线单位打了玩家 HQ` / `攻击后攻击者标记为已攻击` /
+`敌方单位下一回合能再次攻击` / `敌方支援线单位打不到 HQ，就打我方前线单位`）。
+**这条主套红的信号非常有用**：它说明「AI 改坏了」而不是「测试坏了」——
+因为 `battle_m2_test` 是 M2 就定稿的行为契约，AI 选目标改坏首先炸的就是它。
+以后遇到这 4 项一起红，别去改测试，去看 `_ai()` 的攻击段。
 
 ---
 

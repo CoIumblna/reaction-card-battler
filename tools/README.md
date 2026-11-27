@@ -449,7 +449,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 `setup_git.ps1` 同理——**任何 .ps1 里只要有中文就必须带 BOM**，并且用编辑器/脚本改完要复查头 3 字节是不是 `EF BB BF`，
 否则 PowerShell 5.1 会把中文读成乱码）。Godot 路径变了就改 `check.ps1` 顶部的 `-Godot` 参数。
 
-当前目标：**485/485**（18 个测试文件）；`tests/pending/` 已清空（8 份红基线全部实现并启用）。
+当前目标：**499/499**（19 个测试文件）；`tests/pending/` 已清空（9 份红基线全部实现并启用，最后一份 `ai_guard_test` 于 2026-11-27 启用）。
 
 ## 和 tests/ 的区别（重要）
 
