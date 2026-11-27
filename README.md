@@ -10,8 +10,9 @@
 当前状态：**M1 / M2 / P1（E7a）/ P2（E7b）/ M3.1 / M3.2 / M3.3 / M3.3b / M3.5 / M3.7 全部已完成**，
 主套 **18 个测试文件 485 项全绿**；`tests/pending/` 只剩 **1 份红基线**：`ai_guard_test`（14 项）。
 **它现在的状态是 `[HUNG]` 而不是「6 红」**——学员 WIP 里有个死循环，跑不完（见 [HANDOFF §22](docs/HANDOFF-2026-11-23.md)）。
-当前任务：**M3.4 前置块 · AI 选目标**（清 M3.2 遗留的「AI 遇 Guard 白扔回合」）——作业单 [docs/brief-m34-ai-guard-2026-11-26.md](docs/brief-m34-ai-guard-2026-11-26.md)，
-第一轮评审 [docs/review-m34-ai-guard-2026-11-27.md](docs/review-m34-ai-guard-2026-11-27.md)；做完它主套变成 **19 文件 499 项**。
+当前任务：**M3.4 前置块 · AI 选目标**（清 M3.2 遗留的「AI 遇 Guard 白扔回合」）——
+任务卡、施工思路、第一轮评审全在 [docs/implementation-tasks.md §39](docs/implementation-tasks.md)（§39.6 是评审，§39.7 是红绿指纹）；
+做完它主套变成 **19 文件 499 项**。
 之后的活已经在 GitHub 上开成 issue（milestone **M3**）：[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种 · [#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3 · [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；当前块是 [#1](https://github.com/CoIumblna/reaction-card-battler/issues/1)。
 每完成一块关一个 issue，仓库首页的进度条自动走。详见 [HANDOFF §21.3](docs/HANDOFF-2026-11-23.md)。
 跑 `tools\check.bat` 看进度表 + 检查点 + pending 验收基线（它还会告诉你下一步做什么）。
@@ -82,8 +83,8 @@
 | ✅ M3.7 通用 stat | `Battle.stat_of(unit, stat)` | `stat_system_test` 18/18（已完成） |
 | **M3.4 前置：AI 选目标** | `_ai_attack_targets()` / `_ai_attack()` + `_is_guarded()` 两个守卫 | `ai_guard_test` 14/14，主套 499/499 |
 
-作业单：[docs/brief-m34-ai-guard-2026-11-26.md](docs/brief-m34-ai-guard-2026-11-26.md)（只给思路，不含函数体）。
-第一轮评审：[docs/review-m34-ai-guard-2026-11-27.md](docs/review-m34-ai-guard-2026-11-27.md)（三处必改 + 五条红绿指纹）。
+作业单、施工思路、第一轮评审都在 [docs/implementation-tasks.md §39](docs/implementation-tasks.md)：
+§39.1a 三档判定表 · §39.5 十条坑 · §39.6 评审（三处必改 + 行号）· §39.7 五条红绿指纹 · §39.8 自查判据。
 
 > M1/M2 的参考实现在 `..\_reference_battler\src\core\`（7 个文件，没有 `damage.gd`——那个要你自己从零想）；M3.4 这份在 `..\_ref_ai_guard`（detached worktree，已验过 499/499）。
 > 参考实现都在仓库外，因为它就在那儿，你会在第 3 分钟就去看。
@@ -162,9 +163,9 @@ reaction-card-battler/
 │   └── check_font.gd        # 中文字体体检
 ├── docs/
 │   ├── HANDOFF-2026-11-23.md    # ★ 接手必读：现状 / 纪律 / 每块的备课与落地
-│   ├── implementation-tasks.md  # ★ 每个文件要做啥、用什么手段、怎么验收
-│   ├── brief-*.md               # 每个块的作业单（只给思路，不给函数体）
-│   ├── review-*.md              # 每轮评审（诊断 + 红绿指纹）
+│   ├── implementation-tasks.md  # ★ 每个文件要做啥、用什么手段、怎么验收（作业单与评审也在这里，§39 = M3.4）
+│   ├── brief-*.md               # 早期历史作业单（M3.5 / M3.7 / stat 系统；M3.4 已并入 implementation-tasks §39）
+│   ├── review-*.md              # 早期历史评审（M3.1 / E7b；M3.4 已并入 implementation-tasks §39.6）
 │   ├── game-design.md           # 玩法规格
 │   ├── kards-rules-reference.md # KARDS 原版规则（事实底稿）
 │   ├── element-reactions*.md    # 元素反应设计（v3 待做）
