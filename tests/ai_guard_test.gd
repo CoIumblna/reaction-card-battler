@@ -2,7 +2,9 @@ extends SceneTree
 ## M3.4 前置验收测试 —— AI 选目标（Guard 相关）
 ##
 ## 运行：
-##   ... --headless --path . --script res://tests/pending/ai_guard_test.gd
+##   ... --headless --path . --script res://tests/ai_guard_test.gd
+##
+## 【已启用】2026-11-27：实现落地并全绿，已从 tests/pending/ 移入主套，随 run_tests.bat 一起跑。
 ##
 ## 背景：M3.2 留下一条登记在案的缺陷（docs/implementation-tasks.md §32 遗留）：
 ## 初版 AI 选目标用的是「这个单位不是 Guard」，而不是「这个单位没被 Guard 保护」。
@@ -18,7 +20,9 @@ extends SceneTree
 ##   S4 Guard 本身永远是合法目标（Guard 之间互不保护）。
 ##   S5 `_is_guarded()` 对不在场上的单位返回 false，不能崩。
 ##
-## 【启用方式】全绿后 git mv 到 tests/ 下，并把 header 改成「已启用」。
+## 落地形态（2026-11-27）：`_ai_attack_targets()` 直接产出三档清单（两个类型化数组拼装，
+## 不经过 Dictionary），`_ai_attack()` 依次试打、第一个被 `attack_unit` 接受就停，
+## `_ai()` 攻击段改为遍历 `Board.LINES` 的己方攻击手。详见 docs/implementation-tasks.md §39.9。
 
 var failures: int = 0
 var checks: int = 0
