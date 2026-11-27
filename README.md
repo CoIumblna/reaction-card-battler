@@ -10,7 +10,8 @@
 当前状态：**M1 / M2 / P1（E7a）/ P2（E7b）/ M3.1 / M3.2 / M3.3 / M3.3b / M3.5 / M3.7 / M3.4 前置块 全部已完成**，
 主套 **19 个测试文件 499 项全绿**；`tests/pending/` 已空（最后一份红基线 `ai_guard_test` 于 2026-11-27 启用）。
 当前任务：**M3.4 卡池扩张（20+ 种，现 15 种） + 之后 M3.6 元素 v3**——
-任务卡、施工思路、两轮评审、落地记录全在 [docs/implementation-tasks.md §39](docs/implementation-tasks.md)（§39.6 第一轮评审、§39.7 红绿指纹、§39.9 落地记录）。
+卡池的作业单在 [docs/implementation-tasks.md **§40**](docs/implementation-tasks.md)（§40.4 的实测结论：`balance_sim` 对卡池零敏感）；
+M3.4 前置块的规格、评审、红绿指纹与落地记录在 **§39**（§39.6 第一轮评审、§39.7 红绿指纹、§39.9 落地记录）。
 之后的活已经在 GitHub 上开成 issue（milestone **M3**）：[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种 · [#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3 · [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；~~#1 AI 选目标~~ 已于 2026-11-27 完成关闭。
 每完成一块关一个 issue，仓库首页的进度条自动走。详见 [HANDOFF §21.3](docs/HANDOFF-2026-11-23.md)。
 跑 `tools\check.bat` 看进度表 + 检查点 + pending 验收基线（它还会告诉你下一步做什么）。
@@ -83,8 +84,9 @@
 | ✅ M3.7 通用 stat | `Battle.stat_of(unit, stat)` | `stat_system_test` 18/18（已完成） |
 | ✅ **M3.4 前置：AI 选目标** | `_ai_attack_targets()` / `_ai_attack()` + `_is_guarded()` 两个守卫 | `ai_guard_test` 14/14（2026-11-27 已启用），主套 **499/499** |
 
-作业单、施工思路、评审与落地记录都在 [docs/implementation-tasks.md §39](docs/implementation-tasks.md)：
-§39.1a 三档判定表 · §39.5 十条坑 · §39.6 第一轮评审（三处必改 + 行号）· §39.7 五条红绿指纹 · §39.8 自查判据 · **§39.9 落地记录**。
+作业单、施工思路、评审与落地记录都在 [docs/implementation-tasks.md](docs/implementation-tasks.md)：
+**M3.4 前置块 = §39**（§39.1a 三档判定表 · §39.5 十条坑 · §39.6 第一轮评审 · §39.7 五条红绿指纹 · §39.8 自查判据 · §39.9 落地记录）；
+**M3.4 卡池 = §40**（§40.2 数据硬规则 · §40.4 `balance_sim` 对卡池零敏感 · §40.5 缺口盘点 · §40.7 四条验收 · §40.8 七条坑）。
 
 > M1/M2 的参考实现在 `..\_reference_battler\src\core\`（7 个文件，没有 `damage.gd`——那个要你自己从零想）；M3.4 这份在 `..\_ref_ai_guard`（detached worktree，已验过 499/499）。
 > 参考实现都在仓库外，因为它就在那儿，你会在第 3 分钟就去看。
@@ -163,7 +165,7 @@ reaction-card-battler/
 │   └── check_font.gd        # 中文字体体检
 ├── docs/
 │   ├── HANDOFF-2026-11-23.md    # ★ 接手必读：现状 / 纪律 / 每块的备课与落地
-│   ├── implementation-tasks.md  # ★ 每个文件要做啥、用什么手段、怎么验收（作业单与评审也在这里，§39 = M3.4）
+│   ├── implementation-tasks.md  # ★ 每个文件要做啥、用什么手段、怎么验收（作业单与评审也在这里；§39 = M3.4 前置，§40 = M3.4 卡池）
 │   ├── brief-*.md               # 早期历史作业单（M3.5 / M3.7 / stat 系统；M3.4 已并入 implementation-tasks §39）
 │   ├── review-*.md              # 早期历史评审（M3.1 / E7b；M3.4 已并入 implementation-tasks §39.6）
 │   ├── game-design.md           # 玩法规格

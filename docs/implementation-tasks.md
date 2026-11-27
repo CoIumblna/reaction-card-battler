@@ -36,7 +36,7 @@
 | 23 | `battle.gd`（M3.2：Guard） | 3 | ★★★ | 70 | **2–3 h**（实际编码约 0.5–1 h） | guard_test（8 项，已启用） | [x] |
 | 24 | `battle.gd`（M3.3：兵科基础 + 空军越线 + 炮兵/轰炸机无视 Guard） | 3 | ★★★ | 140 | **5–7 h**（实际编码约 1–1.5 h） | unit_class_test（21 项，已启用） | [x] |
 | 25 | `battle.gd`（M3.3b：战斗机拦截轰炸机） | 1 | ★★ | 30 | **0.5–1 h**（实际编码约 20 min） | air_intercept_test（3 项，2026-11-26 已启用） | [x] |
-| 26 | `data/tables/cards.json`（M3.4：卡池 20+） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [~] 进行中（学员已加 2 张，13 种 / 49 张） |
+| 26 | `data/tables/cards.json`（M3.4：卡池 20+，**任务卡见 §40**） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [~] 进行中（现 15 种 / 57 张，目标 ≥ 20 种；创意归学员 🎨） |
 | 26b | `battle.gd`（**M3.4 前置**：AI 选目标，清 M3.2 遗留） | 1 | ★★★ | 70 | **0.5–1 h**（实际编码约 40 min） | `tests/ai_guard_test.gd`（14 项，**2026-11-27 已启用**） | [x] ✅ 完成（2026-11-27，主套 19 文件 **499/499**，balance 45.0%/13.4 逐位不变；落地记录见 §39.9） |
 | 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（实际约 1 h） | `tests/deck_build_test.gd`（11 项） | [x] ✅ 完成（2026-11-26，commit `014ad88`，主套 485/485） |
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（最大块；备课前粗估，风险最高） | aura_v3_test（24 项待写） | [ ] |
@@ -2686,6 +2686,184 @@ attack_unit(我方, 敌方后排)          = true        ← 能打
 **这条主套红的信号非常有用**：它说明「AI 改坏了」而不是「测试坏了」——
 因为 `battle_m2_test` 是 M2 就定稿的行为契约，AI 选目标改坏首先炸的就是它。
 以后遇到这 4 项一起红，别去改测试，去看 `_ai()` 的攻击段。
+
+---
+
+## 40. M3.4 卡池 20+ 种（数据块 · 创意归学员）· 2026-11-27 开工
+
+> **这一节 = M3.4 卡池的唯一作业单。** 对应 GitHub issue #2「M3.4 卡池 20+ 种」。
+> 前置 §39（AI 选目标）已完成，主套 19 文件 499/499，`tests/pending/` 已空。
+> **不要新建 brief / review 文件**（§39 抬头的文档纪律同样适用）。
+
+### 40.0 这块和别的块不一样在哪
+
+其他块是「写代码 → 测试变绿」。这一块是**纯数据**：`data/tables/cards.json` 加条目，
+**测试不会因为你加了卡而变红，也不会因为卡设计得好而变绿**（见 §40.4 的实测）。
+所以验收不是「变绿」，而是**四条同时不动/不炸**（§40.7）。
+
+**创意是学员的活（BACKLOG A7 🎨，HANDOFF:222、1182）。** 教练侧只负责三件事：
+① 把数据规则写死（§40.2）；② 保证加卡不会弄红（§40.3，已实证）；③ 事后验收（§40.7）。
+**教练不代写卡牌创意，也不给「你就做成这样」的成品条目。**
+
+### 40.1 目标
+
+| 项 | 现状（2026-11-27，HEAD `2e841be`） | 目标 |
+|---|---|---|
+| 卡牌种类 | **15 种** | **≥ 20 种** |
+| 展开张数（`load_cards()` 按 count 展开） | **57 张** | 随你加，无硬指标 |
+| 指令卡 / 单位卡 | 7 种 / 8 种 | 无硬指标，但别只加一种 |
+| 兵科覆盖 | infantry 4 / tank 1 / artillery 1 / fighter 1 / bomber 1 | 5 类都有（已满足），加卡别把某一类挤没 |
+| 关键词覆盖 | `blitz` 2 张（fighter / artillery）、`guard` 1 张（guarder） | 保持每类至少 1 张 |
+| 元素覆盖 | fire 3 / water 1 / lightning 2 / ice 1 / geo 1 / **wind 0** / none 7 | **wind 是 0**，见 §40.5 |
+
+达标线就是「种类 ≥ 20」，即**至少再加 5 种**。别的指标是「别把已有的覆盖面弄坏」。
+
+### 40.2 数据规则（`tools/validate_data.gd` 的硬约束，一条都不能破）
+
+这些是 `validate_data` 会**报错**的：
+
+- `type` 只能是 `"unit"` / `"order"`（漏写会被 `Card.from_dict` 默认成 `"order"`，容易被当成单位用错）。
+- `cost >= 0`；`count > 0`（`load_cards()` 会把 `count < 1` 钳成 1，但 `validate_data` 直接判错）。
+- `element` 只能取 6 个基础元素之一：`none` / `fire` / `water` / `lightning` / `ice` / `wind` / `geo`
+  （即 `tools/card_lib.gd` 的 `ELEMENTS`）。**复合元素 `electro_charged` / `frozen` 是反应的产物，不许给卡当属性。**
+- 单位卡必须有 `attack >= 0` 且 `defense >= 0`。
+- 单位卡 `unit_class` ∈ `["", "infantry", "tank", "artillery", "fighter", "bomber"]`
+  —— 注意空字符串是合法值，但 **`tools/preflight.ps1 [4]` 会对「单位卡没有兵科」报提醒**，
+  所以实际要写满（现在 8/8 都有，别破坏）。
+- 指令卡 `kind` ∈ `["damage", "shield", "heal"]`。
+- `keywords` 里的词只认 `"blitz"` / `"guard"`（`tools/card_lib.gd` 的 `KEYWORDS`）。
+
+这两条**只警告不报错**（所以「绿了」不等于「没错」）：
+
+- 未知 `keywords` 词 → warning。**拼错 `blitz` 成 `blitzz` 不会红**，只会静默变成一张没有关键词的卡。
+  加完卡用 `validate_data` 看最后那行「提醒 N 条」必须还是 **0**。
+- 未知 `unit_class` 同理。
+
+**`data/decks/*.json` 不用动。** 新卡不进两副 deck 也完全合法（`_check_decks` 只校验
+「39 张 + 同名 ≤ 4 + id 必须存在」，新卡只是多了一个可用 id）。
+
+### 40.3 教练侧已经证明：加卡不会弄红任何测试
+
+这条是这块能不能做的前提，已实测：
+
+- `tests/data_test.gd:53-92` 的牌库断言**已经是动态推导**：它自己读 `cards.json`、
+  按 `count` 累加算出 `expect_total` / `expect_units` / `expect_kinds`，再和 `load_cards()`
+  的结果比。**不写死 57 / 15**，所以加卡不红；但 `load_cards()` 一旦少展开/多展开，
+  这三条立刻红 —— 这正是想要的。
+- `EXPECTED_CHECKS := 46`（`data_test.gd:12`）是**检查项数**，和卡数无关，加卡不变。
+- 全仓库 `tests/*.gd` + `tools/*.gd` 里搜 `57` / `49` / `15` 搭配「张 / 种」**零命中**，
+  没有别处硬编码卡数。
+- 实证：在 scratch worktree 里用生成器连加 7 张卡（15 种 57 张 → 22 种 83 张），
+  `run_tests.bat` **19 文件全 `[PASS]`、`ALL GREEN`、`[详细自检] PASS（13 项、0 提醒）`** —— 零红。
+
+**但有一个副作用要知道**：`ai_guard_test` / `battle_m2_test` / `combat_test` 等 17 个测试
+用 `DataLoader.load_cards()` 当牌堆，**加卡会改变洗牌后的牌序**（随机种子不变、牌池变了）。
+上面的实证说明当前断言不依赖牌序，所以它不红；**但如果你看到某个测试莫名其妙开始红，
+先怀疑「新卡的数值极端到把某条断言撑爆了」，而不是「测试坏了」**（纪律：不许改测试来变绿）。
+
+### 40.4 一条必须先知道的实测结论：`balance_sim` 对卡池**零敏感**
+
+**这一块最容易踩的坑，就是指望「加完卡跑 balance 看胜率变化」。实测结论是：不会变，永远不变。**
+
+2026-11-27 的实测（`--games 200 --seed 1`，判据是「与改动前逐位相同」）：
+
+| 卡池 | `deck=` | 结果 |
+|---|---|---|
+| 15 种 57 张（当前） | 29 张 | `WIN 90 / LOSE 110` · 45.0% · 13.4 回合 · RUNNING 0% |
+| 22 种 83 张（+7 张正常卡） | 55 张 | **一模一样** 45.0% / 13.4 / 0% |
+| 再 +3 张明显破坏平衡的卡（cost1 atk9 def9 / cost0 atk99 def99 带 blitz / cost7 atk20 def20） | 59、63 张 | **还是一模一样** |
+
+根因（已定位到行）：
+
+- `src/core/battle.gd:51-54` `setup()` 把 `p_deck` 复制进 `deck` 和 `enemy_deck` —— **双方用同一副牌**。
+- `src/core/battle.gd:110-111` `first_move = "enemy" if rng.randi_range(0, 1) else "player"`。
+- 探针实测：`RandomNumberGenerator` seed 1..200 里 **玩家先手 90 次 / 敌方先手 110 次**，
+  恰好等于 `WIN 90 / LOSE 110`；再逐局比对 `first_move` 与实际结果，**40 局 match=40 / mismatch=0**。
+
+**即：现在 `balance_sim` 的胜负 100% 由「谁先手」决定，卡池组成对结果零影响。**
+
+所以：
+
+- 加完卡 `balance_sim` **应该**还是 45.0% / 13.4 / 0%。**它不变是正常的，变了才说明你动了别的东西。**
+- 不要为了「让 balance 好看」去调卡数值 —— 这块的平衡归 **M3.8**（issue #5），
+  而 M3.8 的前置是 `M3.8a`（AI 打指令卡）+ 先手补偿。**先手补偿不做，balance 永远是先手决定一切。**
+- 这条也解释了为什么 `m3-scope.md` 的风险 4 写着「平衡基线显示先手 100% 胜」。
+  这条实测结论已经在那里挂了很久，这次是第一次把它钉到具体行号和探针输出上。
+
+### 40.5 现状盘点：缺口在哪（给思路，不给成品卡）
+
+只描述**结构上的空位**，具体怎么填是学员的事：
+
+1. **`wind` 元素是 0 张。** `data/tables/reactions.json` 里 wind 参与了 4 条扩散反应
+   （`fire+wind` / `water+wind` / `lightning+wind` / `ice+wind`），**但场上永远不会有 wind 附着**，
+   因为这 4 条反应在实战里根本触发不到 —— 相当于数据里写了 4 条死规则。
+   补 wind 卡是这块**收益最高的一件事**，而且能顺手让「扩散」从死规则变成活规则。
+2. **`water` / `ice` / `geo` 都只有 1 张。** 蒸发（water）、融化（ice）、结晶（geo）三条链
+   只有单一来源。加卡时顺手把这三条链补厚，比继续堆 `none` 有价值 —— 现在 `none` 已经 7 张。
+3. **`guard` 关键词只有 1 张（guarder），`blitz` 2 张。** 你刚做完的 §39 让 AI 会绕着 Guard 打，
+   但卡池里 Guard 只有一种，AI 的行为差异在实战里几乎看不出来。**Guard 加厚一点，§39 的成果才显形。**
+4. **指令卡只有 3 种 kind、7 种卡，且全是「单体 / 自己」。** `kind` 只有 damage / shield / heal
+   三档是 schema 限制（要扩 schema 是 M3.6 的事，不是这块），但**同一 kind 可以换元素、换费用/威力曲线**。
+5. **兵科上 `tank` / `artillery` / `fighter` / `bomber` 各只有 1 张。** 兵科规则（M3.3）写了 5 类，
+   但 4 类只有唯一代表，实战里兵科差异很弱。
+
+### 40.6 加卡的两种手段
+
+- **推荐：用生成器加单位卡**（编码 / 格式 / 尾逗号都自动处理，只插一行、其他行字节不动）：
+
+  ```
+  godot --headless --path . --script res://tools/add_unit_card.gd -- ^
+      --id fire_tank --name 火焰坦克 --cost 3 --attack 3 --defense 4 ^
+      --element fire --unit-class tank --count 4
+  ```
+
+  选填：`--opcost`（默认 1）、`--keywords`（逗号分隔，如 `blitz,guard`）、`--count`（默认 4）。
+  跑完它会自己重新解析一遍，打印 `✓ 已添加单位卡：… 卡牌种类 N，牌库总张数 M`。
+  图形版是 `tools\unit_maker.bat`，两者共用 `tools/card_lib.gd`。
+
+- **指令卡只能手写**（生成器只管单位卡）。手写时注意：一张卡占一行、和邻居的键顺序保持一致，
+  别整篇重排（`cards.json` 现在的键顺序本来就不统一，整篇重排会给没动过的卡造出假 diff）。
+
+**写回后必须验编码**：`data/tables/cards.json` 要 **无 BOM + 全 LF**。
+生成器写回是 2889 B / 无 BOM / 全 LF（15 种时），手写如果用了 PowerShell
+`Set-Content -Encoding utf8` 会变成 BOM + CRLF，直接污染 diff。
+
+### 40.7 验收（四条，全部同时成立）
+
+| # | 命令 | 期望 |
+|---|---|---|
+| 1 | `tools\validate_data.bat`（或 `validate_data.gd`） | **PASS**，`提醒 0 条`，末尾的「卡牌种类 N / 牌库总张数 M」与你的改动一致（N ≥ 20） |
+| 2 | `run_tests.bat` | **ALL GREEN 19 file(s)**、`[详细自检] PASS（14 项通过、0 条提醒）`、退出码 0 |
+| 3 | `balance_sim --games 200 --seed 1` | **仍是 45.0% / 13.4 回合 / RUNNING 0%**（见 §40.4：不变才是对的） |
+| 4 | 编码 | `cards.json` 无 BOM + 全 LF；`git status` 只有 `data/tables/cards.json` 一个文件改动 |
+
+另外自检一句：**加完之后你没有改过 `tests/` 里任何文件**（`git status` 里不该有测试文件）。
+
+### 40.8 坑
+
+1. **「绿了」不等于「对了」。** 加卡永远不红（§40.3），所以红绿完全不能告诉你卡写得对不对。
+   真正的自查是 §40.7 的 1 和 4，加上自己把 `cards.json` 读一遍看有没有语义错
+   （比如 `defense` 写成 `power`、`unit_class` 拼错、`kind` 给了单位卡）。
+2. **拼错 `keywords` / `unit_class` 只 warning 不报错**，会静默变成「没有这个字段」的卡。
+   `validate_data` 最后那行「提醒 N 条」必须是 0。
+3. **别动 `data/decks/*.json`。** 新卡不进 deck 也合法；进了 deck 就必须重新凑满 39 张、
+   且同名 ≤ 4 —— 那是 M3.5 的活，不是这块。
+4. **别指望 `balance_sim` 变好看**（§40.4）。真想让数值有意义，等 M3.8a + 先手补偿。
+5. **别整篇重排 `cards.json`。** 一张卡一行、只增删自己那一行，否则 `git diff` 会变成整个文件重写，
+   评审时看不出你到底加了什么。
+6. **`count` 是「牌库里放几份」**，不是「这张卡有几张」。它参与 `load_cards()` 展开，
+   也参与 `validate_data` 的 `count > 0` 校验。加卡时 `count` 给 2–4 比较常规（大卡给 2）。
+7. **别把 `none` 继续堆厚。** 现在 `none` 已经 7/15，再加 `none` 卡等于没加内容（见 §40.5）。
+
+### 40.9 收工动作
+
+1. `validate_data` + `run_tests.bat` + `balance_sim` 三条都过（§40.7），把三行结果贴给我。
+2. `git diff --numstat data/tables/cards.json` 报给我（应该只有 `+N −0` 或 `+N −1`）。
+3. 我核验后会：
+   - 更新 `docs/implementation-tasks.md` 的进度表第 26 行（`[~]` → `[x]`）和本节的落地记录；
+   - 同步 `README.md` 的卡池数字与 `docs/HANDOFF-2026-11-23.md`；
+   - 提交 `feat(data): 卡池扩到 N 种 / M 张`，并在 GitHub issue #2 回帖、关闭；
+   - 然后进 **M3.6 元素 v3**（issue #3，最大的块，6–10 h）或按你的选择调整顺序。
 
 ---
 
