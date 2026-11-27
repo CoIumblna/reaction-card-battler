@@ -126,6 +126,10 @@ git push -u origin main
 
 > 如果 git 报 `Please tell me who you are`，先配置身份：
 > `git config --global user.name "你的名字"` / `git config --global user.email "你的邮箱"`
+>
+> 本仓库 remote 走 `ssh://git@ssh.github.com:443`（22 端口不通时用 443）。首次 push 若报 `Host key verification failed`，
+> 先 `ssh-keyscan -p 443 ssh.github.com >> %USERPROFILE%\.ssh\known_hosts`，并在 `~/.ssh/config` 为 `ssh.github.com` 补 `Port 443` + `IdentityFile`。
+> 细节见 [HANDOFF §21.2](docs/HANDOFF-2026-11-23.md)。
 
 ---
 
