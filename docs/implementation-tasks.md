@@ -39,7 +39,7 @@
 | 26 | `data/tables/cards.json`（M3.4：卡池 20+，**任务卡见 §40**） | 1 | ★★ | 0（数据） | **1–2 h**（创意为主，不含想点子） | data_test + validate_data | [x] ✅ 完成（2026-11-27，15 种 / 57 张 → **20 种 / 68 张**；四条验收全过，落地记录见 §40.10） |
 | 26b | `battle.gd`（**M3.4 前置**：AI 选目标，清 M3.2 遗留） | 1 | ★★★ | 70 | **0.5–1 h**（实际编码约 40 min） | `tests/ai_guard_test.gd`（14 项，**2026-11-27 已启用**） | [x] ✅ 完成（2026-11-27，主套 19 文件 **499/499**，balance 45.0%/13.4 逐位不变；落地记录见 §39.9） |
 | 27 | `data_loader.gd`（M3.5：卡组构筑 39+1） | 1 | ★★ | 65 | **0.5–1 h**（实际约 1 h） | `tests/deck_build_test.gd`（11 项） | [x] ✅ 完成（2026-11-26，commit `014ad88`，主套 485/485） |
-| 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（最大块；备课前粗估，风险最高） | aura_v3_test（24 项待写） | [ ] |
+| 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（实际约 2 h 备课 + 1.5 h 施工 + 1 h 迁移；用子 agent 并行写） | `tests/aura_v3_test.gd`（**59 项，2026-11-27 已启用**） | [x] ✅ 完成（2026-11-27，主套 20 文件 **560/560**，balance 45.0%/13.4 逐位不变；落地记录见 §41.7） |
 | 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（实际约 1 h，含一轮两行修复） | stat_mod_test（7）+ stat_system_test（18），**已启用** | [x] |
 | 30 | `battle.gd`（M3.8a：AI 打指令卡） | 2 | ★★★ | 80 | **1.5–2.5 h** | battle_m2_test 增补（测试待写） | [ ] |
 | 31 | 平衡（M3.8：balance_sim 调参） | 3 | ★★★ | 60 | **2–3.5 h**（含反复跑模拟的时间） | docs/balance-report.md | [ ] |
@@ -1617,7 +1617,9 @@ static func load_deck(path: String) -> Array[Card]:
 
 ## 35. M3.6 元素 v3（多槽附着）
 
-规格见 `docs/adr/005-element-auras-v3.md` + `docs/element-reactions-v3.md`（数据 schema/算法/迁移清单/测试用例清单）。实现前还需：数据迁移（elements/reactions v3）+ `tests/pending/aura_v3_test.gd`（按 v3 文档 §7 的 24 项）。这轮不动现有数据/测试（迁移与代码同批提交）。
+> **✅ 已完成（2026-11-27）。** 规格与施工全过程见 **§41**；实现依据是 `docs/adr/005-element-auras-v3.md`
+> 与 `docs/element-reactions-v3.md`，规格文档 `docs/element-reactions.md` 已整篇重写为 v3。
+> 本行只留作索引，**不要从这里开工**。
 
 ---
 
@@ -2924,6 +2926,241 @@ attack_unit(我方, 敌方后排)          = true        ← 能打
 **这块没做完的部分（留给以后，不阻塞）**：§40.5 缺口 3（`guard` 仍只有 1 张）和缺口 4
 （指令卡未加）完全没动；`ice` 仍 1 种；`fighter` / `bomber` 仍各 1 张。要补随时可补，
 但记得四条验收里 **balance 那条永远是「不变才正常」**。
+
+---
+
+## 41. M3.6 元素 v3（多槽附着）+ 每张卡独立上限 · 2026-11-27 施工与落地
+
+> **本节 = 这一块的唯一文档。** 规格依据 `docs/adr/005-element-auras-v3.md`（97 行，数据结构与决策）与
+> `docs/element-reactions-v3.md`（144 行，schema / 算法 / 迁移清单 / 用例清单）；玩家向规格已整篇重写为
+> `docs/element-reactions.md`（v3）。
+> 状态：**✅ 已完成（2026-11-27）** —— 主套 20 文件 **560/560** 全绿，`validate_data` PASS，
+> `balance_sim --games 200 --seed 1` 逐位不变（45.0% / 13.4 / RUNNING 0%）。
+
+### 41.0 这一块和以往不一样在哪
+
+以往每块都是「学员写 `src/core/*.gd`，教练写测试与文档」。这一块**反过来**：
+
+- **代码由子 agent 按我给的精确规格写，我来审**（用户 2026-11-27 拍板）；
+- 同一次还顺手落地了**每张卡独立上限**（per-card limit），替代原来全局统一的「同名卡最多 4 张」。
+
+两条都是用户明确要求，别再问一遍：
+
+> 「开始3.6，建议使用子agent进行编写代码函数以提高效率，不要直接子agent直接理解该项目。另外，每张牌应当有单独的上限而不是统一的4张，这一点应当在加载deck的时候加以核验。」
+
+**「子 agent 不要自己去理解项目」怎么落地**：给子 agent 的提示词里只包含①要改的文件路径 ②精确到签名的规格
+③边界条件清单 ④文件格式要求，**明确禁止**它 grep 全项目、跑测试、读其他文件。子 agent 拿到的信息就是
+一份"函数级作业单"，它不判断设计、不探索代码库。代价是我必须先自己把相关源码读透（这一块读完了
+`element.gd` / `unit.gd` / `damage.gd` / `battle.gd` / `card.gd` / `data_loader.gd` + 4 个数据表 + 9 个测试文件）。
+
+### 41.1 两条已拍板的设计决策
+
+**决策 1：多槽附着（最多 3 槽，每槽记 element / amount / duration）**
+
+`Unit` 上删掉 `aura_element` / `aura_amount` 两个单值字段，换成：
+
+```gdscript
+const MAX_AURAS := 3
+var auras: Array = []        # 每项 { "element": String, "amount": float, "duration": int }，按创建顺序
+```
+
+为什么不是"继续用复合元素 id"（v2 的做法）：复合 id 是伪造的元素，既不能再参与反应，
+也无法让 UI 显示"身上到底是水还是雷"。多槽是真实状态，代价是"所有单槽断言都要迁移"（见 41.5）。
+
+**决策 2：感电 / 冻结改成共存型反应（`consume = 0`）**
+
+v2 里 `lightning+water` 的 effects 是 `[status shock, aura electro_charged clear_first]` ——
+把水清掉、换成一个假的感电元素。v3 改成 `consume: 0.0` + 只挂 `status shock`，
+于是**水和雷两个槽都留在身上**。冻结同理（冰 + 水共存 + `immobilized`）。
+
+**为什么不消耗**：共存型反应表达的是"两种元素同时存在并互相作用"，消耗掉就没有"共存"可言了。
+这是一个设计选择而非必然 —— 如果 M3.8 实测觉得太强，改 `reactions.json` 的 `consume` 即可，代码不用动。
+
+### 41.2 给子 agent 的规格（实际下发的原文要点，可复用）
+
+**共同铁律（每次都写进提示词）**
+
+- 只改指定文件、只读指定文件；**不要 grep 全项目、不要跑测试、不要读别的东西**；
+- **只能用 `edit` 工具**改代码。严禁 `Set-Content` / `[IO.File]::WriteAllText` / PowerShell 重写 ——
+  在 Windows 上这样改 `.gd` 会产生「中文乱码 + BOM + CRLF」，Godot 直接
+  `Parse Error: Could not parse global class "Battle"`；
+- 产出必须 **无 BOM + 全 LF + Tab 缩进 + UTF-8**；
+- 不许自行"顺手优化"规格之外的东西；发现有疑问的地方**写进回报里**，不要自己决定。
+
+**子 agent A（`core-aura`）：改 `element.gd` / `unit.gd` / `damage.gd`**
+
+`src/core/element.gd`：
+
+- 删 `ELECTRO_CHARGED` / `FROZEN` 两个常量，删 `ELEMENT_NAMES` 里对应的两个中文名；
+- 新增 `const BASE_DURATION`（6 个基础元素 → 2，即每元素默认附着回合数）；
+- 新增 `const STRONG_DURATION := 3`；
+- 新增 `static func aura_duration(element_id: String, amount: float) -> int` ——
+  `amount > 1.0` 返回 `STRONG_DURATION`，否则 `int(BASE_DURATION.get(element_id, 2))`；
+- `all()` 仍然只返回 6 个基础元素。
+
+`src/core/unit.gd`：
+
+- 删 `aura_element` / `aura_amount` 字段，删 `from_dict` 里读它们的两行；
+- 加 `const MAX_AURAS := 3` 与 `var auras: Array = []`；`from_dict` 改读 `"auras"` 数组；
+- `describe()` 里附着那段改用 `describe_auras()`；
+- 新增 5 个方法：
+  - `get_aura(element_id: String) -> Dictionary`（没有该槽返回 `{}`，**不是 null**）；
+  - `add_or_refresh_aura(element_id: String, amount: float, duration: int) -> void`
+    （同元素：量相加封顶 `MAX_AMOUNT`、`duration` 取新旧较大值；不同元素：新槽，
+    满了 `MAX_AURAS` 就先 `auras.pop_front()` 挤掉最旧的再入槽）；
+  - `remove_aura(element_id: String) -> bool`；
+  - `tick_auras() -> Array[String]`（倒序遍历 `duration -= 1`，`<= 0` 移除并收集元素名，最后 `reverse()`）；
+  - `describe_auras() -> String`（空 → `"无"`，否则 `火1U(2) 水2U(1)` 这种格式）。
+
+`src/core/damage.gd`：
+
+- 新增 `static func find_reaction_slot(element: String, target: Unit, table: ReactionTable) -> int`
+  —— 遍历 `target.auras`，跳过 `NONE` 和同元素，`table.has_reaction(element, 槽元素)` 命中即返回下标，否则 `-1`；
+- `compute()` 的返回字典新增 `"reaction_slot": int`；判定改成
+  `elif find_reaction_slot(...) < 0: damage = base_power`，否则取该槽元素走 `get_reaction`；
+- 实现细节我事后又调了一处：`find_reaction_slot` 只算一次存进变量（免疫分支重置为 -1），不要调两遍。
+
+**子 agent B（`battle-aura`）：只改 `src/core/battle.gd`**
+
+- `_apply_aura(target, element, amount)` 整段重写：`Damage.find_reaction_slot` 找槽 →
+  只结算 `"status"` 效果 → 旧槽扣 `consume`（`<= 0` 用 `remove_at` 否则写回 `auras[idx]["amount"]`）→
+  `residual = amount - consume`，`<= 0` 直接 return → wind/geo return →
+  `add_or_refresh_aura(element, residual, Element.aura_duration(element, residual))`；
+- `_settle_status()` 里在 `u.tick_buffs()` 之后同层级插入 `tick_auras()` 与到期日志。
+
+**规格里我明确写「不要实现」的**：反应 effects 里的 `damage` / `shield` / `heal` 三种效果。
+它们在 v2 就是死数据（`Damage.compute` 拷进 effects 但没人结算），v3 补上会改变 `balance_sim`
+基线，属于另一件事（见 41.8 缺口 1）。
+
+### 41.3 数据迁移（我自己做的，没给子 agent）
+
+`data/tables/elements.json` → `schema_version: 3`
+
+- 只留 6 条 base，每条加 `"duration": 2`；
+- 删 `electro_charged`（原 11 行）与 `frozen`（原 12 行）两条 composite；
+- `_note` 重写：说清"只有基础元素 + duration = 默认附着回合数"，并提示同步改 `element.gd` 的 `BASE_DURATION`。
+
+`data/tables/reactions.json` → `schema_version: 3.0`
+
+- 只改两条：`lightning+water` 与 `ice+water` 的 `consume` 改 `0.0`、删掉各自的 `aura` 效果、保留 `status`；
+- 其余 12 条一个字没动（蒸發 / 融化 / 超載 / 超导 / 4×扩散 / 4×结晶）；
+- `_note` 追加 v3 变更说明。
+
+`data/decks/player_deck.json:2` 的 `_note` 改成"每张卡的上限看 cards.json 里那张卡的 limit（缺省 4）"。
+
+### 41.4 每张卡独立上限（per-card limit）
+
+**规则**：`cards.json` 每张卡可以写 `"limit": N`；不写就吃默认 `4`。`limit < 1` 报错。
+**两处都要校验**（用户原话"应当在加载deck的时候加以核验"）：
+
+| 位置 | 改动 |
+|---|---|
+| `src/core/card.gd` | 新增 `const DEFAULT_LIMIT := 4` + `var limit: int = DEFAULT_LIMIT`；`from_dict` 里 `c.limit = int(d.get("limit", DEFAULT_LIMIT))` |
+| `src/core/data_loader.gd` | `MAX_SAME_CARD` 保留但改为 `= Card.DEFAULT_LIMIT`（只为兼容老调用点）；`load_deck()` 里读 `catalog[id].get("limit", Card.DEFAULT_LIMIT)`，`limit < 1` → `push_error("卡牌上限不合法 id:%s limit:%d")`，`cnt[id] > limit` → `push_error("卡牌「%s」超出上限（%d 张，上限 %d）id:%s")` |
+| `tools/validate_data.gd` | 删 `MAX_SAME_CARD`，改 `const DEFAULT_CARD_LIMIT := 4`；`_check_cards` 加 `limit < 1` 与 `count > limit` 两条报错；`_check_decks` 建 `limits[cid]` 后逐卡比对 |
+| `tools/card_lib.gd` | 新增 `const DEFAULT_LIMIT := 4`；`KEY_ORDER` 插 `"limit"`（放在 `"abilities"` 与 `"count"` 之间）；`validate_unit` 的 `count > 4` 改成按该卡的 `limit`；`blank_unit` 带默认 `limit` |
+| `tools/add_unit_card.gd` | 新增 `--limit`（默认 4） |
+| `data/tables/cards.json` | 给 6 张卡显式写 limit：`bomber` 2、`fighter` 3、`wind` 3、`fire_tree` 1、`ret` 1、`dog` 2；其余 14 种不写 → 吃默认 4 |
+
+**注意 `count` 与 `limit` 是两个概念**：`count` 是"这张卡在牌库里一共印了几张"，`limit` 是"你最多能带几张"。
+通常两张相等（因为 `load_cards()` 按 `count` 展开成牌库），但语义不同，所以两个字段都留着。
+
+### 41.5 迁移测试时踩到的四条真实行为（写进断言了，别再当 bug 修）
+
+1. **`tick_auras()` 返回的是「本回合到期被移除」的元素列表**，没到期的不在列表里。
+   所以断言要写 `_check(not expired.has(Element.FIRE), ...)`，不是 `expired.has(...)`。
+2. **2U 火打 2U 水：水剩 1U，火的残留 `2 − 1 = 1U` 也入槽。**
+   v2 的契约是"目标剩余 > 0 → 攻击方残留丢弃"，v3 改成"残留 > 0 就入槽"。
+   这条差异把 `battle_m1_smoke_test` 里一条老断言直接从绿变红（`2U 火打 2U 水 → 攻击方残留被丢弃`），
+   改成了 `_check_aura(e3, Element.FIRE, 1.0, "2U 火打 2U 水 → 火残留 1U 也入槽")`。
+3. **`_settle_status()` 每回合会顺手 `tick_auras()`**，所以 dot 结算完之后的 `describe_auras()`
+   会比结算前少 1 回合 duration。断言不能写"附着一个不差"，要写
+   "元素量不变 + 槽数不变 + duration 恰好 −1"。
+4. **`Board.HQ_SLOT := 0`**（支援线 0 号格是 HQ）。测试里往支援线摆单位必须用 `index >= 1`，
+   否则 `_settle_status` 会因为 `u.is_hq` 跳过它，dot 不掉血 —— 表现是"dot 没生效"，
+   实际是"单位被摆到了 HQ 格上"。
+
+### 41.6 验收实测（干净工作区，2026-11-27）
+
+| 项 | 结果 |
+|---|---|
+| `run_tests.bat` | **EXIT=0**，`===== ALL GREEN =====  20 file(s) passed` |
+| 主套项数 | **560**（19 文件 499 → 20 文件 560；逐文件求和见下） |
+| `[详细自检]` | `PASS（13 项通过、0 条提醒）`（脏工作区口径；提交后干净工作区是 14 项） |
+| `validate_data` | **PASS**，`0 条错误、0 条警告`，`卡牌种类 20、牌组总张数 68`，两个 deck 各 39 张 |
+| `balance_sim --games 200 --seed 1` | **WIN 90 / LOSE 110 / 45.0% / 13.4 回合 / RUNNING 0%** —— 与改动前逐位相同 |
+| `tools/test_card_lib.gd` | **61 项 0 失败 PASS**（原来 55 项，新增 `_test_limit` 6 项） |
+
+逐文件项数（20 个）：`air_intercept 3` / `ai_guard 14` / `aura_v3 59` / `battle_m1_smoke 54` /
+`battle_m2 63` / `board 38` / `combat 59` / `damage 23` / `data 46` / `deck_build 13` / `deck 20` /
+`guard 8` / `keywords 17` / `opening 25` / `order 36` / `status 15` / `stat_mod 7` / `stat_system 18` /
+`unit_class 21` / `unit 21`。
+
+**项数变化全表**（相对 19 文件 499）：`battle_m1_smoke 58 → 54`（−4）、`order 35 → 36`（+1）、
+`status 12 → 15`（+3）、`deck_build 11 → 13`（+2）、新增 `aura_v3 59`。`499 − 4 + 1 + 3 + 2 + 59 = 560`。
+
+**balance 为什么"不变"是正确的**：见 §40.4 —— `balance_sim` 的胜负 100% 由"谁先手"决定
+（双方同一副牌，`first_move` 随机），卡池和反应效果都不影响结果。所以这一块**不能**用 balance 变好来验收，
+只能要求"逐位不变"。
+
+### 41.7 落地记录
+
+**新增/改动的文件（21 个）**
+
+| 类别 | 文件 |
+|---|---|
+| 核心代码 | `src/core/element.gd`（61 行）、`src/core/unit.gd`（247 行）、`src/core/damage.gd`（68 行）、`src/core/battle.gd`（590 行）、`src/core/card.gd`（68 行）、`src/core/data_loader.gd` |
+| 数据 | `data/tables/elements.json`（v3）、`data/tables/reactions.json`（v3）、`data/tables/cards.json`（6 张加 limit）、`data/decks/player_deck.json`（`_note`） |
+| UI | `src/ui/ui_theme.gd`（删 `COMPOSITE_COLORS` 整块，175 行） |
+| 工具 | `tools/validate_data.gd`、`tools/card_lib.gd`、`tools/add_unit_card.gd`、`tools/test_card_lib.gd`、`tools/README.md` |
+| 测试 | **新增 `tests/aura_v3_test.gd`（59 项）**；迁移 `battle_m1_smoke_test.gd` / `combat_test.gd` / `damage_test.gd` / `data_test.gd` / `deck_build_test.gd` / `order_test.gd` / `status_test.gd` / `unit_test.gd` |
+| 文档 | `docs/element-reactions.md`（整篇重写为 v3）、`data/schema/README.md`（elements 补 `duration`、cards 补 `count`/`limit`） |
+
+**`aura_v3_test.gd` 的 10 个测试段**：`[1]` 多槽基础 / `[2]` 叠加与 2U 封顶 / `[3]` 槽上限 3 替换最旧 /
+`[4]` duration（普通 2、强附着 3、刷新取最大、归零移除）/ `[5]` 反应消耗（倍率、槽剩余、残留入槽）/
+`[6]` 共存型反应（感电/冻结两槽共存、无复合 id、超导带伤害与减防）/ `[7]` 反应优先级（最早槽优先）/
+`[8]` 风岩不附着（扩散扣火、结晶清空）/ `[9]` 免疫与 dot（不附着、dot 不改附着、死亡单位不 tick）/
+`[10]` `describe_auras` 可读性。
+
+**启用过程**：`tests/pending/aura_v3_test.gd` 先在 pending 区跑（`run_tests.bat` 报
+`[READY  ] aura_v3_test  59 checks  --> git mv ...`），全绿后移到 `tests/`，header 改成「已启用」。
+注意 `tests/pending/` 是**未跟踪的目录**，`git mv` 会报 `fatal: not under version control`，
+要用 `Move-Item` 手动搬，再 `git add`。搬完 `tests/pending/` 变空目录要一并删掉。
+
+### 41.8 已知缺口（诚实记录，别当成已实现）
+
+1. **反应 effects 里的 `damage` / `shield` / `heal` 三种效果没有代码在结算。**
+   `Damage.compute()` 会把它们拷进返回值的 `effects`，但 `_apply_aura()` 只处理 `status`。
+   也就是说超载的"额外伤害 2"、结晶的"护盾 2"目前是**死数据**。补上会改变 `balance_sim` 基线，
+   单独排期（建议和 M3.8 平衡调参同批做）。
+2. **`decay_rate`（附着量随时间衰减）没做**，只有 duration（回合数）会减少；只要没到期，1U 还是 1U。
+3. **没有草系（`dendro`）**：`docs/element-reactions-v3.md` §1.1 的示例里写过它，但当前数据/代码都没有，
+   也没有草系反应条目。要加属于内容设计。
+4. **`tools/card_lib.gd` 的 `ELEMENTS` 注释**已改成"v3 起复合元素 id 已删除"，但如果以后要加草系，
+   要同时改 `CardLib.ELEMENTS`、`validate_data.gd` 的 `CARD_CHOICE_ELEMENTS`、`Element.BASE_DURATION`、
+   `elements.json` 四处 —— 少了任何一处都会在运行期或校验期报错。
+
+### 41.9 坑（这一块踩到的新坑）
+
+1. **`.gd` 只能 `edit`，`Move-Item` 可以。** 这一块为了搬测试文件用过 `Move-Item`，没问题；
+   但只要涉及**改写文件内容**（哪怕只是换行风格），就会把中文弄成乱码 + 加 BOM + 转 CRLF，
+   Godot 直接 `Parse Error`。所有 `.gd` 内容改动一律走 `edit`。
+2. **`tests/pending/` 不在 git 里**。`git mv` 对它无效（`fatal: not under version control`），
+   要用 `Move-Item` + `git add`。
+3. **`EXPECTED_CHECKS` 是硬闸门，但只在"少跑"时有用。** 加断言忘了加项数会被 `覆盖不完整` 抓到
+   （反向也有效：项数写多了同样红）。这一块有 3 个文件因为这个闸门在本轮被抓出来。
+   反过来，`tools/test_card_lib.gd` 里我新增了 `_test_limit()` 但忘了在 `_initialize()` 里调用 ——
+   项数闸门同样抓到了，因为没调用的段不产生检查。
+4. **`_settle_status()` 只扫棋盘上的单位。** 想测 dot 必须把单位 `board.place` 上去
+   （且 `index >= 1`，见 41.5 第 4 条）。直接在 `battle.enemies` 里放一个单位测 dot 是测不到的。
+5. **子 agent 的回报要逐行核对，不能只看"完成了"。** 这一块两个子 agent 都按时交了，也都只改了指定文件，
+   但我仍然找到两处需要我自己收尾的地方（`damage.gd` 里 `find_reaction_slot` 调了两遍、
+   `element.gd` 里 `all()` 的注释还写着"复合元素不参与遍历"）。**子 agent 不判断设计，收尾永远是教练的活。**
+
+### 41.10 下一步
+
+M3.6 关闭后，M3 剩下：**M3.8a（AI 打指令卡，#4）** → **M3.8 平衡调参（#5）** → **M3.9 收尾 tag v0.3（#6）**。
+注意 §40.4 的结论：平衡调参的前置是"先手补偿"，否则怎么调都是 45%（先手 90/200 的随机结果）。
 
 ---
 

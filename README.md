@@ -7,13 +7,14 @@
 > 这不是"做一个游戏"，是"用一个游戏练工程"。
 > 项目计划见 [项目计划_知识储备与行动大纲.md](项目计划_知识储备与行动大纲.md)。
 
-当前状态：**M1 / M2 / P1（E7a）/ P2（E7b）/ M3.1 / M3.2 / M3.3 / M3.3b / M3.5 / M3.7 / M3.4 前置块 / M3.4 卡池 20+ 全部已完成**，
-主套 **19 个测试文件 499 项全绿**；`tests/pending/` 已空（最后一份红基线 `ai_guard_test` 于 2026-11-27 启用）。
+当前状态：**M1 / M2 / P1（E7a）/ P2（E7b）/ M3.1 / M3.2 / M3.3 / M3.3b / M3.5 / M3.7 / M3.4 前置块 / M3.4 卡池 20+ / M3.6 元素 v3 全部已完成**，
+主套 **20 个测试文件 560 项全绿**；`tests/pending/` 已空（最后一份红基线 `aura_v3_test` 于 2026-11-27 启用）。
 卡池从 **13 种 49 张 → 15 种 57 张 → 20 种 68 张**（2026-11-27 达标，四条验收全过）。
-当前任务：**M3.6 元素 v3（最大的块，6–10 h）**——
-卡池块的作业单与落地记录在 [docs/implementation-tasks.md **§40**](docs/implementation-tasks.md)（§40.4 的实测结论：`balance_sim` 对卡池零敏感；§40.10 落地记录）；
+当前任务：**M3.8a AI 打指令卡**（平衡调参的前置）。
+M3.6（元素 v3 + 每张卡独立 `limit`）的作业单、子 agent 规格与落地记录在 [docs/implementation-tasks.md **§41**](docs/implementation-tasks.md)（§41.6 验收实测、§41.9 坑）；
+卡池块的作业单与落地记录在 **§40**（§40.4 的实测结论：`balance_sim` 对卡池零敏感；§40.10 落地记录）；
 M3.4 前置块的规格、评审、红绿指纹与落地记录在 **§39**（§39.6 第一轮评审、§39.7 红绿指纹、§39.9 落地记录）。
-之后的活已经在 GitHub 上开成 issue（milestone **M3**）：~~[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种~~（已于 2026-11-27 完成关闭）· [#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3 · [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；~~#1 AI 选目标~~ 已于 2026-11-27 完成关闭。
+之后的活已经在 GitHub 上开成 issue（milestone **M3**）：~~[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种~~（已完成关闭）· ~~[#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3~~（2026-11-27 完成关闭）· [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；~~#1 AI 选目标~~ 已于 2026-11-27 完成关闭。
 每完成一块关一个 issue，仓库首页的进度条自动走。详见 [HANDOFF §21.3](docs/HANDOFF-2026-11-23.md)。
 跑 `tools\check.bat` 看进度表 + 检查点 + pending 验收基线（它还会告诉你下一步做什么）。
 
@@ -28,23 +29,24 @@ M3.4 前置块的规格、评审、红绿指纹与落地记录在 **§39**（§3
 | `tests/damage_test.gd` | 纯算法：倍率、floor、免疫、effects、触发方向 | 23 | 0 |
 | `tests/board_test.gd` | 棋盘：三条线、HQ、容量、位置查询 | 38 | 0 |
 | `tests/combat_test.gd` | 移动 / 攻击与反击 / 行动花费 / 前线独占 / 死亡移除 | 59 | 0 |
-| `tests/battle_m1_smoke_test.gd` | M1 流程：回合推进、能量、附着、伤害转接 | 58 | 0 |
+| `tests/battle_m1_smoke_test.gd` | M1 流程：回合推进、能量、附着、伤害转接 | 54 | 0 |
 | `tests/battle_m2_test.gd` | M2 流程：Kredit / 部署 / 召唤失调 / HQ 胜负 / 敌方 AI / 自动对局 | 63 | 0 |
-| `tests/status_test.gd` | C8：dot / disable / 反应挂状态 | 12 | 0 |
-| `tests/order_test.gd` | E14：指令卡目标（数据驱动 target）+ 死亡移除 | 35 | 0 |
+| `tests/status_test.gd` | C8：dot / disable / 反应挂状态 | 15 | 0 |
+| `tests/order_test.gd` | E14：指令卡目标（数据驱动 target）+ 死亡移除 | 36 | 0 |
 | `tests/deck_test.gd` | E7a：弃牌堆 / 抽干疲劳 | 20 | 0 |
 | `tests/opening_test.gd` | P2：起手 4/5 + 首回合抽牌 + mulligan | 25 | 0 |
 | `tests/keywords_test.gd` | M3.1：行动经济 + 关键词 + 闪击 | 17 | 0 |
 | `tests/guard_test.gd` | M3.2：Guard 相邻保护 | 8 | 0 |
 | `tests/unit_class_test.gd` | M3.3：兵科 / 空军越线 / 炮兵与轰炸机无视 Guard | 21 | 0 |
 | `tests/air_intercept_test.gd` | M3.3b：战斗机拦截轰炸机 | 3 | 0 |
-| `tests/deck_build_test.gd` | M3.5：卡组构筑 39+1 | 11 | 0 |
+| `tests/deck_build_test.gd` | M3.5：卡组构筑 39+1 + 每张卡独立 `limit` | 13 | 0 |
 | `tests/stat_mod_test.gd` | M3.7：defense_down 数值 | 7 | 0 |
 | `tests/stat_system_test.gd` | M3.7：通用 stat 系统 | 18 | 0 |
 | `tests/ai_guard_test.gd` | M3.4 前置块：AI 选目标的 Guard 规则（S1–S6） | 14 | 0 |
+| `tests/aura_v3_test.gd` | M3.6：元素多槽附着 v3（≤3 槽、duration、共存型反应） | 59 | 0 |
 | `tests/run_battle.gd` | 不是测试：手动跑一局看日志 | — | — |
 
-> 主套合计 **499 项 / 19 文件**，全部通过；`tests/pending/` 目前是空的。
+> 主套合计 **560 项 / 20 文件**，全部通过；`tests/pending/` 目前是空的。
 
 > `run_tests.bat` 和 CI 都是**自动发现** `tests/*_test.gd`（`tests/pending/` 不算），加测试文件不用改脚本。
 
@@ -60,7 +62,7 @@ M3.4 前置块的规格、评审、红绿指纹与落地记录在 **§39**（§3
 
 - 详细玩法规格：**[docs/game-design.md](docs/game-design.md)**
 - KARDS 规则底稿：**[docs/kards-rules-reference.md](docs/kards-rules-reference.md)**
-- 元素反应数值：**[docs/element-reactions.md](docs/element-reactions.md)**（v3 待做，见 [docs/element-reactions-v3.md](docs/element-reactions-v3.md)）
+- 元素反应数值：**[docs/element-reactions.md](docs/element-reactions.md)**（**v3 已落地 2026-11-27**：多槽附着 + 共存型反应；设计与迁移依据 [docs/adr/005-element-auras-v3.md](docs/adr/005-element-auras-v3.md)）
 - 为什么 M1 不做战线：**[docs/adr/002-m1-scope.md](docs/adr/002-m1-scope.md)**
 - 代码怎么实现：**[docs/implementation-tasks.md](docs/implementation-tasks.md)**
 - M3 规格（关键词/兵科/卡池/平衡模拟）：**[docs/m3-scope.md](docs/m3-scope.md)**
@@ -81,13 +83,16 @@ M3.4 前置块的规格、评审、红绿指纹与落地记录在 **§39**（§3
 | ✅ M3.2 Guard | 相邻保护、被保护者不可被选、Guard 互不保护 | `guard_test` 8/8（已完成） |
 | ✅ M3.3 兵科 | 空军越线、炮兵/轰炸机无视 Guard、无反击规则 | `unit_class_test` 21/21（已完成） |
 | ✅ M3.3b 拦截 | 战斗机拦截轰炸机 | `air_intercept_test` 3/3（已完成） |
-| ✅ M3.5 卡组构筑 | `DataLoader.load_deck()` 39+1 | `deck_build_test` 11/11（已完成） |
+| ✅ M3.5 卡组构筑 | `DataLoader.load_deck()` 39+1 + 每张卡独立 `limit` | `deck_build_test` 13/13（已完成） |
 | ✅ M3.7 通用 stat | `Battle.stat_of(unit, stat)` | `stat_system_test` 18/18（已完成） |
-| ✅ **M3.4 前置：AI 选目标** | `_ai_attack_targets()` / `_ai_attack()` + `_is_guarded()` 两个守卫 | `ai_guard_test` 14/14（2026-11-27 已启用），主套 **499/499** |
+| ✅ **M3.4 前置：AI 选目标** | `_ai_attack_targets()` / `_ai_attack()` + `_is_guarded()` 两个守卫 | `ai_guard_test` 14/14（2026-11-27 已启用） |
+| ✅ **M3.4 卡池 20+ 种** | `cards.json` 扩到 20 种 68 张（创意归学员） | `data_test` 46/46 动态推导，加卡不红 |
+| ✅ **M3.6 元素 v3 + per-card limit** | `Unit.auras` 多槽（≤3）+ 共存型反应 + `Card.limit` | `aura_v3_test` 59/59（2026-11-27 已启用），主套 **560/560** |
 
 作业单、施工思路、评审与落地记录都在 [docs/implementation-tasks.md](docs/implementation-tasks.md)：
 **M3.4 前置块 = §39**（§39.1a 三档判定表 · §39.5 十条坑 · §39.6 第一轮评审 · §39.7 五条红绿指纹 · §39.8 自查判据 · §39.9 落地记录）；
-**M3.4 卡池 = §40**（§40.2 数据硬规则 · §40.4 `balance_sim` 对卡池零敏感 · §40.5 缺口盘点 · §40.7 四条验收 · §40.8 七条坑）。
+**M3.4 卡池 = §40**（§40.2 数据硬规则 · §40.4 `balance_sim` 对卡池零敏感 · §40.5 缺口盘点 · §40.7 四条验收 · §40.8 七条坑 · §40.10 落地记录）；
+**M3.6 元素 v3 = §41**（§41.1 两条设计决策 · §41.2 子 agent 规格原文 · §41.4 per-card limit 六处改动 · §41.5 四条真实行为 · §41.6 验收 · §41.8 已知缺口）。
 
 > M1/M2 的参考实现在 `..\_reference_battler\src\core\`（7 个文件，没有 `damage.gd`——那个要你自己从零想）；M3.4 这份在 `..\_ref_ai_guard`（detached worktree，已验过 499/499）。
 > 参考实现都在仓库外，因为它就在那儿，你会在第 3 分钟就去看。
@@ -166,7 +171,7 @@ reaction-card-battler/
 │   └── check_font.gd        # 中文字体体检
 ├── docs/
 │   ├── HANDOFF-2026-11-23.md    # ★ 接手必读：现状 / 纪律 / 每块的备课与落地
-│   ├── implementation-tasks.md  # ★ 每个文件要做啥、用什么手段、怎么验收（作业单与评审也在这里；§39 = M3.4 前置，§40 = M3.4 卡池）
+│   ├── implementation-tasks.md  # ★ 每个文件要做啥、用什么手段、怎么验收（作业单与评审也在这里；§39 = M3.4 前置，§40 = M3.4 卡池，§41 = M3.6 元素 v3）
 │   ├── brief-*.md               # 早期历史作业单（M3.5 / M3.7 / stat 系统；M3.4 已并入 implementation-tasks §39）
 │   ├── review-*.md              # 早期历史评审（M3.1 / E7b；M3.4 已并入 implementation-tasks §39.6）
 │   ├── game-design.md           # 玩法规格
@@ -189,7 +194,7 @@ reaction-card-battler/
 ├── src/ui/                  # 界面基座（M4 沿用）
 │   ├── ui_theme.gd          # 全局主题（中文字体 / 配色）
 │   └── card_view.gd         # 卡面组件（unit_maker 与 M4 手牌区共用）
-└── tests/                   # 19 个文件 499 项（pending/ 已空）
+└── tests/                   # 20 个文件 560 项（pending/ 已空）
     ├── data_test / unit_test / damage_test / board_test / combat_test
     ├── battle_m1_smoke_test / battle_m2_test / status_test / order_test
     ├── deck_test / opening_test / keywords_test / guard_test / unit_class_test
@@ -233,7 +238,7 @@ reaction-card-battler/
 |---|---|---|
 | M1 | **无战线**：跑通「出牌 → 伤害 → 元素反应」+ 两套测试 | ✅ 完成（155 项） |
 | M2 | **加部署 + 战线（支援/前线）+ 移动 + 行动花费 + 敌方 AI + 状态效果**，变成 KARDS-lite | ✅ 完成（320 项） |
-| M3 | **关键词（闪击/Guard）+ 兵科 + 卡组构筑 + 通用 stat + 卡池 + 平衡** | 🚧 进行中（499 项，剩 M3.4 卡池 / M3.6 元素 v3 / M3.8a / M3.8 / M3.9） |
+| M3 | **关键词（闪击/Guard）+ 兵科 + 卡组构筑 + 通用 stat + 卡池 + 元素 v3 + 平衡** | 🚧 进行中（560 项，剩 M3.8a AI 打指令卡 / M3.8 平衡 / M3.9 收尾） |
 | M4 | 可玩 UI + 存档迁移 | 前置已交付（中文字体 / 卡面组件 / 单位卡工具），未开工 |
 | M5 | 发布 itch.io + 3 篇博客 | 未开始 |
 
