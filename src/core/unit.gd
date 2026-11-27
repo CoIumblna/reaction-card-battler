@@ -8,8 +8,7 @@ extends RefCounted
 ##   immunities    —— 免疫的元素列表（伤害为 0、不触发反应、不消耗附着）
 
 const MAX_AMOUNT := 2.0
-const MAX_AURAS := 3        # 最多同时存在几槽附着；槽满时替换最旧的一槽（`innate` 护盾槽不参与替换）
-const INNATE_REGEN_TURNS := 3   # 固有护盾被打破后，几个回合重新凝聚
+const MAX_AURAS := 3        # 最多同时存在几槽附着；槽满时替换最旧的一槽
 
 var id: String = ""
 var display_name: String = ""
@@ -26,9 +25,7 @@ var unit_class: String = ""
 
 
 var element: String = Element.NONE          # 自身攻击元素（M2 用）
-var auras: Array = []       # 附着槽：[{ "element": String, "amount": float, "duration": int, "innate": bool }]，按创建顺序
-var innate_template: Array = []   # from_dict 时深拷贝一份 innate 槽模板，供重生恢复
-var innate_timer: int = INNATE_REGEN_TURNS   # 距离重生还有几回合；满盾时恒等于 INNATE_REGEN_TURNS
+var auras: Array = []       # 附着槽：[{ "element": String, "amount": float, "duration": int }]，按创建顺序
 var immunities: Array[String] = []
 var keywords: Array[String] = []
 
@@ -51,16 +48,11 @@ static func from_dict(d: Dictionary) -> Unit:
 	for a in d.get("auras", []):
 		if typeof(a) != TYPE_DICTIONARY:
 			continue
-		var slot := {
+		newu.auras.append({
 			"element": str(a.get("element", Element.NONE)),
 			"amount": float(a.get("amount", 0.0)),
 			"duration": int(a.get("duration", 0)),
-			"innate": bool(a.get("innate", false)),
-		}
-		newu.auras.append(slot)
-		if bool(slot["innate"]):
-			newu.innate_template.append(slot.duplicate(true))
-	newu.innate_timer = INNATE_REGEN_TURNS
+		})
 	newu.immunities.clear()
 	newu.operation_cost = int(d.get("operation_cost",1))
 	for e in d.get("immunities", []):
@@ -78,34 +70,11 @@ func is_alive() -> bool:
 	return hp>0
 
 
-## 只查静态免疫名单（immunities）。旧语义：该元素伤害为 0、不反应、不挂槽。
-func is_static_immune(element_id: String) -> bool:
+func is_immune(element_id: String) -> bool:
 	for i in immunities:
 		if i == element_id:
 			return true
 	return false
-
-
-## 该元素上是否有 innate 护盾槽（自带元素附着、免疫该元素伤害、但能被反应吃掉）。
-func has_innate_shield(element_id: String) -> bool:
-	for a in auras:
-		if bool(a.get("innate", false)) and str(a.get("element", "")) == element_id:
-			return true
-	return false
-
-
-## 当前所有 innate 护盾槽的元素 id（给日志/UI 用，按入槽顺序）。
-func active_innate_elements() -> Array[String]:
-	var out: Array[String] = []
-	for a in auras:
-		if bool(a.get("innate", false)):
-			out.append(str(a.get("element", "")))
-	return out
-
-
-## 免疫 = 静态名单 ∪ innate 护盾槽。
-func is_immune(element_id: String) -> bool:
-	return is_static_immune(element_id) or has_innate_shield(element_id)
 
 
 ## 返回实际掉的血（被护盾吸收的不算）
@@ -154,38 +123,21 @@ func get_aura(element_id: String) -> Dictionary:
 
 ## 加一槽或刷新已有槽：同元素 → 量相加封顶 MAX_AMOUNT、duration 取两者最大值；
 ## 不同元素 → 新槽（槽满先删最旧那一槽）。
-## `innate` 护盾槽不参与叠加与挤占（满槽优先挤非 innate 的最旧槽）。
 ## 这里只做机械的记账，不判断元素能不能附着（风/岩不附着由调用方决定）。
 func add_or_refresh_aura(element_id: String, amount: float, duration: int) -> void:
 	if element_id == Element.NONE:
 		return
-	if has_innate_shield(element_id):
-		return      # 护盾槽代表这个元素，普通附着不再叠加进去
-	var cur: Dictionary = {}
-	for a in auras:
-		if bool(a.get("innate", false)):
-			continue
-		if str(a.get("element", "")) == element_id:
-			cur = a
-			break
+	var cur := get_aura(element_id)
 	if not cur.is_empty():
 		cur["amount"] = min(MAX_AMOUNT, float(cur.get("amount", 0.0)) + amount)
 		cur["duration"] = max(int(cur.get("duration", 0)), duration)
 		return
 	if auras.size() >= MAX_AURAS:
-		var victim: int = -1
-		for i in range(auras.size()):
-			if not bool(auras[i].get("innate", false)):
-				victim = i
-				break
-		if victim < 0:
-			return      # 3 槽全是护盾，普通元素挂不上（护盾优先）
-		auras.remove_at(victim)
+		auras.pop_front()
 	auras.append({
 		"element": element_id,
 		"amount": min(MAX_AMOUNT, amount),
 		"duration": max(1, duration),
-		"innate": false,
 	})
 
 
@@ -202,8 +154,6 @@ func remove_aura(element_id: String) -> bool:
 func tick_auras() -> Array[String]:
 	var expired: Array[String] = []
 	for i in range(auras.size() - 1, -1, -1):
-		if bool(auras[i].get("innate", false)):
-			continue      # 护盾槽不随时间衰减，由 tick_innate_shield 负责重生
 		var a: Dictionary = auras[i]
 		a["duration"] = int(a.get("duration", 0)) - 1
 		if int(a["duration"]) <= 0:
@@ -213,58 +163,17 @@ func tick_auras() -> Array[String]:
 	return expired
 
 
-## 回合开始结算固有护盾：破盾后第 INNATE_REGEN_TURNS 个回合按模板补回。
-## 返回 true 表示这一回合重生了（给战斗日志用）。
-## 满盾时不倒计时（破盾那一刻才开始数）。
-func tick_innate_shield() -> bool:
-	if innate_template.is_empty():
-		return false
-	if auras.filter(func(a): return bool(a.get("innate", false))).size() >= innate_template.size():
-		innate_timer = INNATE_REGEN_TURNS
-		return false
-	innate_timer -= 1
-	if innate_timer > 0:
-		return false
-	for t in innate_template:
-		var el := str(t.get("element", Element.NONE))
-		if has_innate_shield(el):
-			continue
-		if auras.size() >= MAX_AURAS:
-			# 和 add_or_refresh_aura 一致：只挤最旧的非 innate 槽，护盾不让位
-			var victim: int = -1
-			for i in range(auras.size()):
-				if not bool(auras[i].get("innate", false)):
-					victim = i
-					break
-			if victim >= 0:
-				auras.remove_at(victim)
-		auras.append({
-			"element": el,
-			"amount": float(t.get("amount", 0.0)),
-			"duration": 0,
-			"innate": true,
-		})
-	innate_timer = INNATE_REGEN_TURNS
-	return true
-
-
 ## 给日志/测试看的人类可读形式，例如 `火1U(2) 水2U(1)`；没有附着返回 `无`。
 func describe_auras() -> String:
 	if auras.is_empty():
 		return "无"
 	var parts: Array[String] = []
 	for a in auras:
-		if bool(a.get("innate", false)):
-			parts.append("%s%dU(盾)" % [
-				Element.display_name(str(a.get("element", ""))),
-				int(a.get("amount", 0.0)),
-			])
-		else:
-			parts.append("%s%dU(%d)" % [
-				Element.display_name(str(a.get("element", ""))),
-				int(a.get("amount", 0.0)),
-				int(a.get("duration", 0)),
-			])
+		parts.append("%s%dU(%d)" % [
+			Element.display_name(str(a.get("element", ""))),
+			int(a.get("amount", 0.0)),
+			int(a.get("duration", 0)),
+		])
 	return " ".join(parts)
 
 

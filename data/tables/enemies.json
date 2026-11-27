@@ -1,8 +1,8 @@
-{
-  "_note": "敌人数据。两种免疫语义：immunities 是静态免疫（该元素伤害 0、不触发反应、不挂槽）；auras 里 innate:true 的槽是固有护盾（自带该元素附着、免疫该元素伤害，但能被别的元素反应 consume 啃掉，破了以后 3 回合重生）。",
+﻿{
+  "_note": "敌人数据。immunities：免疫的元素 id 列表（免疫该元素伤害、不触发反应）。",
   "enemies": [
     { "id": "slime", "name": "史莱姆", "hp": 24, "attack": 4, "immunities": [] },
-    { "id": "fire_slime", "name": "火史莱姆", "hp": 20, "attack": 4, "immunities": [], "auras": [{ "element": "fire", "amount": 2.0, "duration": 0, "innate": true }] },
+    { "id": "fire_slime", "name": "火史莱姆", "hp": 20, "attack": 4, "immunities": ["fire"] },
     { "id": "golem", "name": "岩傀儡", "hp": 40, "attack": 6, "immunities": ["geo"] }
   ]
 }

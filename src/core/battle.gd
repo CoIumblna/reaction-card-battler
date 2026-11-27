@@ -239,7 +239,7 @@ func play_card(card: Card, target: Unit) -> bool:
 			"damage":
 				var hit := compute_damage(card.power,card.element,target)
 				var disc:int = target.take_damage(hit["damage"])
-				if hit.get("immune_source","") != "static":
+				if not hit.get("immune",false):
 					_apply_aura(target,card.element,card.aura_amount)
 				_log("%s对%s造成%d伤害" % [card.display_name,target.display_name,disc])
 				if target.hp <= 0 && not target.is_hq:
@@ -291,7 +291,7 @@ func stat_of(unit:Unit, stat:String) -> int:
 
 
 ## 给目标挂上 incoming 元素。规则见 docs/element-reactions-v3.md §3：
-##   1. NONE 不处理；2. 静态免疫该元素不处理（护盾免疫不在此列 —— 盾要靠 reaction 的 consume 被啃掉）；3. 按槽创建顺序找第一个能反应的槽；
+##   1. NONE 不处理；2. 免疫该元素不处理；3. 按槽创建顺序找第一个能反应的槽；
 ##   4. 有反应 → 结算 status 效果 + 旧槽扣 consume（≤0 移除）+ 残留量入新槽；
 ##   5. 无反应 → 同元素叠加 / 否则新槽；6. 风、岩只参与反应、自身不附着。
 ## 反应里的 damage / shield / heal 三种效果目前**故意不实现**（历史遗留的死数据，
@@ -299,7 +299,7 @@ func stat_of(unit:Unit, stat:String) -> int:
 func _apply_aura(target: Unit, element: String, amount: float) -> void:
 	if target == null or element == Element.NONE:
 		return
-	if target.is_static_immune(element):
+	if target.is_immune(element):
 		return
 	var idx := Damage.find_reaction_slot(element, target, reaction_table)
 	var residual: float = amount
@@ -364,28 +364,19 @@ func attack_unit(attacker: Unit, target: Unit) -> bool:
 	attacker.has_attacked = true
 	var dam:Dictionary = compute_damage(stat_of(attacker,"attack"),attacker.element,target)
 	var disc:int = target.take_damage(dam["damage"])
-	if dam.get("immune_source","") == "shield":
-		# 护盾挡掉伤害，但元素照样打上去（盾就是被这些反应 consume 啃掉的）
-		_apply_aura(target,attacker.element,1.0)
-		_log("%s攻击%s,伤害被护盾挡下（%s）"%[attacker.display_name,target.display_name,target.describe_auras()])
-	elif dam.get("immune_source","") == "static":
-		_log("%s攻击%s,伤害被免疫"%[attacker.display_name,target.display_name])
-	else:
+	if not dam["immune"]:
 		_apply_aura(target,attacker.element,1.0)
 		_log("%s攻击%s,造成%d%s元素伤害"%[attacker.display_name,target.display_name,disc,Element.display_name(attacker.element)])
+	else : _log("%s攻击%s,伤害被免疫"%[attacker.display_name,target.display_name])
 	if target.is_hq:
 		return true
 	if not no_counter(attacker,target):
 		var hurt:Dictionary = compute_damage(stat_of(target,"attack"),target.element,attacker)
 		var rdisc:int = attacker.take_damage(hurt["damage"])
-		if hurt.get("immune_source","") == "shield":
-			_apply_aura(attacker,target.element,1.0)
-			_log("%s攻击%s,伤害被护盾挡下（%s）"%[target.display_name,attacker.display_name,attacker.describe_auras()])
-		elif hurt.get("immune_source","") == "static":
-			_log("%s攻击%s,伤害被免疫"%[target.display_name,attacker.display_name])
-		else:
+		if not hurt["immune"]:
 			_apply_aura(attacker,target.element,1.0)
 			_log("%s攻击%s,造成%d%s元素伤害"%[target.display_name,attacker.display_name,rdisc,Element.display_name(target.element)])
+		else : _log("%s攻击%s,伤害被免疫"%[target.display_name,attacker.display_name])
 		if attacker.hp <= 0:
 			board.remove(attacker)
 			_log("%s退场"%attacker.display_name)
@@ -500,8 +491,6 @@ func _settle_status(owner:String) -> void:
 				var expired := u.tick_auras()
 				for el in expired:
 					_log("%s的%s附着结束" % [u.display_name, Element.display_name(el)])
-				if u.tick_innate_shield():
-					_log("%s的护盾重新凝聚（%s）" % [u.display_name, u.describe_auras()])
 
 
 func _mulligan_of(owner:String) -> bool:

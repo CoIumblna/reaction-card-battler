@@ -32,22 +32,18 @@ static func find_reaction_slot(element: String, target: Unit, table: ReactionTab
 ##   "consume": float,    本次消耗的附着量（无反应为 0.0）
 ##   "effects": Array,    反应附带的效果列表（damage/status/aura/shield/heal）
 ##   "immune": bool       是否被免疫
-##   "immune_source": String  "static" = 静态免疫（不反应）/ "shield" = 护盾免疫（反应照算）/ "" = 没免疫
 ##   "reaction_slot": int 参与反应的是第几槽附着（没有反应为 -1）
 ## }
 static func compute(base_power: int, element: String, target: Unit, table: ReactionTable) -> Dictionary:
 	var damage:int = 0
 	var immune:bool = false
-	var immune_source:String = ""
 	var reaction:String = ""
 	var multiplier:float = 1.0
 	var consume:float = 0.0
 	var effects:Array = []
 	var reaction_slot:int = find_reaction_slot(element, target, table)
-	if target.is_static_immune(element):
-		# 静态免疫：整体短路，连反应槽都不找
+	if target.is_immune(element):
 		immune = true
-		immune_source = "static"
 		reaction_slot = -1
 	elif reaction_slot < 0:
 		damage = base_power
@@ -61,11 +57,6 @@ static func compute(base_power: int, element: String, target: Unit, table: React
 		consume = float(act.get("consume",0.0))
 		for i in act.get("effects",[]):
 			effects.append(i)
-	if immune_source != "static" and target.has_innate_shield(element):
-		# 护盾免疫：伤害归零，但反应/倍率/消耗/效果全部保留（盾就是被这些反应啃掉的）
-		damage = 0
-		immune = true
-		immune_source = "shield"
 	return {
 		"damage": damage,
 		"reaction": reaction,
@@ -73,6 +64,5 @@ static func compute(base_power: int, element: String, target: Unit, table: React
 		"consume": consume,
 		"effects": effects,
 		"immune": immune,
-		"immune_source": immune_source,
 		"reaction_slot": reaction_slot,
 	}
