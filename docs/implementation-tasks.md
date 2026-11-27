@@ -42,9 +42,9 @@
 | 28 | `element.gd`+`unit.gd`+`damage.gd`+`battle.gd`（M3.6：元素 v3 多槽） | 4 | ★★★★ | 300 | **6–10 h**（实际约 2 h 备课 + 1.5 h 施工 + 1 h 迁移；用子 agent 并行写） | `tests/aura_v3_test.gd`（**59 项，2026-11-27 已启用**） | [x] ✅ 完成（2026-11-27，主套 20 文件 **560/560**，balance 45.0%/13.4 逐位不变；落地记录见 §41.7） |
 | 28b | `unit.gd`+`damage.gd`+`battle.gd`（**固有护盾**：自己挂元素 + 免疫该元素伤害 + 仍可被反应，3 回合重生，**任务卡见 §42，施工顺序见 §42.13**） | 4 | ★★★ | 160 | **2–3 h** | `tests/innate_shield_test.gd`（约 32 项，测试待写） | [ ] |
 | 29 | `battle.gd`（M3.7：**通用 stat 系统** `stat_of(unit, stat)`） | 1 | ★★★ | 90 | **1–1.5 h**（实际约 1 h，含一轮两行修复） | stat_mod_test（7）+ stat_system_test（18），**已启用** | [x] |
-| 30 | `battle.gd`（M3.8a：AI 打指令卡） | 2 | ★★★ | 80 | **1.5–2.5 h** | battle_m2_test 增补（测试待写） | [ ] |
-| 31 | 平衡（M3.8：balance_sim 调参） | 3 | ★★★ | 60 | **2–3.5 h**（含反复跑模拟的时间） | docs/balance-report.md | [ ] |
-| 32 | 文档与 tag（M3.9：tag v0.3） | 1 | ★ | 0 | **0.5 h** | README + HANDOFF | [ ] |
+| 30 | `battle.gd`（M3.8a：AI 打指令卡，**细化规格见 §43.A，验收脚本 `tools/ai_order_report.ps1`**） | 2 | ★★★ | 80 | **1.5–2.5 h** | `tests/pending/ai_order_test.gd`（约 14 项，§43.A.3）+ 10 seed 对照 | [ ] |
+| 31 | 平衡（M3.8：先手补偿 → 再基线 → 卡表微调，**四步顺序见 §43.B**） | 3 | ★★★ | 60 | **2–3.5 h**（含反复跑模拟） | `docs/balance-report.md` + 胜率 45%–55% 且先手两侧达标 | [ ] |
+| 32 | 文档与 tag（M3.9：tag v0.3，**五步收口见 §43.C**） | 1 | ★ | 0 | **0.5 h** | README + HANDOFF + 三 issue 全关 + tag 已推 | [ ] |
 | 33 | **M4.0** 骨架 + 中文字体（§37.1） | 4 | ★ | 60 | **1–1.5 h** | 主场景能加载 + `[FONT OK]` | [ ] |
 | 34 | **M4.1a** 只读快照 + 合法动作（§37.2） | 4 | ★★ | 100 | **1–1.5 h** | ui_snapshot_test（≥12 项） | [ ] |
 | 35 | **M4.1b** AI 单步（§37.3） | 1 | ★★ | 40 | **1–1.5 h** | ui_ai_step_test + 10 seed 对比 | [ ] |
@@ -1818,13 +1818,17 @@ func stat_of(unit: Unit, stat: String) -> int:
 > 本节是**施工用的任务卡**：每一块照着 §37.N 做，做完回来打勾。
 >
 > **前置**：M3 全部完成、`run_tests.bat` 全绿并 tag `v0.3` 之后才开 M4。
-> 当前 M3 还剩 固有护盾（§42）/ M3.8a / M3.8 / M3.9。
+> 当前 M3 还剩 固有护盾（§42）/ M3.8a / M3.8 / M3.9（后三块的细化规格见 **§43**）。
 >
 > **分工**：`scenes/*.tscn`、`src/ui/*.gd` = 学员写；规格 / 测试 / 数据 / 文档 / CI = 教练。
 > `src/core/` 只允许**新增** UI 需要的公开接口，已有的 `play_card` / `move_unit` / `attack_unit` / `stat_of`
 > 行为一行都不许变（M4 期间「顺手重构 core」是明确禁止的）。
 
 ### 37.0 M4 进度表
+
+> **验收脚本（2026-11-27 交付，用法见 §44.0）**：`tools/ui_smoke.bat`（跑全部 `ui_*_test`）与
+> `tools/ui_check.ps1`（场景/字体/中文字面量/core 纯净度/pending 五项体检）。每块收工 = 本表判据 + 对应脚本退出码 0。
+> **跨块接口签名已钉死，见 §44.1**（快照 / legal_* / ai_step / 状态签名 / fx / 存档六组）。
 
 | # | 块 | 交付物 | 难度 | **预计用时** | 验收（测试 / 判据） | 完成 |
 |---|---|---|---|---|---|---|
@@ -3540,6 +3544,199 @@ M3.6 关闭后，M3 剩下：**固有护盾（§42，当前块）** → **M3.8a�
 （实现并验收后在此回填：实测项数、提交、反假绿三组红指纹的实际红了几项。）
 
 ---
+
+## 43. M3 后续块细化：M3.8a / M3.8 / M3.9 · 2026-11-27
+
+> 本节是 M3 收尾三块的**唯一文档**。§29 M3 索引里那三行是粗粒度的，以本节为准。
+> 老规矩：思路与判据全给，函数体学员自己写（m00629）；代码学员写、测试/文档/工具教练写（§2）。
+
+### 43.A M3.8a AI 打指令卡（issue #4）
+
+#### 43.A.0 现状与目标
+
+现状 `_ai()`（`src/core/battle.gd:140`）：出兵 → 前压 → 攻击，**手牌里的指令卡一张都不打**。
+目标：AI 在能量允许时打出有正收益的指令卡，顺序 = 出兵**前**评估（先加强再上兵）。
+
+#### 43.A.1 设计决策（已定）
+
+1. **打指令卡是「出兵前」的一步**：AI 每回合的出牌顺序 = ①指令卡（可多张，能量内）→ ②出兵 → ③前压 → ④攻击。
+   理由：指令卡的收益（直伤/护盾/治疗）不占场面格子，先打能让后上的兵踩着更好的局面。
+2. **评估函数 `score_order(card, target) -> int`**：≥ 阈值才打。初版阈值定 `1`（≥1 分就打），理由：
+   AI 双方同副牌（§40.4），打牌只影响本回合交换，阈值高了 AI 永远不打、阈值低了乱打；
+   平衡留给 M3.8 调，这里只保证「能打、有理由地打」。
+3. **目标选择**：damage 卡选「能击杀的最便宜目标，否则血最少的目标」；heal / shield 卡选「自己血最少的非 HQ 单位，没有则跳过」；没目标 = 不打，**不许硬找**（坑 8 同源）。
+4. **每张牌每回合至多打一次**；打完重算能量与手牌。**禁止 `while` 原地重试**（§39.5 坑 8 的教训）。
+
+#### 43.A.2 要改哪里
+
+| 位置 | 改什么 |
+|---|---|
+| `src/core/battle.gd` `_ai()` | 开头加一段「打指令卡」：遍历手牌（复制一份再遍历，打牌会改手牌），`kind == "order"`（`type == "order"`）的卡走 `score_order` 评估，达标则 `play_card(card, target)` 并记账 |
+| `src/core/battle.gd` 新增 `_score_order(card: Card, target: Unit) -> int` | damage = 预期伤害（`compute_damage(power, element, target)` 的 damage）×（能击杀 ×2）− 浪费量；heal/shield = `min(power, 缺口) `；返回 ≤0 表示不该打 |
+| `src/core/battle.gd` 新增 `_pick_order_target(card: Card) -> Unit` | 按上面 43.A.1-3 的规则选目标，返回 null = 不打 |
+
+**不改**：`_ai_attack_targets` / `_ai_attack`（你的 M3.4 成果，M3.8a 与它正交）、`run_auto`、玩家侧一切。
+
+#### 43.A.3 验收：`tests/pending/ai_order_test.gd`（约 14 项）
+
+| 段 | 断言 | 条数 |
+|---|---|---|
+| [1] 能打 | 玩家 HQ 24 血、手上有 fire_bolt：AI 回合结束后该卡离手、HQ 掉血 ≥5 | 3 |
+| [2] 评估 | `_score_order`：打 5 血目标返回 >0；打 1 血目标（过量 4）返回 < 打 5 血的；对满血 shield 卡在没人缺盾时返回 ≤0 | 4 |
+| [3] 选目标 | 两目标一 8 血一 2 血 → 选 2 血（能击杀优先）；没有合法目标 → 不打、不报错、回合正常结束 | 3 |
+| [4] 经济 | 能量 1、手卡 cost 2 → 不打；连打两张后能量正确扣减 | 2 |
+| [5] 回归 | `run_auto` 10 个固定 seed，**只记录数字**（AI 行为变了，胜率/回合数**允许**变，但必须是同一个新值；M3.8 再要求它稳定） | 2 |
+
+#### 43.A.4 验收脚本（教练侧已写好，跑法见 §43.C）
+
+`tools/ai_order_report.ps1`：跑 `ai_order_test` + 10 seed 对照表 + 主套，输出「AI 打了几张指令卡 / 平均每回合几张」。
+**判据**：主套全绿（battle_m2 的 63 项是行为契约，一张不许红）；10 seed 的 turn 数与改动前**允许漂移但必须可复现**（同 seed 两次跑结果逐位一致）。
+
+#### 43.A.5 坑
+
+1. 遍历手牌时打牌 → 手牌数组边遍历边变 → 漏牌或越界。**先 `duplicate()` 再遍历**。
+2. `play_card` 对 order 卡的 target 是 `Unit`，heal/shield 目标可以是 HQ —— 但 HQ 不该吃 heal（规则让它 `operation_cost` 无意义），选目标时**排除 HQ**。
+3. 打完牌立刻 `is_over()` 检查（直伤可能直接点死玩家 HQ），是就 `return`。
+4. `score_order` 里**不要复算防御**：`compute_damage` 已经算过 defense 减免，再减一次就双重扣。
+
+### 43.B M3.8 平衡调参（issue #5，依赖 43.A）
+
+#### 43.B.0 前置事实（§40.4 / HANDOFF §24 的结论，不许忘）
+
+**当前 `balance_sim` 胜负 100% 由先手决定**（seed 1..200 探针：玩家先手 90 / 敌方先手 110，恰等于 WIN 90 / LOSE 110；40 局对照 match=40）。**不做先手补偿，调什么卡都是白调。**
+
+#### 43.B.1 施工顺序（四步，不许跳）
+
+| 步 | 做什么 | 判据 |
+|---|---|---|
+| 1 | **先手补偿**：后手方首个回合多 1 能量（或首回合多抽 1 张，二选一，实现前定一个） | 补偿后 200 局胜率偏离 50% ≤ 8 个百分点；先手/后手两侧分开统计都要在 42%–58% |
+| 2 | **AI 打指令卡生效后的再基线**：跑 `balance_sim --games 500 --seed 1` 与 `--games 100 --seed 42`（preflight 口径），记录数字进 `docs/balance-report.md` | 有数字、注明 seed 与局数 |
+| 3 | **卡表微调**：一次只动一类（先动 opcost 最离谱的，再动白板身材），每动一次重跑 500 局 | 每次改动都有前后对照行 |
+| 4 | **定稿**：胜率 45%–55% 且先手两侧都达标 → 写 `docs/balance-report.md`（结论 + 每轮调参对照表 + 未解决问题） | 报告提交 |
+
+#### 43.B.2 验收
+
+- `docs/balance-report.md` 存在且含四步的全部数字；
+- `run_tests.bat` 全绿（调参只动 `cards.json` 数值，测试断言全部动态推导，不应红；红 = 动了不该动的结构）;
+- `validate_data` 0 错 0 警。
+
+#### 43.B.3 坑
+
+1. **不要用 `balance_sim` 调 UI 手感问题**，它只看胜率/回合数。
+2. 每轮只动**一个变量**，否则对照表没法归因。
+3. 补偿实现别写成「enemy 永远 +1」——判据是**后手方**补偿，谁后手谁拿。
+4. 调参期间 `tests/` 一个字不改（「为变绿改测试」是红线）。
+
+### 43.C M3.9 收尾 + tag v0.3（issue #6）
+
+| 步 | 做什么 | 判据 |
+|---|---|---|
+| 1 | 全量验收三件套：`run_tests.bat` ALL GREEN（20+ 文件）、`validate_data` PASS、`tools/check.bat` PASS | 退出码全 0 |
+| 2 | `balance_sim --games 200 --seed 1` 与 `--games 100 --seed 42` 数字写进 README 状态段 | 与 balance-report 一致 |
+| 3 | README「怎么开一局（命令行）」段落检查：`launch_editor.bat` / 直接跑 godot 的路径都对 | 人工照着跑一遍 |
+| 4 | HANDOFF §0/§4/§7 收口到「M3 全部完成」；issue #4/#5/#6 全关（回帖带验收数字） | milestone M3 关闭率 100% |
+| 5 | `git tag -a v0.3 -m "M3 完成：关键词/兵科/卡池20+/元素v3/per-card limit/AI选目标+指令卡/平衡"` + push tag | `git ls-remote --tags origin` 有 v0.3 |
+
+**坑**：tag 之前 `git status` 必须干净（学生 WIP 不许混进 v0.3）；tag 打在**已 push 的 main HEAD** 上。
+
+### 43.D M3 收尾总验收（M3.9 前跑一遍）
+
+| 项 | 判据 |
+|---|---|
+| 主套 | `run_tests.bat` ALL GREEN，文件数 = 启用测试数（当前 20 + ai_order 1 = 21） |
+| 主套项数 | 560 + ai_order_test 项数（约 14）≈ 574；以实测为准，公式写进提交信息 |
+| 数据 | `validate_data` 0 错 0 警 |
+| 平衡 | 45%–55% 且先手两侧达标（43.B 判据） |
+| 反假绿 | M3.8a 用「评估函数恒返回 -1 → AI 一张卡都不打 → [1] 红」；「阈值改 0 → [2] 的过量惩罚断言红」两条探针 |
+
+
+---
+## 44. M4 任务卡细化补全（§37 的 13 块 → 每块补「教练侧验收脚本」）· 2026-11-27
+
+> §37 已写完 13 块的规则/改动面/坑（37.1–37.13）。本节**只补三件事**：
+> ①每个 UI 块的测试**骨架**怎么写（UI 测试和 core 测试写法不同，这是 M4 最大的新坑）；
+> ②教练侧验收脚本（§44.0）；③块与块之间的**接口签名定稿**（§44.1，两块之间传什么，先钉死，避免 M4.2 写完 M4.3 对不上）。
+> 块内规则仍以 §37.N 为准，两节冲突时 **§37 优先**。
+
+### 44.0 教练侧验收脚本（已交付，跑法统一）
+
+| 脚本 | 覆盖 | 跑法 |
+|---|---|---|
+| `tools/ui_smoke.bat` | 逐个跑 `tests/ui_*_test.gd`（`tests/pending/` 里也有则一起），汇总 `[PASS]/[FAIL]/[HUNG]`，任一红退出码 1 | 双击或 `cmd /c tools\ui_smoke.bat` |
+| `tools/ui_check.ps1` | ①`--quit-after 3` 开窗冒烟；②`check_font.gd`；③全仓 `src/ui/` 中文字面量 grep；④`preflight.ps1` 第 [9] 项（core 无界面代码）；⑤输出汇总 verdict | `powershell -File tools\ui_check.ps1` |
+
+**M4 每块收工 = §38.1 的动作 + 对应脚本退出码 0**。两个脚本都进 CI（M4 开工时往 `.github/workflows/ci.yml` 的矩阵里加一行， coach 侧操作）。
+
+### 44.1 接口签名定稿（写代码前先读这节）
+
+这些签名跨块共享，**定稿后改名要同时改两块**，所以先钉死：
+
+| 接口 | 签名 | 生产者块 → 消费者块 |
+|---|---|---|
+| 快照 | `battle.snapshot() -> Dictionary`（键见 §37.2） | 37.2 → 全部 UI 块 |
+| 合法动作 | `legal_targets(card) / legal_moves(unit) / legal_attacks(unit)` | 37.2 → 37.5 / 37.7 |
+| AI 单步 | `ai_step() -> bool` | 37.3 → 37.8 |
+| 状态签名 | `sig = "%d|%d|%d|%d|%d|%d" % [turn, energy, hand.size(), 单位数, p_hp, e_hp]` | 37.4 → 37.6 / 37.9（重建节流的依据） |
+| fx 入口 | `Fx.play_damage(node, from_pos, to_pos, amount)` 等四个（§37.9） | 37.9 → 37.5 / 37.7 / 37.8 调用 |
+| 存档 | `SaveSystem.save_game(state, slot) / load_game(slot) / has_save(slot)` | 37.12 → 37.10 的「继续」按钮 |
+
+### 44.2 UI 测试骨架（每块的 `ui_*_test.gd` 都长这样）
+
+**为什么 UI 测试不能像 core 测试那样写**：`extends SceneTree` 的脚本主循环不跑，
+`Control` 不进树、`_ready()` 不执行、`await` 不会恢复。所以：
+
+1. **逻辑全部放在 `RefCounted` 的 controller/view-model 类里**（§37.4 已定），测试只测这些类；
+2. 测试里构造的是 `snapshot()` 风格的 **假快照 Dictionary**，不是真的 `Battle`（除了 37.2/37.3 这两个 core 块）；
+3. 需要真节点的（字体、布局），用**冒烟脚本**（`--quit-after 3` + 截图）而不是断言。
+
+骨架（每块测试都按这个形）：
+
+```
+extends SceneTree
+## 【你的任务】<块名> —— 只测 controller（RefCounted），不测 Control 节点
+const EXPECTED_CHECKS := N
+
+var checks := 0
+var fails := 0
+
+func _check(cond: bool, msg: String) -> void: ...
+func _check_eq(got, want, msg: String) -> void: ...
+
+func _fake_snapshot(hand: int, p_hp: int = 20, e_hp: int = 20) -> Dictionary:
+	# 造最小合法快照：hand 张假卡 + 双方 HQ + 空场
+	...
+
+func _initialize() -> void:
+	_test_layout()
+	...
+	print("---------------------------------------")
+	print("共 %d 项检查，失败 %d 项" % [checks, fails])
+	if fails == 0: print("PASS")
+	else: print("FAIL")
+	quit(1 if fails > 0 else 0)
+```
+
+**断言的重心**：controller 的返回值（宽度/位置/该调哪个 core 方法/参数），不是节点树。
+
+### 44.3 各块补充验收（与 §37.N 的判据合并使用）
+
+| 块 | 额外判据（§37 没写的） |
+|---|---|
+| 37.4 手牌 | 卡宽公式：`min(CARD_W, (可用宽 - 间距×(n-1)) / n)`；9 张时每张 ≥ 96px（能看清费用角标） |
+| 37.5 出牌 | 状态机**单测**：从 `idle` 起连续喂「点牌→点目标→点牌→ESC」四个事件，断言每步状态与返回动作；`play_card` 用计数器桩替代 |
+| 37.6 战场只读 | 映射表测试用**全 15 格逐格断言**（不放 15 个单位摆不满的图片断言）；线顺序 = `Board.LINES` 原序 |
+| 37.7 战场交互 | 高亮断言是**集合相等**（两边排序后逐项比）；`move_unit` 调用参数用记录桩捕获 |
+| 37.8 回合流转 | `ai_step` 循环用**手动推进**测试（循环 N 次后 `turn` 增加），`await`/分帧只在真实 UI 里，测试里不碰 |
+| 37.9 动画 | 关动画判据写成：`fx_enabled=false` 时四个函数**同步返回 false**（未播放），对局数据流与开动画逐位一致 |
+| 37.10 菜单 | 关卡条目 = `DataLoader.load_enemies()` 条数；「继续」按钮 disabled 状态 = `not SaveSystem.has_save(1)` |
+| 37.11 设置 | `settings.cfg` 读写用 `ConfigFile` 类；测试直接构造/读取该文件比对键值 |
+| 37.12/13 存档 | `save_test` 全部走 `user://saves/` 真文件（测试名当文件名，测完删）；迁移测试**在测试内**构造 v0 假档 |
+
+### 44.4 M4 期间的 RED LINE（三条，违反 = 当轮返工）
+
+1. `src/core/` 只增不改：任何对 `play_card` / `move_unit` / `attack_unit` / `stat_of` 已有行为的改动都会打破 M3 的 560 项契约（§37 分工已写，这里给判据：`git diff main -- src/core/` 里**不允许出现已存在函数签名的改动**）。
+2. UI 不许读 core 私有成员（`_hand` / `_ai` / `_energy` 等下划线开头）——`snapshot()` 就是为此而生。
+3. 每块收工必须「一条命令能证明」：跑对应 `ui_*_test` + 截图。证明不了的块 = 切大了，回去拆。
 
 ## 附：常用 GDScript 手段速查
 
