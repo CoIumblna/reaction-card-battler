@@ -7,12 +7,13 @@
 > 这不是"做一个游戏"，是"用一个游戏练工程"。
 > 项目计划见 [项目计划_知识储备与行动大纲.md](项目计划_知识储备与行动大纲.md)。
 
-当前状态：**M1 / M2 / P1（E7a）/ P2（E7b）/ M3.1 / M3.2 / M3.3 / M3.3b / M3.5 / M3.7 / M3.4 前置块 全部已完成**，
+当前状态：**M1 / M2 / P1（E7a）/ P2（E7b）/ M3.1 / M3.2 / M3.3 / M3.3b / M3.5 / M3.7 / M3.4 前置块 / M3.4 卡池 20+ 全部已完成**，
 主套 **19 个测试文件 499 项全绿**；`tests/pending/` 已空（最后一份红基线 `ai_guard_test` 于 2026-11-27 启用）。
-当前任务：**M3.4 卡池扩张（20+ 种，现 15 种） + 之后 M3.6 元素 v3**——
-卡池的作业单在 [docs/implementation-tasks.md **§40**](docs/implementation-tasks.md)（§40.4 的实测结论：`balance_sim` 对卡池零敏感）；
+卡池从 **13 种 49 张 → 15 种 57 张 → 20 种 68 张**（2026-11-27 达标，四条验收全过）。
+当前任务：**M3.6 元素 v3（最大的块，6–10 h）**——
+卡池块的作业单与落地记录在 [docs/implementation-tasks.md **§40**](docs/implementation-tasks.md)（§40.4 的实测结论：`balance_sim` 对卡池零敏感；§40.10 落地记录）；
 M3.4 前置块的规格、评审、红绿指纹与落地记录在 **§39**（§39.6 第一轮评审、§39.7 红绿指纹、§39.9 落地记录）。
-之后的活已经在 GitHub 上开成 issue（milestone **M3**）：[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种 · [#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3 · [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；~~#1 AI 选目标~~ 已于 2026-11-27 完成关闭。
+之后的活已经在 GitHub 上开成 issue（milestone **M3**）：~~[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种~~（已于 2026-11-27 完成关闭）· [#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3 · [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；~~#1 AI 选目标~~ 已于 2026-11-27 完成关闭。
 每完成一块关一个 issue，仓库首页的进度条自动走。详见 [HANDOFF §21.3](docs/HANDOFF-2026-11-23.md)。
 跑 `tools\check.bat` 看进度表 + 检查点 + pending 验收基线（它还会告诉你下一步做什么）。
 
@@ -152,11 +153,11 @@ reaction-card-battler/
 ├── START_HERE.md            # 第一次进来从这读
 ├── data/                    # 所有"内容"（改这里不用改代码）
 │   ├── tables/              # 实际数据（elements / reactions / cards / statuses / enemies）
-│   │   └── cards.json       # ← 加卡只改这里（15 种 / 展开 57 张）
+│   │   └── cards.json       # ← 加卡只改这里（20 种 / 展开 68 张）
 │   └── schema/README.md     # 字段规范（数据契约）
 ├── tools/                   # 工具链（详见 tools/README.md）
 │   ├── check.bat            # 进度表 + 检查点 + 下一步建议
-│   ├── preflight.bat        # 详细自检 13 项（EXPECTED_CHECKS / 工具自检 / 数据干净）
+│   ├── preflight.bat        # 详细自检 13/14 项（干净工作区 14 项；有未提交改动时 13 项）
 │   ├── validate_data.gd     # 数据校验器（加卡后必跑）
 │   ├── balance_sim.gd       # 平衡模拟器（--games 200 --seed 1）
 │   ├── card_lib.gd          # 卡牌读写 / 校验 / 行级手术（55 项自检）
