@@ -278,8 +278,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 | `_check_statuses` | `(statuses: Dictionary) -> void` | 查每个状态有没有 `name`、`kind` 是否在 `KNOWN_EFFECT_KINDS` 里、`dot`/`disable` 的数值字段齐不齐 |
 | `_check_reactions` | `(reactions, statuses, element_ids: Array[String]) -> void` | 查配对键格式（两个元素 `a+b` 且**字母序**）、引用的元素 id 存在、`effect` 递归合法 |
 | `_check_effect` | `(where: String, e: Variant, status_ids: Array, element_ids: Array[String]) -> void` | 递归校验单个 effect 对象：`kind` 合法、`damage` 有 `multiplier`、`status` 引用的 id 存在、`aura` 元素合法 |
-| `_check_cards` | `(cards: Array, statuses: Dictionary, element_ids: Array[String]) -> void` | 查 id 唯一、`type` ∈ unit/order、`kind` 合法、单位卡 `attack`/`defense` 为正、`unit_class` ∈ `KNOWN_UNIT_CLASSES`、`keywords` ⊆ `KNOWN_KEYWORDS`、`count` 为正 |
-| `_check_decks` | `(cards: Array) -> void` | 查 `data/decks/*.json`：总张数 = `DECK_SIZE`(39)、同名卡 ≤ `MAX_SAME_CARD`(4)、id 都在 cards 里 |
+| `_check_cards` | `(cards: Array, statuses: Dictionary, element_ids: Array[String]) -> void` | 查 id 唯一、`type` ∈ unit/order、`kind` 合法、单位卡 `attack`/`defense` 为正、`unit_class` ∈ `KNOWN_UNIT_CLASSES`、`keywords` ⊆ `KNOWN_KEYWORDS`、`count` 为正且 ≤ 这张卡自己的 `limit` |
+| `_check_decks` | `(cards: Array) -> void` | 查 `data/decks/*.json`：总张数 = `DECK_SIZE`(39)、每种卡 ≤ 它在 `cards.json` 里写的 `limit`（缺省 `DEFAULT_CARD_LIMIT`=4）、id 都在 cards 里 |
 | `_as_array` | `(v: Variant) -> Array` | 类型安全转换：是数组就原样返回，否则返回空数组（避免后续 `.size()` 崩） |
 | `_error` | `(where: String, msg: String) -> void` | 往 `errors` 追加 `"位置：原因"`。**只记账不打印**，最后统一打印 |
 | 常量 `KNOWN_EFFECT_KINDS` | `["damage","status","aura","shield","heal","dot","disable","stat_mod"]` | 合法的 effect 类型白名单 |
@@ -449,7 +449,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\preflight.ps1 -Balance
 `setup_git.ps1` 同理——**任何 .ps1 里只要有中文就必须带 BOM**，并且用编辑器/脚本改完要复查头 3 字节是不是 `EF BB BF`，
 否则 PowerShell 5.1 会把中文读成乱码）。Godot 路径变了就改 `check.ps1` 顶部的 `-Godot` 参数。
 
-当前目标：**499/499**（19 个测试文件）；`tests/pending/` 已清空（9 份红基线全部实现并启用，最后一份 `ai_guard_test` 于 2026-11-27 启用）。
+当前目标：**560/560**（20 个测试文件）；`tests/pending/` 已清空（10 份红基线全部实现并启用，最后一份 `aura_v3_test` 于 2026-11-27 启用）。
 
 ## 和 tests/ 的区别（重要）
 
@@ -505,7 +505,7 @@ $g = "..\..\..\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.e
 & $g --headless --path . --script res://tools/validate_data.gd
 ```
 
-检查：cards.json 字段/枚举/重复 id/count、reactions.json 元素配对与 effect 引用、statuses.json 效果字段、elements.json、**data/decks/*.json（39 张、同名 ≤4、未知 id）**。**不查数值平衡**（那是 `balance_sim.gd`）。
+检查：cards.json 字段/枚举/重复 id/count 与 limit、reactions.json 元素配对与 effect 引用、statuses.json 效果字段、elements.json（含 v3 的 duration）、**data/decks/*.json（39 张、每种卡 ≤ 它自己的 limit、未知 id）**。**不查数值平衡**（那是 `balance_sim.gd`）。
 
 ## setup_git.ps1（另一台机器 / 另一份 DSH 首次配置 git）
 

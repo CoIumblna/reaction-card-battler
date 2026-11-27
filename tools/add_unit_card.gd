@@ -7,8 +7,8 @@ extends SceneTree
 ##       --element fire --count 4
 ##
 ## 必填：--id --name --cost --attack --defense
-## 选填：--element（默认 none）、--count（默认 4）、--unit-class（默认 infantry）、
-##       --opcost（默认 1）、--keywords（逗号分隔，默认空）
+## 选填：--element（默认 none）、--count（默认 4）、--limit（默认 4，这张卡在牌组里的上限）、
+##       --unit-class（默认 infantry）、--opcost（默认 1）、--keywords（逗号分隔，默认空）
 ##
 ## 它是 tools/unit_maker.bat（图形版）的命令行兄弟：
 ##   两者**共用同一份**格式与校验逻辑（tools/card_lib.gd），
@@ -55,6 +55,7 @@ func _add_unit(args: Dictionary) -> String:
 	card["defense"] = _to_int(args["defense"])
 	card["element"] = str(args.get("element", "none"))
 	card["count"] = _to_int(args.get("count", str(CardLibRef.DEFAULT_COUNT)))
+	card["limit"] = _to_int(args.get("limit", str(CardLibRef.DEFAULT_LIMIT)))
 	card["unit_class"] = str(args.get("unit-class", "infantry"))
 	card["operation_cost"] = _to_int(args.get("opcost", str(CardLibRef.DEFAULT_OPERATION_COST)))
 
@@ -119,7 +120,7 @@ func _usage() -> void:
 	print("      --element fire --count 4")
 	print("")
 	print("必填：--id --name --cost --attack --defense")
-	print("选填：--element（默认 none） --count（默认 4）")
+	print("选填：--element（默认 none） --count（默认 4） --limit（默认 4）")
 	print("      --unit-class（默认 infantry） --opcost（默认 1）")
 	print("      --keywords（逗号分隔，如 blitz,guard）")
 	print("元素可选：", ", ".join(CardLibRef.ELEMENTS))

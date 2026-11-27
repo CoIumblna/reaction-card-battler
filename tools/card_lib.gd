@@ -18,9 +18,9 @@ extends RefCounted
 const CARDS_PATH := "res://data/tables/cards.json"
 
 ## 卡牌可选元素：**只有 6 个基础元素**。
-## 复合元素（electro_charged / frozen）是反应产物，不是卡牌属性 ——
-## 它们只出现在 data/tables/reactions.json 的 aura 效果里，作者不该手填。
-## 所以这里刻意不含复合元素：造卡程序的下拉框、CLI 的 --element 校验都用这份清单。
+## v3 起复合元素 id（electro_charged / frozen）已经整个删掉了 ——
+## 感电/冻结改成「两槽共存 + 挂状态」表达，见 docs/element-reactions-v3.md。
+## 造卡程序的下拉框、CLI 的 --element 校验都用这份清单。
 const ELEMENTS: Array[String] = [
 	"none", "fire", "water", "lightning", "ice", "wind", "geo",
 ]
@@ -33,6 +33,9 @@ const KEYWORDS: Array[String] = ["blitz", "guard"]
 
 const DEFAULT_COUNT := 4
 const DEFAULT_OPERATION_COST := 1
+## 每张卡在牌组里的默认上限（张）。cards.json 里写 "limit": N 就按 N 算，不写按这个。
+## 与 src/core/card.gd 的 Card.DEFAULT_LIMIT 保持一致。
+const DEFAULT_LIMIT := 4
 
 ## 新单位卡写回时的键顺序。跟现有单位卡的样子保持一致：
 ##   { "id": "tank", "name": "坦克", "type": "unit", "cost": 4, "element": "none",
@@ -40,7 +43,7 @@ const DEFAULT_OPERATION_COST := 1
 const KEY_ORDER: Array[String] = [
 	"id", "name", "type", "cost", "element",
 	"attack", "defense", "operation_cost", "unit_class",
-	"kind", "power", "aura_amount", "target", "keywords", "abilities", "count",
+	"kind", "power", "aura_amount", "target", "keywords", "abilities", "limit", "count",
 ]
 
 const UNIT_CLASS_NAMES := {
@@ -154,8 +157,14 @@ static func validate_unit(card: Dictionary, taken_ids: Array = []) -> Array[Stri
 	var count := int(card.get("count", 0))
 	if count < 1:
 		errs.append("count 必须 >= 1（实际 %d）" % count)
-	elif count > 4:
-		errs.append("count 不能超过 4（牌组同名卡上限）")
+
+	# 每张卡各自的上限：cards.json 写 "limit": N 就按 N 算，不写按默认 4。
+	# count 不能超过这张卡自己的 limit。
+	var limit := int(card.get("limit", DEFAULT_LIMIT))
+	if limit < 1:
+		errs.append("limit 必须 >= 1（实际 %d）" % limit)
+	elif count > limit:
+		errs.append("count(%d) 不能超过这张卡的 limit(%d)" % [count, limit])
 
 	var kws: Variant = card.get("keywords", [])
 	if typeof(kws) != TYPE_ARRAY:
@@ -181,6 +190,7 @@ static func blank_unit(id: String = "new_unit") -> Dictionary:
 	card["operation_cost"] = DEFAULT_OPERATION_COST
 	card["unit_class"] = "infantry"
 	card["keywords"] = []
+	card["limit"] = DEFAULT_LIMIT
 	card["count"] = DEFAULT_COUNT
 	return card
 

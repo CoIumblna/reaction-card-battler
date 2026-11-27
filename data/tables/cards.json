@@ -12,14 +12,14 @@
     { "id": "archer", "name": "弓手", "type": "unit", "cost": 2, "element": "none", "attack": 2, "defense": 1, "operation_cost": 1, "unit_class": "infantry", "count": 4 },
     { "id": "fire_mage", "name": "火法师", "type": "unit", "cost": 3, "element": "fire", "attack": 2, "defense": 3, "operation_cost": 1, "unit_class": "infantry", "count": 4 },
     { "id": "tank", "name": "坦克", "type": "unit", "cost": 4, "element": "none", "attack": 4, "defense": 5, "operation_cost": 1, "unit_class": "tank", "count": 4 },
-    { "id": "bomber", "name": "轰炸机", "type": "unit", "cost": 7, "element": "ice", "attack": 6, "defense": 4, "operation_cost": 2, "unit_class": "bomber", "count": 2 },
-    { "id": "fighter", "name": "战斗机", "type": "unit", "cost": 3, "element": "lightning", "attack": 2, "defense": 3, "operation_cost": 1, "unit_class": "fighter", "keywords": ["blitz"], "count": 3 },
+    { "id": "bomber", "name": "轰炸机", "type": "unit", "cost": 7, "element": "ice", "attack": 6, "defense": 4, "operation_cost": 2, "unit_class": "bomber", "count": 2, "limit": 2 },
+    { "id": "fighter", "name": "战斗机", "type": "unit", "cost": 3, "element": "lightning", "attack": 2, "defense": 3, "operation_cost": 1, "unit_class": "fighter", "keywords": ["blitz"], "count": 3, "limit": 3 },
     { "id": "artillery", "name": "炮兵", "type": "unit", "cost": 2, "element": "geo", "attack": 1, "defense": 2, "operation_cost": 0, "unit_class": "artillery", "keywords": ["blitz"], "count": 4 },
     { "id": "guarder", "name": "守卫", "type": "unit", "cost": 3, "element": "none", "attack": 1, "defense": 8, "operation_cost": 1, "unit_class": "infantry", "keywords": ["guard"], "count": 4 },
-    { "id": "wind", "name": "风法师", "type": "unit", "cost": 3, "element": "wind", "attack": 2, "defense": 5, "operation_cost": 1, "unit_class": "infantry", "count": 3 },
+    { "id": "wind", "name": "风法师", "type": "unit", "cost": 3, "element": "wind", "attack": 2, "defense": 5, "operation_cost": 1, "unit_class": "infantry", "count": 3, "limit": 3 },
     { "id": "water", "name": "水之幻形", "type": "unit", "cost": 1, "element": "water", "attack": 1, "defense": 2, "operation_cost": 0, "unit_class": "infantry", "keywords": ["blitz"], "count": 4 },
-    { "id": "fire_tree", "name": "爆炎树", "type": "unit", "cost": 9, "element": "fire", "attack": 6, "defense": 8, "operation_cost": 3, "unit_class": "artillery", "count": 1 },
-    { "id": "ret", "name": "若陀龙王", "type": "unit", "cost": 9, "element": "geo", "attack": 7, "defense": 9, "operation_cost": 3, "unit_class": "tank", "count": 1 },
-    { "id": "dog", "name": "忍犬", "type": "unit", "cost": 4, "element": "lightning", "attack": 5, "defense": 2, "operation_cost": 1, "unit_class": "infantry", "keywords": ["blitz"], "count": 2 }
+    { "id": "fire_tree", "name": "爆炎树", "type": "unit", "cost": 9, "element": "fire", "attack": 6, "defense": 8, "operation_cost": 3, "unit_class": "artillery", "count": 1, "limit": 1 },
+    { "id": "ret", "name": "若陀龙王", "type": "unit", "cost": 9, "element": "geo", "attack": 7, "defense": 9, "operation_cost": 3, "unit_class": "tank", "count": 1, "limit": 1 },
+    { "id": "dog", "name": "忍犬", "type": "unit", "cost": 4, "element": "lightning", "attack": 5, "defense": 2, "operation_cost": 1, "unit_class": "infantry", "keywords": ["blitz"], "count": 2, "limit": 2 }
   ]
 }

@@ -3,7 +3,9 @@ extends RefCounted
 
 const DATA_DIR := "res://data/tables/"
 const DECK_SIZE := 39
-const MAX_SAME_CARD := 4
+## 每张卡各自的上限写在 cards.json 的 "limit" 字段里，没写就用 Card.DEFAULT_LIMIT（4）。
+## 这里保留常量只为兼容老调用点（tools / 测试里还会引用），实际校验走 per-card limit。
+const MAX_SAME_CARD := Card.DEFAULT_LIMIT
 
 
 static func load_json(path: String) -> Dictionary:
@@ -96,8 +98,15 @@ static func load_deck(path:String) -> Array[Card]:
 			cnt[id] = count
 		else: cnt[id] += count
 		sum += count
-		if cnt[id] > MAX_SAME_CARD:
-			push_error("同类型卡牌超出上限 id:%s"%id)
+		# 每张卡各自的上限：cards.json 里写 "limit": N 就按 N 算，不写按默认 4。
+		# 缺省值一定是 4 而不是「不限」—— 数据漏写字段不应该变成无限制。
+		var limit:int = int(catalog[id].get("limit", Card.DEFAULT_LIMIT))
+		if limit < 1:
+			push_error("卡牌上限不合法 id:%s limit:%d"%[id,limit])
+			return out
+		if cnt[id] > limit:
+			push_error("卡牌「%s」超出上限（%d 张，上限 %d）id:%s"%[
+				str(catalog[id].get("name", id)), int(cnt[id]), limit, id])
 			return out
 		if sum > DECK_SIZE:
 			push_error("卡组牌数超出上限")

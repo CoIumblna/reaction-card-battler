@@ -9,7 +9,7 @@ extends SceneTree
 ##
 ## 注意：它只碰 scrath 文件（user:// 下的临时文件），不碰真数据。
 
-const EXPECTED_CHECKS := 55
+const EXPECTED_CHECKS := 61
 
 const SRC := "res://data/tables/cards.json"
 const TMP := "user://_cardlib_scratch.json"
@@ -29,6 +29,7 @@ func _initialize() -> void:
 	_test_value_format()
 	_test_blank()
 	_test_element_choices()
+	_test_limit()
 	print("----------------------------------")
 	if checks != EXPECTED_CHECKS:
 		printerr("[FAIL] 覆盖不完整：实际 %d 项，EXPECTED_CHECKS = %d" % [checks, EXPECTED_CHECKS])
@@ -259,22 +260,47 @@ func _test_blank() -> void:
 
 
 ## 卡牌可选元素必须只有 6 个基础元素。
-## 复合元素（electro_charged / frozen）是反应产物（reactions.json 的 aura 效果），
-## 不是作者能填的卡牌属性 —— 一旦混进 CardLib.ELEMENTS，造卡程序的下拉框
-## 就会多出两个「一抽到就自带感电」的怪选项，validate_data 也会放过它们。
+## v3 起复合元素 id（electro_charged / frozen）整个删了 —— 感电/冻结改成「两槽共存 + 挂状态」，
+## 不再有"反应产物也能当附着元素"这种东西。清单里一旦混进这两个字符串，
+## 造卡程序的下拉框就会多出两个不存在的选项，validate_data 也会放过它们。
 func _test_element_choices() -> void:
 	print("[9] 元素可选清单")
 	_check(CardLib.ELEMENTS.size() == 7, "可选元素 7 项（none + 6 基础，实际 %d）" % CardLib.ELEMENTS.size())
-	_check(not CardLib.ELEMENTS.has("electro_charged"), "不含复合元素 electro_charged")
-	_check(not CardLib.ELEMENTS.has("frozen"), "不含复合元素 frozen")
+	_check(not CardLib.ELEMENTS.has("electro_charged"), "不含 v3 已删除的 electro_charged")
+	_check(not CardLib.ELEMENTS.has("frozen"), "不含 v3 已删除的 frozen")
 	for e in ["fire", "water", "lightning", "ice", "wind", "geo"]:
 		_check(CardLib.ELEMENTS.has(e), "基础元素 %s 在清单里" % e)
 
-	# 用空白卡试：复合元素必须被 validate 拦下来
-	var bad := CardLib.blank_unit("composite_card")
+	# 用空白卡试：不在清单里的元素必须被 validate 拦下来
+	var bad := CardLib.blank_unit("bad_element_card")
 	bad["element"] = "electro_charged"
-	_check(not CardLib.validate_unit(bad).is_empty(), "复合元素被 validate_unit 拦下")
+	_check(not CardLib.validate_unit(bad).is_empty(), "已删除的复合元素 id 被 validate_unit 拦下")
 	bad["element"] = "frozen"
 	_check(not CardLib.validate_unit(bad).is_empty(), "frozen 也被拦下")
 	bad["element"] = "lightning"
 	_check(CardLib.validate_unit(bad).is_empty(), "普通雷元素合法")
+
+
+## per-card limit：每张卡自己带上限，缺省 4。
+func _test_limit() -> void:
+	print("[10] 每张卡的上限（limit）")
+	var b := CardLib.blank_unit("limit_card")
+	_check(CardLib.validate_unit(b).is_empty(), "空白卡（默认 limit）就合法")
+	_check(int(b.get("limit", 0)) == CardLib.DEFAULT_LIMIT,
+		"blank_unit 带默认 limit（%d）" % CardLib.DEFAULT_LIMIT)
+
+	var over := CardLib.blank_unit("limit_over")
+	over["count"] = int(over.get("limit", 4)) + 1
+	_check(not CardLib.validate_unit(over).is_empty(), "count 超过这张卡的 limit 被拦下")
+
+	var strict := CardLib.blank_unit("limit_strict")
+	strict["limit"] = 1
+	strict["count"] = 2
+	_check(not CardLib.validate_unit(strict).is_empty(), "limit=1 的卡带 2 张被拦下")
+
+	strict["count"] = 1
+	_check(CardLib.validate_unit(strict).is_empty(), "limit=1 的卡带 1 张合法")
+
+	var zero := CardLib.blank_unit("limit_zero")
+	zero["limit"] = 0
+	_check(not CardLib.validate_unit(zero).is_empty(), "limit < 1 被拦下")

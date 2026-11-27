@@ -10,6 +10,10 @@ extends RefCounted
 ##   abilities    可释放技能（M2；M1 不用）
 ## 外加卡牌自身属性：type（unit/order）、cost、attack/defense（单位）、power（指令效果值）
 
+## 同一套牌组里每张卡的默认上限（张数）。老规则是「所有卡统一 4 张」，
+## 现在改成每张卡各自的上限：cards.json 里写 "limit": N 就按 N 算，不写按这个默认值。
+const DEFAULT_LIMIT := 4
+
 var id: String = ""
 var display_name: String = ""
 var type: String = "order"        # unit / order（M1 的卡都是 order，M2 才有 unit）
@@ -25,6 +29,9 @@ var kind: String = "damage"      # M1：damage / shield / heal
 var power: int = 0
 var aura_amount: float = 1.0     # 本次攻击的附着量（1U 普通 / 2U 强附着）
 var target: String = "enemy"     # enemy / self
+# 同一套牌组里这张卡最多能带几张。缺省 4（= 老规则 MAX_SAME_CARD）；
+# 想限制某张（例如 key 卡只许 1 张）就在 cards.json 里给它写 "limit": 1。
+var limit: int = DEFAULT_LIMIT
 
 
 static func from_dict(d: Dictionary) -> Card:
@@ -42,6 +49,7 @@ static func from_dict(d: Dictionary) -> Card:
 	c.attack = int(d.get("attack", 0))
 	c.defense = int(d.get("defense", 0))
 	c.aura_amount = float(d.get("aura_amount", 1.0))
+	c.limit = int(d.get("limit", DEFAULT_LIMIT))
 	var default_target := "enemy" if c.kind == "damage" else "self"
 	c.target = str(d.get("target", default_target))
 	for x in d.get("keywords",[]):

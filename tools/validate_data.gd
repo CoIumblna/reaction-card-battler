@@ -18,8 +18,8 @@ const KNOWN_KEYWORDS := ["blitz", "guard"]   # M3 首批；以后加关键词同
 # 与 docs/adr/004-m3-keywords.md 决定 3 保持一致（5 类兵科；"" = 未标注，M3.4 补）
 const KNOWN_UNIT_CLASSES := ["", "infantry", "tank", "artillery", "fighter", "bomber"]
 # 卡牌可以填的元素：只有 6 个基础元素（+ none 占位）。
-# 复合元素（electro_charged / frozen）是反应产物，只出现在 reactions.json 的 aura 效果里，
-# 不是作者能选的卡牌属性 —— 卡上写了就报错，别让人手填出一个「一抽到就带感电」的怪卡。
+# v3 起复合元素 id（electro_charged / frozen）整个删了 —— 感电/冻结改成「两槽共存 + 挂状态」，
+# 不再有"反应产物也能当附着元素"这种东西。卡上写了非法元素就报错，别让人手填出怪卡。
 const CARD_CHOICE_ELEMENTS := ["none", "fire", "water", "lightning", "ice", "wind", "geo"]
 
 
@@ -39,6 +39,10 @@ func _initialize() -> void:
 				_error("elements.json", "元素项缺 id：%s" % str(e))
 			else:
 				element_ids.append(str(e["id"]))
+				# v3：每个基础元素都要有 duration（附着默认持续几回合），且必须 > 0
+				if not e.has("duration") or int(e.get("duration", 0)) <= 0:
+					_error("elements.json/%s" % str(e["id"]),
+						"缺 duration 或 duration <= 0（v3 起每个元素都要写附着回合数）")
 
 	_check_statuses(statuses)
 	_check_reactions(reactions, statuses, element_ids)
@@ -164,7 +168,7 @@ func _check_effect(where: String, e: Variant, status_ids: Array, element_ids: Ar
 			if el == "":
 				_error(where, "aura 效果缺 element")
 			elif not element_ids.is_empty() and not element_ids.has(el):
-				warnings.append("%s：aura element `%s` 不在 elements.json（复合元素可忽略）" % [where, el])
+				_error(where, "aura 效果的 element `%s` 不在 elements.json" % el)
 			if not e.has("amount"):
 				_error(where, "aura 效果缺 amount")
 		"stat_mod":
@@ -200,11 +204,18 @@ func _check_cards(cards: Array, statuses: Dictionary, element_ids: Array[String]
 		if count <= 0:
 			_error(where, "count 必须 > 0")
 		total_count += count
+		# 每张卡各自的上限：cards.json 写 "limit": N 就按 N 算，不写按默认 4。
+		# 漏写字段绝不能变成"无限制"，所以缺省值必须是个确定数字。
+		var limit := int(c.get("limit", DEFAULT_CARD_LIMIT))
+		if limit < 1:
+			_error(where, "limit 必须 >= 1（实际 %d）" % limit)
+		elif count > limit:
+			_error(where, "count(%d) 不能超过这张卡的 limit(%d)" % [count, limit])
 		var el := str(c.get("element", ""))
 		if el != "" and el != "none" and not element_ids.is_empty() and not element_ids.has(el):   # none 是内置占位元素，不在 elements.json
 			_error(where, "未知元素 `%s`" % el)
 		elif el != "" and not CARD_CHOICE_ELEMENTS.has(el):
-			_error(where, "卡牌不能使用元素 `%s`：复合元素是反应产物，不是可选卡牌属性（允许：%s）"
+			_error(where, "卡牌不能使用元素 `%s`：只允许 %s"
 				% [el, "、".join(CARD_CHOICE_ELEMENTS)])
 		if ctype == "unit":
 			for f in ["attack", "defense"]:
@@ -241,7 +252,7 @@ func _error(where: String, msg: String) -> void:
 # ---------------------------------------------------------------- 牌组校验（M3.5）
 
 const DECK_SIZE := 39
-const MAX_SAME_CARD := 4
+const DEFAULT_CARD_LIMIT := 4      # 与 Card.DEFAULT_LIMIT 保持一致；cards.json 写 "limit" 可覆盖
 
 
 func _check_decks(cards: Array) -> void:
@@ -249,9 +260,12 @@ func _check_decks(cards: Array) -> void:
 	if not DirAccess.dir_exists_absolute(dir):
 		return
 	var known := {}
+	var limits := {}
 	for c in cards:
 		if typeof(c) == TYPE_DICTIONARY:
-			known[str(c.get("id", ""))] = true
+			var cid := str(c.get("id", ""))
+			known[cid] = true
+			limits[cid] = int(c.get("limit", DEFAULT_CARD_LIMIT))
 	var files := DirAccess.get_files_at(dir)
 	for f in files:
 		if not f.ends_with(".json"):
@@ -279,8 +293,9 @@ func _check_decks(cards: Array) -> void:
 			seen[id] = int(seen.get(id, 0)) + count
 			total += count
 		for id in seen:
-			if int(seen[id]) > MAX_SAME_CARD:
-				_error(path, "同名卡 `%s` 超过上限 %d（%d 张）" % [id, MAX_SAME_CARD, int(seen[id])])
+			var limit := int(limits.get(id, DEFAULT_CARD_LIMIT))
+			if int(seen[id]) > limit:
+				_error(path, "卡 `%s` 超过上限 %d（%d 张）" % [id, limit, int(seen[id])])
 		if total != DECK_SIZE:
 			_error(path, "牌组张数必须 = %d（实际 %d）" % [DECK_SIZE, total])
 		else:
