@@ -29,14 +29,6 @@ const OK := Color(0.451, 0.851, 0.549)          # 通过 / 成功
 const WARN := Color(1.0, 0.722, 0.251)          # 警告
 const ERR := Color(1.0, 0.420, 0.400)           # 错误
 
-## 复合元素的颜色：**只用于显示**（反应产物会附着在单位身上，M4 战场要画这个），
-## 不进 CardLib.ELEMENTS，所以造卡程序里选不到
-## （electro_charged / frozen 是反应产物，不是可选的卡牌元素）。
-const COMPOSITE_COLORS := {
-	"electro_charged": Color(0.659, 0.451, 0.949),
-	"frozen": Color(0.573, 0.741, 0.902),
-}
-
 ## 卡牌元素配色：只有 6 个基础元素可选
 const ELEMENT_COLORS := {
 	"none": Color(0.482, 0.518, 0.588),      # 灰
@@ -89,10 +81,10 @@ static func font_health() -> String:
 	return ""
 
 
+## 元素配色。v3 起只有 6 个基础元素（复合元素 id 已删除，反应产物改成「两槽共存 + 状态」），
+## 所以查不到的一律回落到灰。
 static func element_color(element: String) -> Color:
-	if ELEMENT_COLORS.has(element):
-		return ELEMENT_COLORS[element]
-	return COMPOSITE_COLORS.get(element, ELEMENT_COLORS["none"])
+	return ELEMENT_COLORS.get(element, ELEMENT_COLORS["none"])
 
 
 # ---------------------------------------------------------------- 主题

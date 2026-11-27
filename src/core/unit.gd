@@ -5,10 +5,10 @@ extends RefCounted
 ##
 ## 注意三个概念要分开：
 ##   element       —— 单位自带的攻击元素（来自卡牌数据，M2 才用到）
-##   aura_element  —— 身上附着的元素（会随反应消耗/清空）
 ##   immunities    —— 免疫的元素列表（伤害为 0、不触发反应、不消耗附着）
 
 const MAX_AMOUNT := 2.0
+const MAX_AURAS := 3        # 最多同时存在几槽附着；槽满时替换最旧的一槽
 
 var id: String = ""
 var display_name: String = ""
@@ -25,8 +25,7 @@ var unit_class: String = ""
 
 
 var element: String = Element.NONE          # 自身攻击元素（M2 用）
-var aura_element: String = Element.NONE     # 附着元素
-var aura_amount: float = 0.0                # 附着量，上限 2.0；复合元素上限 1.0
+var auras: Array = []       # 附着槽：[{ "element": String, "amount": float, "duration": int }]，按创建顺序
 var immunities: Array[String] = []
 var keywords: Array[String] = []
 
@@ -45,8 +44,15 @@ static func from_dict(d: Dictionary) -> Unit:
 	newu.unit_class = str(d.get("unit_class",""))
 	newu.shield = int(d.get("shield",0))
 	newu.element = str(d.get("element",Element.NONE))
-	newu.aura_element = str(d.get("aura_element",Element.NONE))
-	newu.aura_amount = float(d.get("aura_amount",0.0))
+	newu.auras.clear()
+	for a in d.get("auras", []):
+		if typeof(a) != TYPE_DICTIONARY:
+			continue
+		newu.auras.append({
+			"element": str(a.get("element", Element.NONE)),
+			"amount": float(a.get("amount", 0.0)),
+			"duration": int(a.get("duration", 0)),
+		})
 	newu.immunities.clear()
 	newu.operation_cost = int(d.get("operation_cost",1))
 	for e in d.get("immunities", []):
@@ -107,13 +113,76 @@ func tick_buffs() -> void:
 	buffs = next_buffs
 
 
+## 取某个元素的附着槽（返回的是数组里的那个字典本身，改它就是改状态）；没有返回 {}。
+func get_aura(element_id: String) -> Dictionary:
+	for a in auras:
+		if str(a.get("element", "")) == element_id:
+			return a
+	return {}
+
+
+## 加一槽或刷新已有槽：同元素 → 量相加封顶 MAX_AMOUNT、duration 取两者最大值；
+## 不同元素 → 新槽（槽满先删最旧那一槽）。
+## 这里只做机械的记账，不判断元素能不能附着（风/岩不附着由调用方决定）。
+func add_or_refresh_aura(element_id: String, amount: float, duration: int) -> void:
+	if element_id == Element.NONE:
+		return
+	var cur := get_aura(element_id)
+	if not cur.is_empty():
+		cur["amount"] = min(MAX_AMOUNT, float(cur.get("amount", 0.0)) + amount)
+		cur["duration"] = max(int(cur.get("duration", 0)), duration)
+		return
+	if auras.size() >= MAX_AURAS:
+		auras.pop_front()
+	auras.append({
+		"element": element_id,
+		"amount": min(MAX_AMOUNT, amount),
+		"duration": max(1, duration),
+	})
+
+
+## 移除某个元素的槽，返回是否真的移除了。
+func remove_aura(element_id: String) -> bool:
+	for i in range(auras.size()):
+		if str(auras[i].get("element", "")) == element_id:
+			auras.remove_at(i)
+			return true
+	return false
+
+
+## 回合开始结算：每槽 duration -= 1，归零的移除。返回被移除的元素 id（给战斗日志用，按入槽顺序）。
+func tick_auras() -> Array[String]:
+	var expired: Array[String] = []
+	for i in range(auras.size() - 1, -1, -1):
+		var a: Dictionary = auras[i]
+		a["duration"] = int(a.get("duration", 0)) - 1
+		if int(a["duration"]) <= 0:
+			expired.append(str(a.get("element", "")))
+			auras.remove_at(i)
+	expired.reverse()
+	return expired
+
+
+## 给日志/测试看的人类可读形式，例如 `火1U(2) 水2U(1)`；没有附着返回 `无`。
+func describe_auras() -> String:
+	if auras.is_empty():
+		return "无"
+	var parts: Array[String] = []
+	for a in auras:
+		parts.append("%s%dU(%d)" % [
+			Element.display_name(str(a.get("element", ""))),
+			int(a.get("amount", 0.0)),
+			int(a.get("duration", 0)),
+		])
+	return " ".join(parts)
+
+
 func describe() -> String:
-	return "%s HP: %d/%d 元素附着: %s 元素量: %dU 护盾: %d" % [
+	return "%s HP: %d/%d 元素附着: %s 护盾: %d" % [
 		display_name,
 		hp,
 		max_hp,
-		Element.display_name(aura_element),
-		aura_amount,
+		describe_auras(),
 		shield
 	]
 

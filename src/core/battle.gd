@@ -290,41 +290,40 @@ func stat_of(unit:Unit, stat:String) -> int:
 	return res
 
 
-## 设计问题：反应发生后，附着该被消耗还是保留？见 docs/element-reactions.md
+## 给目标挂上 incoming 元素。规则见 docs/element-reactions-v3.md §3：
+##   1. NONE 不处理；2. 免疫该元素不处理；3. 按槽创建顺序找第一个能反应的槽；
+##   4. 有反应 → 结算 status 效果 + 旧槽扣 consume（≤0 移除）+ 残留量入新槽；
+##   5. 无反应 → 同元素叠加 / 否则新槽；6. 风、岩只参与反应、自身不附着。
+## 反应里的 damage / shield / heal 三种效果目前**故意不实现**（历史遗留的死数据，
+## 补上会改变平衡基线，留给单独一块做）。
 func _apply_aura(target: Unit, element: String, amount: float) -> void:
-	if element == Element.NONE:
+	if target == null or element == Element.NONE:
 		return
-	if target.aura_element == Element.NONE and not element == Element.WIND and not element == Element.GEO:
-		target.aura_amount = min(Unit.MAX_AMOUNT,amount)
-		target.aura_element = element
-	elif target.aura_element == element:
-		target.aura_amount = min(Unit.MAX_AMOUNT,amount+target.aura_amount)
-	else:
-		var act = reaction_table.get_reaction(element,target.aura_element)
-		var flag:bool = false
-		for e in act.get("effects",[]):
-			match e.get("kind",""):
-				"aura":
-					target.aura_element = e.get("element",Element.NONE)
-					target.aura_amount = 1.0
-					flag = true
+	if target.is_immune(element):
+		return
+	var idx := Damage.find_reaction_slot(element, target, reaction_table)
+	var residual: float = amount
+	if idx >= 0:
+		var other := str(target.auras[idx].get("element", Element.NONE))
+		var act := reaction_table.get_reaction(element, other)
+		for e in act.get("effects", []):
+			match str(e.get("kind", "")):
 				"status":
-					target.add_buff(Buff.make(e.get("id",""),int(e.get("duration",0))))
+					target.add_buff(Buff.make(str(e.get("id", "")), int(e.get("duration", 0))))
 				_:
 					pass
-		if not flag:
-			var consume:float = float(act.get("consume",0.0))
-			target.aura_amount -= consume
-			amount -= consume
-			if target.aura_amount <= 0 and amount > 0:
-				if element == Element.WIND or element == Element.GEO:
-					target.aura_element = Element.NONE
-					return
-				target.aura_element = element
-				target.aura_amount = min(amount,Unit.MAX_AMOUNT)
-			elif target.aura_amount <= 0 and amount <= 0:
-				target.aura_element = Element.NONE
-				target.aura_amount = 0.0
+		var consume := float(act.get("consume", 0.0))
+		var left := float(target.auras[idx].get("amount", 0.0)) - consume
+		if left <= 0.0:
+			target.auras.remove_at(idx)
+		else:
+			target.auras[idx]["amount"] = left
+		residual = amount - consume
+	if residual <= 0.0:
+		return
+	if element == Element.WIND or element == Element.GEO:
+		return
+	target.add_or_refresh_aura(element, residual, Element.aura_duration(element, residual))
 
 
 func move_unit(unit: Unit, to_line: String, to_index: int) -> bool:
@@ -488,6 +487,10 @@ func _settle_status(owner:String) -> void:
 						_:
 							pass
 			u.tick_buffs()
+			if u.is_alive():
+				var expired := u.tick_auras()
+				for el in expired:
+					_log("%s的%s附着结束" % [u.display_name, Element.display_name(el)])
 
 
 func _mulligan_of(owner:String) -> bool:

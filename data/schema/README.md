@@ -18,11 +18,21 @@
 |---|---|---|---|---|
 | `id` | string | ✅ | — | 唯一标识，蛇形命名，如 `fire_bolt` |
 | `name` | string | ✅ | id | 显示名 |
+| `type` | string | | `"order"` | `unit`（单位卡）/ `order`（指令卡） |
 | `cost` | int | | 1 | 能量消耗，≥ 0 |
-| `element` | string | | `"none"` | `fire` / `water` / `lightning` / `none` |
-| `kind` | string | | `"damage"` | `damage` / `shield` / `heal` / `buff` |
+| `element` | string | | `"none"` | `none` / `fire` / `water` / `lightning` / `ice` / `wind` / `geo`。**v3 起复合元素 id 已删除，填了会报错** |
+| `kind` | string | | `"damage"` | 指令卡用：`damage` / `shield` / `heal` |
 | `power` | int | | 0 | 伤害/护盾/治疗数值 |
+| `aura_amount` | float | | 1.0 | 这张卡打出去时挂多少元素量：1.0 普通（持续 2 回合）/ 2.0 强附着（3 回合） |
 | `target` | string | | `"enemy"` | `enemy` / `self` |
+| `count` | int | ✅ | — | **这张卡在牌库里一共几张**（必须 > 0 且 ≤ 自己的 `limit`） |
+| `limit` | int | | 4 | **这张卡自己的上限**（per-card limit，2026-11-27 起）。写 `1` 就是"全局唯一一张"，不写吃默认 4；`< 1` 报错 |
+
+> 单位卡额外字段：`attack` / `defense`（必填，≥ 0）/ `operation_cost`（默认 1）/
+> `unit_class`（`infantry` `tank` `artillery` `fighter` `bomber`）/ `keywords`（`blitz` `guard`）。
+
+> **per-card limit 是硬规则**：`data_loader.load_deck()` 与 `validate_data` 都按每张卡自己的
+> `limit` 校验，不再有"所有卡统一 4 张"这种全局上限。改上限就改那张卡的 `limit` 字段。
 
 ## 2. enemies.json
 
@@ -47,10 +57,19 @@
 
 ## 4. elements.json
 
+v3（2026-11-27）起 `schema_version = 3`：**只有 6 个基础元素**，原来那两个复合元素
+（`electro_charged` 感电 / `frozen` 冻结）已删除 —— 感电、冻结改成「两个附着槽共存 +
+挂状态」来表达，不再伪造一个元素 id。
+
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `id` | string | 与 `element.gd` 里的常量一致 |
+| `id` | string | 与 `element.gd` 里的常量一致（且必须能在 `Element.BASE_DURATION` 里查到） |
 | `name` | string | 显示名 |
+| `kind` | string | 基础元素固定写 `"base"` |
+| `duration` | int | **v3 新增**：该元素附着后默认持续几回合（当前全为 2；1U 普通附着用它，2U 强附着固定 3 回合） |
+
+`phase` / `components` 之类的字段 v3 起不再使用；`validate_data` 会强制要求每个元素都写
+`duration` 且 > 0，漏写就报错（不是 warning）。
 
 ---
 
