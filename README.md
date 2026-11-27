@@ -11,7 +11,8 @@
 主套 **18 个测试文件 485 项全绿**；`tests/pending/` 只剩 **1 份红基线**：`ai_guard_test`（14 项 / 6 失败）。
 当前任务：**M3.4 前置块 · AI 选目标**（清 M3.2 遗留的「AI 遇 Guard 白扔回合」）——作业单 [docs/brief-m34-ai-guard-2026-11-26.md](docs/brief-m34-ai-guard-2026-11-26.md)，
 第一轮评审 [docs/review-m34-ai-guard-2026-11-27.md](docs/review-m34-ai-guard-2026-11-27.md)；做完它主套变成 **19 文件 499 项**。
-之后的活：卡池 15 种 → 20+ 种、M3.6 元素 v3、M3.8a AI 打指令卡、M3.8 平衡、M4 界面。
+之后的活已经在 GitHub 上开成 issue（milestone **M3**）：[#2](https://github.com/CoIumblna/reaction-card-battler/issues/2) 卡池 20+ 种 · [#3](https://github.com/CoIumblna/reaction-card-battler/issues/3) 元素 v3 · [#4](https://github.com/CoIumblna/reaction-card-battler/issues/4) AI 打指令卡 · [#5](https://github.com/CoIumblna/reaction-card-battler/issues/5) 平衡调参 · [#6](https://github.com/CoIumblna/reaction-card-battler/issues/6) 收尾打 tag；当前块是 [#1](https://github.com/CoIumblna/reaction-card-battler/issues/1)。
+每完成一块关一个 issue，仓库首页的进度条自动走。详见 [HANDOFF §21.3](docs/HANDOFF-2026-11-23.md)。
 跑 `tools\check.bat` 看进度表 + 检查点 + pending 验收基线（它还会告诉你下一步做什么）。
 
 ### 测试文件怎么分（按"被测单元"，不是按功能点）
