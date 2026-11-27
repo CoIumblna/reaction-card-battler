@@ -58,8 +58,8 @@ func _test_create() -> void:
 	_check_eq(u.hp, 20, "初始 HP")
 	_check_eq(u.max_hp, 20, "最大 HP")
 	_check_eq(u.shield, 0, "初始护盾为 0")
-	_check_eq(u.aura_element, Element.NONE, "初始无附着")
-	_check_eq(u.aura_amount, 0.0, "初始附着量为 0")
+	_check(u.auras.is_empty(), "初始无附着（多槽数组为空）")
+	_check_eq(u.describe_auras(), "无", "初始 describe_auras 显示「无」")
 	_check(u.is_alive(), "初始存活")
 
 

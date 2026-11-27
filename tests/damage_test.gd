@@ -58,8 +58,8 @@ func _check_eq(actual, expected, message: String) -> void:
 
 func _target(aura: String = Element.NONE, amount: float = 0.0, immunities: Array[String] = []) -> Unit:
 	var u := Unit.from_dict({ "id": "dummy", "name": "木桩", "hp": 100 })
-	u.aura_element = aura
-	u.aura_amount = amount
+	if aura != Element.NONE and amount > 0.0:
+		u.add_or_refresh_aura(aura, amount, Element.aura_duration(aura, amount))
 	u.immunities = immunities
 	return u
 

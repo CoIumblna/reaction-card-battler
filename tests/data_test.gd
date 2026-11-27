@@ -134,7 +134,7 @@ func _test_elements() -> void:
 	_check_eq(Element.display_name(Element.ICE), "冰", "ice 显示名")
 	_check_eq(Element.display_name(Element.WIND), "风", "wind 显示名")
 	_check_eq(Element.display_name(Element.GEO), "岩", "geo 显示名")
-	_check_eq(Element.display_name(Element.ELECTRO_CHARGED), "感电", "复合元素显示名")
+	_check_eq(Element.display_name("electro_charged"), "无", "v3 起复合元素 id 已删除（回落为 无）")
 	_check_eq(Element.display_name("unknown"), "无", "未知元素回落为 无")
 
 	_check_eq(Element.pair_key(Element.FIRE, Element.WATER), "fire+water", "火+水")

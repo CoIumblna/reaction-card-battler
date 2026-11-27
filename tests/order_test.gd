@@ -18,7 +18,7 @@ var checks: int = 0
 var table: ReactionTable
 
 ## 全绿时应执行的检查项数（少执行一条也算红，防"静默跳过"）。
-const EXPECTED_CHECKS := 35
+const EXPECTED_CHECKS := 36
 
 
 func _initialize() -> void:
@@ -185,8 +185,7 @@ func _test_reaction_status() -> void:
 	var b := _new_battle()
 	b.energy = 5
 	var foe := _unit("foe", 10, 2, "enemy")
-	foe.aura_element = Element.WATER
-	foe.aura_amount = 1.0
+	foe.add_or_refresh_aura(Element.WATER, 1.0, 2)
 	b.board.place(foe, "enemy_support", 1)
 
 	var thunder := _order("thunder_strike", 1, "damage", 5, Element.LIGHTNING)
@@ -194,19 +193,19 @@ func _test_reaction_status() -> void:
 	_check(b.play_card(thunder, foe), "雷击指令卡打水附着单位成立")
 	_check_eq(foe.hp, 5, "感电不改变本次伤害（5 → 5）")
 	_check(_find_buff(foe, "shock") != null, "感电反应把 shock 挂到目标身上（C8 接线）")
+	_check(not foe.get_aura(Element.WATER).is_empty(), "感电不消耗水槽（v3 共存型）")
 
 	# 火打水：增幅 1.5 → int(floor(6 * 1.5)) = 9
 	var b2 := _new_battle()
 	b2.energy = 5
 	var foe2 := _unit("foe2", 10, 2, "enemy")
-	foe2.aura_element = Element.WATER
-	foe2.aura_amount = 1.0
+	foe2.add_or_refresh_aura(Element.WATER, 1.0, 2)
 	b2.board.place(foe2, "enemy_support", 1)
 	var fire := _order("fire_bolt", 1, "damage", 6, Element.FIRE)
 	b2.hand.append(fire)
 	b2.play_card(fire, foe2)
 	_check_eq(foe2.hp, 1, "火打水蒸发 1.5 倍并向下取整（10 - 9 = 1）")
-	_check_eq(foe2.aura_element, Element.NONE, "蒸发消耗附着（1U 被 consume 清空）")
+	_check(foe2.get_aura(Element.WATER).is_empty(), "蒸发消耗附着（1U 被 consume 清空）")
 
 	# 2U 强附着：炎爆 aura_amount=2
 	var b3 := _new_battle()
@@ -216,7 +215,7 @@ func _test_reaction_status() -> void:
 	var burst := _order("fire_burst", 2, "damage", 8, Element.FIRE, "enemy", 2.0)
 	b3.hand.append(burst)
 	b3.play_card(burst, foe3)
-	_check(foe3.aura_element == Element.FIRE and foe3.aura_amount == 2.0, "炎爆挂 2U 火附着（aura_amount 来自卡牌数据）")
+	_check_eq(float(foe3.get_aura(Element.FIRE).get("amount", 0.0)), 2.0, "炎爆挂 2U 火附着（aura_amount 来自卡牌数据）")
 
 
 func _test_death_and_hq() -> void:

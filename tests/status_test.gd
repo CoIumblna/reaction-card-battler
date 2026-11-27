@@ -13,7 +13,7 @@ var checks: int = 0
 var table: ReactionTable
 
 ## 全绿时应执行的检查项数（少执行一条也算红，防"静默跳过"）。
-const EXPECTED_CHECKS := 12
+const EXPECTED_CHECKS := 15
 
 
 func _initialize() -> void:
@@ -131,8 +131,7 @@ func _test_reaction_status() -> void:
 	_start(b)
 	var atk := _place(b, "front", 1, 5, 3, "player", Element.LIGHTNING)
 	var foe := _place(b, "enemy_support", 1, 10, 1, "enemy")
-	foe.aura_element = Element.WATER
-	foe.aura_amount = 1.0
+	foe.add_or_refresh_aura(Element.WATER, 1.0, 2)
 	b.energy = 5
 	_check_eq(b.attack_unit(atk, foe), true, "雷打水附着：攻击成立")
 
@@ -140,16 +139,20 @@ func _test_reaction_status() -> void:
 	_check(shock != null, "感电反应把 shock 挂到目标身上")
 	_check(shock != null and shock.duration == 2 and shock.stacks == 1,
 		"shock 持续 2 回合、不叠 stack（数据来自 reactions.json）")
+	# v3：感电是共存型（consume 0），两槽都还在
+	_check_eq(int(foe.get_aura(Element.WATER).get("amount", 0.0)), 1, "感电不消耗水槽")
+	_check_eq(int(foe.get_aura(Element.LIGHTNING).get("amount", 0.0)), 1, "感电把雷也留在新槽")
 
 	var b2 := _new_battle()
 	_start(b2)
 	var atk2 := _place(b2, "front", 1, 5, 3, "player", Element.ICE)
 	var foe2 := _place(b2, "enemy_support", 1, 10, 1, "enemy")
-	foe2.aura_element = Element.WATER
-	foe2.aura_amount = 1.0
+	foe2.add_or_refresh_aura(Element.WATER, 1.0, 2)
 	b2.energy = 5
 	b2.attack_unit(atk2, foe2)
 	_check(_find_buff(foe2, "immobilized") != null, "冻结反应把 immobilized 挂到目标身上")
+	_check(not foe2.get_aura(Element.WATER).is_empty() and not foe2.get_aura(Element.ICE).is_empty(),
+		"冻结也是共存型：水槽和冰槽都保留")
 
 
 ## 建局：固定玩家先手 + 开始第一个回合（E7b 后 start_battle() 只发牌）

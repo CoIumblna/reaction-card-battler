@@ -215,12 +215,11 @@ func _test_unit_reaction() -> void:
 
 	var atk := _place(b, "front", 1, 4, 5, 1, Element.FIRE)
 	var def := _place(b, "enemy_support", 2, 2, 10, 1, Element.NONE, "enemy")
-	def.aura_element = Element.WATER
-	def.aura_amount = 1.0
+	def.add_or_refresh_aura(Element.WATER, 1.0, 2)
 	b.energy = 20
 	_check_eq(b.attack_unit(atk, def), true, "火单位可以攻击水附着的单位")
 	_check_eq(def.hp, 4, "蒸发：4 × 1.5 = 6 伤害（10 → 4）")
-	_check_eq(def.aura_element, Element.NONE, "水被蒸发消耗完 → 附着清空")
+	_check(def.auras.is_empty(), "水被蒸发消耗完 → 附着清空")
 	_check_eq(atk.hp, 3, "反击仍是 2 点（5 → 3）")
 
 

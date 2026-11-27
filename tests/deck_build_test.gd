@@ -15,7 +15,7 @@ var failures: int = 0
 var checks: int = 0
 var table: ReactionTable
 
-const EXPECTED_CHECKS := 11
+const EXPECTED_CHECKS := 13
 
 
 func _initialize() -> void:
@@ -126,7 +126,7 @@ func _test_enemy_deck_independent() -> void:
 func _test_invalid_decks() -> void:
 	print("[4] 非法牌组：push_error + 返回空数组")
 	if not _has_load_deck():
-		for i in range(4):
+		for i in range(6):
 			_check(false, "跳过")
 		return
 	var bad_id := _write_user_deck("bad_id", [{ "id": "no_such_card", "count": 39 }])
@@ -166,7 +166,8 @@ func _test_invalid_decks() -> void:
 		{ "id": "fire_burst", "count": 3 }])    # 0 + 4×9 + 3 = 39 张，只违反 count<=0
 	_check_eq(_load_deck(bad_count).size(), 0, "count <= 0 → 空数组")
 
-	# 只违反「同名上限 4」：footman 5 张，其余凑满 34，每个 id 合法、总数正好 39。
+	# 只违反「这张卡的 limit」：footman 5 张，其余凑满 34，每个 id 合法、总数正好 39。
+	# footman 没写 limit → 吃默认 4，所以 5 张就该被拦。
 	var bad_dup := _write_user_deck("bad_dup", [
 		{ "id": "footman", "count": 5 },
 		{ "id": "archer", "count": 4 },
@@ -178,4 +179,38 @@ func _test_invalid_decks() -> void:
 		{ "id": "heavy_strike", "count": 4 },
 		{ "id": "guard", "count": 4 },
 		{ "id": "mend", "count": 2 }])          # 5 + 4×8 + 2 = 39 张
-	_check_eq(_load_deck(bad_dup).size(), 0, "同名超过 4 张 → 空数组")
+	_check_eq(_load_deck(bad_dup).size(), 0, "超过默认上限 4 张 → 空数组")
+
+	# 只违反「某张卡自己的 limit」：fire_tree 在 cards.json 里写的是 "limit": 1，
+	# 带 2 张就该被拦 —— 而同样是 2 张的 bomber（limit 2）是合法的。
+	# 这一条是 per-card limit 的核心：上限不再是全局 4，而是逐卡不同。
+	# 除 fire_tree 外每张都在自己的 limit 内、总数正好 39，保证只违反这一条规则。
+	var bad_limit := _write_user_deck("bad_limit", [
+		{ "id": "fire_tree", "count": 2 },
+		{ "id": "archer", "count": 4 },
+		{ "id": "fire_mage", "count": 4 },
+		{ "id": "tank", "count": 4 },
+		{ "id": "fire_bolt", "count": 4 },
+		{ "id": "water_blade", "count": 4 },
+		{ "id": "thunder_strike", "count": 4 },
+		{ "id": "heavy_strike", "count": 4 },
+		{ "id": "guard", "count": 4 },
+		{ "id": "mend", "count": 4 },
+		{ "id": "footman", "count": 1 }])      # 2 + 4×9 + 1 = 39
+	_check_eq(_load_deck(bad_limit).size(), 0, "超过这张卡自己的 limit → 空数组")
+
+	# 反向对照：把火树减回 1 张，同样的 39 张就该加载成功 ——
+	# 证明上一条红的理由是 limit，而不是别的地方凑不成 39。
+	var ok_limit := _write_user_deck("ok_limit", [
+		{ "id": "fire_tree", "count": 1 },
+		{ "id": "archer", "count": 4 },
+		{ "id": "fire_mage", "count": 4 },
+		{ "id": "tank", "count": 4 },
+		{ "id": "fire_bolt", "count": 4 },
+		{ "id": "water_blade", "count": 4 },
+		{ "id": "thunder_strike", "count": 4 },
+		{ "id": "heavy_strike", "count": 4 },
+		{ "id": "guard", "count": 4 },
+		{ "id": "mend", "count": 4 },
+		{ "id": "footman", "count": 2 }])      # 1 + 4×9 + 2 = 39
+	_check_eq(_load_deck(ok_limit).size(), 39, "limit 之内（每张都不超）→ 正常加载 39 张")
